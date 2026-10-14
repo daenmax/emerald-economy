@@ -1,0 +1,10 @@
+{
+  "replace": false,
+  "values": [
+    "emerald_economy:atm",
+    "emerald_economy:exchange",
+    "emerald_economy:lottery",
+    "emerald_economy:vending",
+    "emerald_economy:acquisition"
+  ]
+}

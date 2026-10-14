@@ -1,0 +1,304 @@
+{
+  "_comment": "自动售货机的货架。改完在游戏里执行 /ee reload 立刻生效（也可以重启服务器）。",
+  "_format": "groups[].subcategories[]，附魔书用 enchants（id/min/max），普通商品用 items（item/price）",
+  "groups": [
+    {
+      "_comment": "unlockable=true 的大分类走「花绿宝石逐格解锁」；附魔书价格是区间，游戏里按附魔 ID 稳定随机",
+      "id": "ENCHANTED_BOOK",
+      "lang": "shop.group.enchanted_book",
+      "name": "附魔书",
+      "icon": "📖",
+      "unlockable": true,
+      "subcategories": [
+        {
+          "id": "WEAPON",
+          "lang": "shop.category.weapon",
+          "name": "武器类",
+          "icon": "🗡",
+          "enchants": [
+            {
+              "id": "minecraft:sharpness",
+              "min": 896,
+              "max": 1280
+            },
+            {
+              "id": "minecraft:smite",
+              "min": 896,
+              "max": 1280
+            },
+            {
+              "id": "minecraft:bane_of_arthropods",
+              "min": 896,
+              "max": 1280
+            },
+            {
+              "id": "minecraft:sweeping_edge",
+              "min": 896,
+              "max": 1280
+            },
+            {
+              "id": "minecraft:knockback",
+              "min": 896,
+              "max": 1280
+            },
+            {
+              "id": "minecraft:fire_aspect",
+              "min": 896,
+              "max": 1280
+            },
+            {
+              "id": "minecraft:looting",
+              "min": 896,
+              "max": 1280
+            },
+            {
+              "id": "minecraft:impaling",
+              "min": 256,
+              "max": 640
+            },
+            {
+              "id": "minecraft:loyalty",
+              "min": 384,
+              "max": 768
+            },
+            {
+              "id": "minecraft:channeling",
+              "min": 896,
+              "max": 1280
+            },
+            {
+              "id": "minecraft:riptide",
+              "min": 896,
+              "max": 1280
+            },
+            {
+              "id": "minecraft:breach",
+              "min": 896,
+              "max": 1280
+            },
+            {
+              "id": "minecraft:density",
+              "min": 896,
+              "max": 1280
+            },
+            {
+              "id": "minecraft:wind_burst",
+              "min": 1560,
+              "max": 2560
+            }
+          ]
+        },
+        {
+          "id": "RANGED",
+          "lang": "shop.category.ranged",
+          "name": "远程类",
+          "icon": "🏹",
+          "enchants": [
+            {
+              "id": "minecraft:power",
+              "min": 896,
+              "max": 1280
+            },
+            {
+              "id": "minecraft:punch",
+              "min": 512,
+              "max": 896
+            },
+            {
+              "id": "minecraft:flame",
+              "min": 896,
+              "max": 1280
+            },
+            {
+              "id": "minecraft:infinity",
+              "min": 896,
+              "max": 1280
+            },
+            {
+              "id": "minecraft:piercing",
+              "min": 320,
+              "max": 704
+            },
+            {
+              "id": "minecraft:quick_charge",
+              "min": 384,
+              "max": 768
+            },
+            {
+              "id": "minecraft:multishot",
+              "min": 896,
+              "max": 1280
+            }
+          ]
+        },
+        {
+          "id": "TOOL",
+          "lang": "shop.category.tool",
+          "name": "工具类",
+          "icon": "🛠",
+          "enchants": [
+            {
+              "id": "minecraft:efficiency",
+              "min": 896,
+              "max": 1280
+            },
+            {
+              "id": "minecraft:silk_touch",
+              "min": 896,
+              "max": 1280
+            },
+            {
+              "id": "minecraft:fortune",
+              "min": 896,
+              "max": 1280
+            },
+            {
+              "id": "minecraft:luck_of_the_sea",
+              "min": 384,
+              "max": 768
+            },
+            {
+              "id": "minecraft:lure",
+              "min": 384,
+              "max": 768
+            }
+          ]
+        },
+        {
+          "id": "ARMOR",
+          "lang": "shop.category.armor",
+          "name": "盔甲类",
+          "icon": "🛡",
+          "enchants": [
+            {
+              "id": "minecraft:protection",
+              "min": 896,
+              "max": 1280
+            },
+            {
+              "id": "minecraft:fire_protection",
+              "min": 896,
+              "max": 1280
+            },
+            {
+              "id": "minecraft:blast_protection",
+              "min": 896,
+              "max": 1280
+            },
+            {
+              "id": "minecraft:projectile_protection",
+              "min": 896,
+              "max": 1280
+            },
+            {
+              "id": "minecraft:feather_falling",
+              "min": 896,
+              "max": 1280
+            },
+            {
+              "id": "minecraft:depth_strider",
+              "min": 896,
+              "max": 1280
+            },
+            {
+              "id": "minecraft:frost_walker",
+              "min": 1560,
+              "max": 2560
+            },
+            {
+              "id": "minecraft:soul_speed",
+              "min": 1560,
+              "max": 2560
+            },
+            {
+              "id": "minecraft:respiration",
+              "min": 896,
+              "max": 1280
+            },
+            {
+              "id": "minecraft:aqua_affinity",
+              "min": 896,
+              "max": 1280
+            },
+            {
+              "id": "minecraft:swift_sneak",
+              "min": 1560,
+              "max": 2560
+            },
+            {
+              "id": "minecraft:thorns",
+              "min": 896,
+              "max": 1280
+            }
+          ]
+        },
+        {
+          "id": "GENERIC",
+          "lang": "shop.category.generic",
+          "name": "通用与诅咒",
+          "icon": "💎",
+          "enchants": [
+            {
+              "id": "minecraft:unbreaking",
+              "min": 896,
+              "max": 1280
+            },
+            {
+              "id": "minecraft:mending",
+              "min": 1560,
+              "max": 2560
+            },
+            {
+              "id": "minecraft:binding_curse",
+              "min": 1560,
+              "max": 2560
+            },
+            {
+              "id": "minecraft:vanishing_curse",
+              "min": 1560,
+              "max": 2560
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "_comment": "unlockable=false 的大分类随时能买；items 里写物品 ID 与价格即可",
+      "id": "OTHER",
+      "lang": "shop.group.other",
+      "name": "其他",
+      "icon": "📦",
+      "unlockable": false,
+      "subcategories": [
+        {
+          "id": "SEED",
+          "lang": "shop.sub.seed",
+          "name": "种子",
+          "icon": "🌱",
+          "items": [
+            {
+              "item": "minecraft:wheat_seeds",
+              "price": 8
+            }
+          ]
+        },
+        {
+          "id": "SAPLING",
+          "lang": "shop.sub.sapling",
+          "name": "树苗",
+          "icon": "🌳",
+          "items": [
+            {
+              "item": "minecraft:oak_sapling",
+              "price": 16
+            },
+            {
+              "item": "minecraft:birch_sapling",
+              "price": 16
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

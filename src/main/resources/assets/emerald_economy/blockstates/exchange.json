@@ -1,0 +1,34 @@
+{
+  "variants": {
+    "facing=north,half=lower": {
+      "model": "emerald_economy:block/exchange"
+    },
+    "facing=east,half=lower": {
+      "model": "emerald_economy:block/exchange",
+      "y": 90
+    },
+    "facing=south,half=lower": {
+      "model": "emerald_economy:block/exchange",
+      "y": 180
+    },
+    "facing=west,half=lower": {
+      "model": "emerald_economy:block/exchange",
+      "y": 270
+    },
+    "facing=north,half=upper": {
+      "model": "emerald_economy:block/machine_upper"
+    },
+    "facing=east,half=upper": {
+      "model": "emerald_economy:block/machine_upper",
+      "y": 90
+    },
+    "facing=south,half=upper": {
+      "model": "emerald_economy:block/machine_upper",
+      "y": 180
+    },
+    "facing=west,half=upper": {
+      "model": "emerald_economy:block/machine_upper",
+      "y": 270
+    }
+  }
+}

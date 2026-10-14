@@ -1,0 +1,17 @@
+{
+  "replace": false,
+  "values": [
+    "#minecraft:coal_ores",
+    "#minecraft:redstone_ores",
+    "minecraft:water",
+    "minecraft:lava",
+    "minecraft:magma_block",
+    "minecraft:glowstone",
+    "minecraft:sea_lantern",
+    "minecraft:shroomlight",
+    "minecraft:redstone_block",
+    "minecraft:coal_block",
+    "minecraft:torch",
+    "minecraft:lantern"
+  ]
+}

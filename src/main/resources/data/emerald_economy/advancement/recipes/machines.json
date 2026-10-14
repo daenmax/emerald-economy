@@ -1,0 +1,29 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_redstone": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "minecraft:redstone"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_redstone"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "emerald_economy:atm",
+      "emerald_economy:exchange",
+      "emerald_economy:lottery",
+      "emerald_economy:vending",
+      "emerald_economy:acquisition"
+    ]
+  }
+}

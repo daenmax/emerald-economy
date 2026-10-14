@@ -1,0 +1,42 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "P": {
+      "item": "minecraft:sticky_piston"
+    },
+    "H": {
+      "item": "minecraft:hopper"
+    },
+    "O": {
+      "item": "minecraft:observer"
+    },
+    "L": {
+      "item": "minecraft:lever"
+    },
+    "T": {
+      "item": "minecraft:repeater"
+    },
+    "C": {
+      "item": "minecraft:chest"
+    },
+    "X": {
+      "item": "minecraft:comparator"
+    },
+    "E": {
+      "item": "minecraft:clock"
+    }
+  },
+  "pattern": [
+    "RPH",
+    "OEL",
+    "TCX"
+  ],
+  "result": {
+    "id": "emerald_economy:lottery",
+    "count": 1
+  }
+}

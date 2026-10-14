@@ -1,0 +1,311 @@
+{
+  "_comment": "自动收购机的价格表。改完在游戏里执行 /ee reload 立刻生效。",
+  "_format": "categories[].items[]：每条形如 {\"item\":\"minecraft:wheat\",\"price\":1}，或 {\"tag\":\"minecraft:saplings\",\"price\":1}；batch=8 表示 8 个算一份",
+  "categories": [
+    {
+      "id": "AGRICULTURE",
+      "lang": "acquire.category.agriculture",
+      "name": "农业产物",
+      "items": [
+        {
+          "item": "minecraft:wheat",
+          "price": 1
+        },
+        {
+          "item": "minecraft:carrot",
+          "price": 1
+        },
+        {
+          "item": "minecraft:potato",
+          "price": 1
+        },
+        {
+          "item": "minecraft:beetroot",
+          "price": 1
+        },
+        {
+          "item": "minecraft:sugar_cane",
+          "price": 2
+        },
+        {
+          "item": "minecraft:melon_slice",
+          "price": 1
+        },
+        {
+          "item": "minecraft:pumpkin",
+          "price": 2
+        },
+        {
+          "item": "minecraft:apple",
+          "price": 2
+        },
+        {
+          "item": "minecraft:sweet_berries",
+          "price": 1
+        },
+        {
+          "item": "minecraft:nether_wart",
+          "price": 2
+        },
+        {
+          "item": "minecraft:bamboo",
+          "price": 1,
+          "batch": 4
+        },
+        {
+          "item": "minecraft:cocoa_beans",
+          "price": 1
+        },
+        {
+          "_comment": "tag 表示收整类物品（原版标签或本模组标签都行）",
+          "tag": "minecraft:saplings",
+          "price": 1
+        }
+      ]
+    },
+    {
+      "id": "LIVESTOCK",
+      "lang": "acquire.category.livestock",
+      "name": "畜牧产物",
+      "items": [
+        {
+          "item": "minecraft:beef",
+          "price": 2
+        },
+        {
+          "item": "minecraft:porkchop",
+          "price": 2
+        },
+        {
+          "item": "minecraft:chicken",
+          "price": 2
+        },
+        {
+          "item": "minecraft:mutton",
+          "price": 2
+        },
+        {
+          "item": "minecraft:rabbit",
+          "price": 2
+        },
+        {
+          "item": "minecraft:leather",
+          "price": 2
+        },
+        {
+          "item": "minecraft:white_wool",
+          "price": 1
+        },
+        {
+          "item": "minecraft:egg",
+          "price": 1,
+          "batch": 8
+        },
+        {
+          "item": "minecraft:milk_bucket",
+          "price": 3
+        },
+        {
+          "item": "minecraft:honey_bottle",
+          "price": 3
+        },
+        {
+          "item": "minecraft:feather",
+          "price": 1,
+          "batch": 8
+        },
+        {
+          "item": "minecraft:bone",
+          "price": 1
+        },
+        {
+          "_comment": "tag 表示收整类物品（原版标签或本模组标签都行）",
+          "tag": "minecraft:fishes",
+          "price": 2
+        }
+      ]
+    },
+    {
+      "id": "MINING",
+      "lang": "acquire.category.mining",
+      "name": "矿物",
+      "items": [
+        {
+          "item": "minecraft:coal",
+          "price": 1
+        },
+        {
+          "item": "minecraft:raw_iron",
+          "price": 2
+        },
+        {
+          "item": "minecraft:raw_copper",
+          "price": 2
+        },
+        {
+          "item": "minecraft:raw_gold",
+          "price": 4
+        },
+        {
+          "item": "minecraft:redstone",
+          "price": 1
+        },
+        {
+          "item": "minecraft:lapis_lazuli",
+          "price": 2
+        },
+        {
+          "item": "minecraft:diamond",
+          "price": 15
+        },
+        {
+          "item": "minecraft:quartz",
+          "price": 1
+        },
+        {
+          "item": "minecraft:amethyst_shard",
+          "price": 2
+        },
+        {
+          "item": "minecraft:flint",
+          "price": 1
+        },
+        {
+          "item": "minecraft:obsidian",
+          "price": 3
+        },
+        {
+          "item": "minecraft:netherite_scrap",
+          "price": 10
+        }
+      ]
+    },
+    {
+      "id": "FORESTRY",
+      "lang": "acquire.category.forestry",
+      "name": "林业产物",
+      "items": [
+        {
+          "item": "minecraft:oak_log",
+          "price": 1
+        },
+        {
+          "item": "minecraft:spruce_log",
+          "price": 1
+        },
+        {
+          "item": "minecraft:birch_log",
+          "price": 1
+        },
+        {
+          "item": "minecraft:jungle_log",
+          "price": 1
+        },
+        {
+          "item": "minecraft:acacia_log",
+          "price": 1
+        },
+        {
+          "item": "minecraft:dark_oak_log",
+          "price": 1
+        },
+        {
+          "item": "minecraft:mangrove_log",
+          "price": 1
+        },
+        {
+          "item": "minecraft:cherry_log",
+          "price": 1
+        },
+        {
+          "item": "minecraft:bamboo_block",
+          "price": 1
+        },
+        {
+          "item": "minecraft:crimson_stem",
+          "price": 1
+        },
+        {
+          "item": "minecraft:warped_stem",
+          "price": 1
+        }
+      ]
+    },
+    {
+      "id": "MISC",
+      "lang": "acquire.category.misc",
+      "name": "杂物",
+      "items": [
+        {
+          "_comment": "tag 表示收整类物品（原版标签或本模组标签都行）",
+          "tag": "emerald_economy:acquire/music_discs",
+          "price": 3
+        },
+        {
+          "item": "minecraft:goat_horn",
+          "price": 3
+        },
+        {
+          "item": "minecraft:shulker_shell",
+          "price": 20
+        },
+        {
+          "item": "minecraft:axolotl_bucket",
+          "price": 8
+        },
+        {
+          "item": "minecraft:turtle_helmet",
+          "price": 5
+        },
+        {
+          "_comment": "tag 表示收整类物品（原版标签或本模组标签都行）",
+          "tag": "emerald_economy:acquire/horse_armors",
+          "price": 4
+        },
+        {
+          "item": "minecraft:slime_ball",
+          "price": 1
+        },
+        {
+          "item": "minecraft:clay_ball",
+          "price": 1
+        },
+        {
+          "item": "minecraft:blaze_rod",
+          "price": 1
+        },
+        {
+          "item": "minecraft:phantom_membrane",
+          "price": 4
+        }
+      ]
+    }
+  ],
+  "friday": {
+    "_comment": "疯狂星期五：每天从 pool 里随机挑几件按倍率收购，basePrices 是基准价",
+    "lang": "acquire.category.friday",
+    "name": "疯狂星期五",
+    "pool": [
+      "minecraft:dragon_head",
+      "minecraft:totem_of_undying",
+      "minecraft:nether_star",
+      "minecraft:elytra",
+      "minecraft:trident",
+      "minecraft:heart_of_the_sea",
+      "minecraft:echo_shard",
+      "minecraft:spawner",
+      "minecraft:ominous_bottle"
+    ],
+    "basePrices": {
+      "minecraft:dragon_head": 83,
+      "minecraft:totem_of_undying": 67,
+      "minecraft:nether_star": 133,
+      "minecraft:elytra": 100,
+      "minecraft:trident": 75,
+      "minecraft:heart_of_the_sea": 58,
+      "minecraft:echo_shard": 33,
+      "minecraft:spawner": 50,
+      "minecraft:ominous_bottle": 42
+    }
+  }
+}

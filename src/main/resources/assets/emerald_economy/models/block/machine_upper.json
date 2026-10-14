@@ -1,0 +1,26 @@
+{
+  "parent": "block/block",
+  "textures": {
+    "particle": "emerald_economy:block/machine_base",
+    "base": "emerald_economy:block/machine_base"
+  },
+  "elements": [
+    {
+      "from": [
+        0.01,
+        0.01,
+        0.01
+      ],
+      "to": [
+        0.02,
+        0.02,
+        0.02
+      ],
+      "faces": {
+        "up": {
+          "texture": "#base"
+        }
+      }
+    }
+  ]
+}
