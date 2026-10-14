@@ -1,0 +1,161 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.140'
+    id 'idea'
+}
+
+version = mod_version
+group = mod_group_id
+
+base {
+    archivesName = mod_id
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+neoForge {
+    version = project.neo_version
+
+    runs {
+        client {
+            client()
+        }
+        server {
+            server()
+            programArgument '--nogui'
+            // 开发用服务端默认跑一遍经济引擎自检，结果会打印到控制台
+            systemProperty 'ee.selftest', 'true'
+        }
+
+        // 开发者：自动化界面实证测试。
+        // 会自动连到本机服务端（需要先跑 runServer），逐个打开界面并真的点击按钮，
+        // 走完「发包 → 服务端结算 → 快照回推 → 界面刷新」全链路，最后把每屏截图存到
+        // run/screenshots/ee/。见 dev/ClientUiTest。
+        clientUiTest {
+            client()
+            systemProperty 'ee.uitest', 'true'
+            programArgument '--quickPlayMultiplayer'
+            programArgument '127.0.0.1:25565'
+            programArgument '--width'
+            programArgument '1280'
+            programArgument '--height'
+            programArgument '720'
+        }
+
+        // 只跑「随机市场事件」用例（会自己去改服务端配置的 marketEvents）
+        clientUiTestMarketEvents {
+            client()
+            systemProperty 'ee.uitest', 'true'
+            systemProperty 'ee.uitest.variant', 'marketevents'
+            programArgument '--quickPlayMultiplayer'
+            programArgument '127.0.0.1:25565'
+            programArgument '--width'
+            programArgument '1280'
+            programArgument '--height'
+            programArgument '720'
+        }
+
+        // 只跑「生存模式挖机器」用例（排查掉落问题用）
+        clientUiTestMine {
+            client()
+            systemProperty 'ee.uitest', 'true'
+            systemProperty 'ee.uitest.variant', 'mine'
+            programArgument '--quickPlayMultiplayer'
+            programArgument '127.0.0.1:25565'
+            programArgument '--width'
+            programArgument '1280'
+            programArgument '--height'
+            programArgument '720'
+        }
+
+        // 多人并发用例：房主（先动手）
+        clientUiTestOwner {
+            client()
+            systemProperty 'ee.uitest', 'true'
+            systemProperty 'ee.uitest.variant', 'multi'
+            systemProperty 'ee.uitest.role', 'owner'
+            programArgument '--quickPlayMultiplayer'
+            programArgument '127.0.0.1:25565'
+            programArgument '--width'
+            programArgument '1280'
+            programArgument '--height'
+            programArgument '720'
+        }
+
+        // 多人并发用例：客人（后做断言）。
+        // 用另一个用户名和另一个游戏目录，避免两个客户端抢同一份日志/配置。
+        clientUiTestPeer {
+            client()
+            gameDirectory = project.file('run-alex')
+            systemProperty 'ee.uitest', 'true'
+            systemProperty 'ee.uitest.variant', 'multi'
+            systemProperty 'ee.uitest.role', 'peer'
+            programArgument '--username'
+            programArgument 'Alex'
+            programArgument '--quickPlayMultiplayer'
+            programArgument '127.0.0.1:25565'
+            programArgument '--width'
+            programArgument '1280'
+            programArgument '--height'
+            programArgument '720'
+        }
+
+        // 同上，但只跑「商店全解锁」这一个用例。
+        // 需要先把服务端配置 shop.initialSlots 调满并清掉世界存档。
+        clientUiTestShopFull {
+            client()
+            systemProperty 'ee.uitest', 'true'
+            systemProperty 'ee.uitest.variant', 'shopfull'
+            programArgument '--quickPlayMultiplayer'
+            programArgument '127.0.0.1:25565'
+            programArgument '--width'
+            programArgument '1280'
+            programArgument '--height'
+            programArgument '720'
+        }
+        configureEach {
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.DEBUG
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+// 把 src/main/templates 里的 neoforge.mods.toml 展开成最终元数据
+var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
+    var replaceProperties = [
+            minecraft_version        : minecraft_version,
+            minecraft_version_range  : minecraft_version_range,
+            neo_version              : neo_version,
+            neo_version_range        : neo_version_range,
+            loader_version_range     : loader_version_range,
+            mod_id                   : mod_id,
+            mod_name                 : mod_name,
+            mod_license              : mod_license,
+            mod_version              : mod_version,
+            mod_authors              : mod_authors,
+            mod_description          : mod_description,
+    ]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from "src/main/templates"
+    into "build/generated/sources/modMetadata"
+}
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}
