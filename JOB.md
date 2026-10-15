@@ -121,7 +121,23 @@
 - 生成全部资源：5 个方块状态（含 4 向朝向）、6 个模型、5 个配方、5 个战利品表、6 个方块/实体标签 + 1 个物品标签、中英双语语言文件、6 张程序化生成的贴图 + 模组图标。
 - 新增 `tools/TextureGenerator.java`（贴图生成）、`tools/check_lang.py`（翻译键校验）、`dev/SelfTest.java`（引擎自检）。
 
-### 第四轮：内容配置改成 JSON + 挖掘体验修复 + 界面细节（本轮）
+### 第五轮：模组 logo 换成美术素材（本轮）
+
+### 公共
+- **模组列表里的 logo 换成美术素材**：`src/main/resources/emerald_economy_logo.png` 原本是程序化画的
+  「深色底 + 绿宝石菱形 + 金环」，现在换成 `素材/logo.png`（1254×1254 的「绿宝石 / EMERALD」
+  立体字美术图）。游戏「模组列表」显示的就是它（`neoforge.mods.toml` 的 `logoFile` 引用未变）。
+- `tools/TextureGenerator.java` 同步改造：不再程序化画 logo，改成「读素材 → 抠白底 → 缩放 → 写资源」。
+  抠白底用「从画布四边泛洪」而不是「全图白色都透明」，保住图形内部的白色高光；
+  输出 256×256 ARGB PNG（约 126 KB，素材原图 1.5 MB，原尺寸进 jar 太浪费）。
+  以后换 logo：替换 `素材/logo.png` 再跑一次脚本即可。
+- **保持不变**：创造模式标签页图标仍是绿宝石图标物品（`emerald_icon`，贴图就是 `素材/绿宝石.png`）。
+
+### 验证
+- `java tools/TextureGenerator.java` 运行成功；产物四角透明、图形内部不透明，
+  贴到深色背景上目视无白边（模组列表是深色 UI）。`gradlew build` 通过。
+
+### 第四轮：内容配置改成 JSON + 挖掘体验修复 + 界面细节
 
 ### 公共
 - **内容配置改成 JSON 文件**（本轮最大的改动）：自动售货机的货架与自动收购机的价格表
@@ -310,9 +326,11 @@
 - [x] **第三轮**：配置界面汉化、五台机器外观各具特色、ATM 存入/取出全部、
       交易记录拆两个分类并显示前后余额、欠贷也不能参加疯狂星期五、收购机杂物分类与批次收购、
       标签价格、售货机两大分类与「其他」商品、解锁提示附魔名、新增 README.md（详见第四节）
-- [x] **第四轮（本轮）**：货架与收购价表改成 JSON 内容文件（`config/emerald_economy/*.json`
+- [x] **第四轮**：货架与收购价表改成 JSON 内容文件（`config/emerald_economy/*.json`
       + `/ee reload` 热重载）、收购按钮按背包置灰并显示拥有数量、机器硬度与掉落修复
       （`mineable/pickaxe` 标签）、骨粉换骨头（详见第四节）
+- [x] **第五轮（本轮）**：模组 logo 从程序化简笔画换成美术素材 `素材/logo.png`，
+      `TextureGenerator` 改为「抠白底 + 缩放」生成（详见第四节）
 
 **进行中**：无。
 
@@ -361,6 +379,7 @@
 | 交易记录里同时记「余额」与「欠款」 | 需求要求流水同时体现两处变动；在 `pushRecord` 里顺手记下当时的欠款，调用方无需改动 |
 | 屏幕做成「内凹」：边框 z=0..1、屏幕 z=0.5..1 | 视觉上是嵌进机箱的屏幕；屏幕背面与机身正面共面但被不透明几何挡住，不会有 z-fighting |
 | `TextureGenerator` 不再生成方块贴图 | 贴图已由 Blockbench 制作，工具若继续生成会在手滑跑一次时把美术资源覆盖掉 |
+| 模组 logo 改用美术素材 `素材/logo.png`，工具只做「抠白底 + 缩放」 | 程序化简笔画不够好看；素材是白底 1254×1254，直接进 jar 又大又会在模组列表里顶着一块白底。抠底用「四边泛洪」保住图形内部白色高光，输出统一 256×256 |
 | 五台机器**各一套几何**，不再共用外形 | 需求方反馈「五台机器不容易区分」；每台一个标志物（屏幕+键盘 / 显示器+键盘+主机箱 / 滚轮+拉杆 / 货架+取物口 / 漏斗+传送带）一眼就能认出来 |
 | 机器几何写在脚本里当**单一真源**，Blockbench 工程由脚本生成 | Blockbench 的 MCP 只能把贴图/模型**读出来**，没有写文件的能力；反过来让脚本当源头，工程文件与资源文件永远一致，也不怕工程被关掉 |
 | 价格表用 `#标签=价格` 表示「收一整类」 | 原版标签（`#minecraft:fishes`、`#minecraft:saplings`）现成可用；原版没有的（唱片、马铠）就自己建标签，整合包能往标签里加自己的物品 |
@@ -671,7 +690,7 @@ python tools/gen_resources.py      # 重新生成方块状态/模型/配方/战�
 python tools/gen_bbmodel.py        # 用同一份几何 + 贴图重新生成 Blockbench 工程（素材/blockbench/*.bbmodel）
 python tools/gen_economy_json.py   # 重新生成「内容配置」的默认模板（data/emerald_economy/economy/*.json）
 python tools/put_texture.py        # 把 Blockbench 返回的贴图 data URL 落盘成 PNG（Blockbench 不能直接写文件）
-java tools/TextureGenerator.java   # 只重新生成模组图标（方块贴图已由 Blockbench 制作，脚本不再覆盖）
+java tools/TextureGenerator.java   # 从 素材/logo.png 生成模组图标（抠白底 + 缩放到 256；方块贴图已由 Blockbench 制作，脚本不再覆盖）
 python tools/check_lang.py         # 校验翻译键是否齐全（含配置界面的 emerald_economy.configuration.*）
 ```
 

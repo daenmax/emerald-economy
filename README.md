@@ -246,7 +246,7 @@ python tools/gen_bbmodel.py        # 用同一份几何生成 Blockbench 工程�
 python tools/gen_economy_json.py   # 重新生成内容配置的默认模板（shop.json / acquire.json）
 python tools/check_lang.py         # 校验中英翻译键是否齐全（含配置界面）
 python tools/setup-dev-server.py   # 一键摆好 run/（超平坦 + 创造 + OP），删过 run/ 之后必须跑一次
-java tools/TextureGenerator.java   # 只重新生成模组图标
+java tools/TextureGenerator.java   # 从 素材/logo.png 生成模组图标（抠白底 + 缩放到 256）
 ```
 
 **机器模型的单一真源**是 `tools/gen_resources.py` 里的 `machine_elements()`；

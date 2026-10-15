@@ -1,11 +1,21 @@
 import javax.imageio.ImageIO;
-import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 
 /**
- * 程序化生成模组图标（128×128 的 {@code emerald_economy_logo.png}）。
+ * 从美术素材生成模组图标（{@code src/main/resources/emerald_economy_logo.png}）。
+ *
+ * <p>模组图标显示在游戏的「模组列表」里，由 {@code neoforge.mods.toml} 的
+ * {@code logoFile} 引用。2026-10 起图标改用美术素材 {@code 素材/logo.png}，
+ * 本脚本只负责把素材处理成可直接打包的资源：
+ * <ol>
+ *   <li>把与画布四边连通的白色背景抠成透明（图形内部不与边缘相连的白色高光保持不动）；</li>
+ *   <li>高质量缩放到 {@link #ICON_SIZE}×{@link #ICON_SIZE}（素材原图 1254×1254，原尺寸进 jar 太浪费）；</li>
+ *   <li>写出 PNG。</li>
+ * </ol>
  *
  * <p><b>注意</b>：方块贴图（{@code textures/block/*.png}）从 2026-10 起改由
  * <b>Blockbench</b> 制作，同名文件已经换成美术版本。这里刻意不再生成方块贴图，
@@ -13,153 +23,145 @@ import java.io.IOException;
  * 需要重做方块贴图请用 {@code 素材/blockbench/<机器>.bbmodel} 在 Blockbench 里改，
  * 或者改 {@code tools/gen_bbmodel.py}（它只生成工程文件，不生成贴图）。
  *
+ * <p>换新 logo 的流程：把新图存成 {@code 素材/logo.png}，再运行本脚本。
+ *
  * <p>用法：{@code java tools/TextureGenerator.java}
  */
 public final class TextureGenerator {
 
-    private static final int SIZE = 16;
+    /** 模组图标的输出边长（正方形，像素）。模组列表里显示尺寸很小，256 已经绰绰有余。 */
+    private static final int ICON_SIZE = 256;
 
-    // 外壳配色（仅用于参考，方块贴图已由 Blockbench 制作）
-    private static final int CASING = 0xFF3B4048;
-    private static final int CASING_DARK = 0xFF282C32;
-    private static final int CASING_LIGHT = 0xFF515862;
-    private static final int RIVET = 0xFF767E8A;
+    /** 美术素材路径（相对项目根目录）。 */
+    private static final String SOURCE = "素材/logo.png";
 
-    // 屏幕配色
-    private static final int SCREEN_BG = 0xFF0E1114;
+    /** 资源输出路径（相对项目根目录）。 */
+    private static final String OUTPUT = "src/main/resources/emerald_economy_logo.png";
+
+    /** 判定「白色背景」的通道下限：R、G、B 都 ≥ 这个值才可能是背景白。 */
+    private static final int WHITE_MIN = 240;
+
+    /** 判定「白色背景」的通道差上限：三通道最大与最小的差 ≤ 这个值才算中性白（防止误伤浅色图形）。 */
+    private static final int WHITE_SPREAD = 14;
 
     private TextureGenerator() {
     }
 
     public static void main(String[] args) throws IOException {
-        File root = new File(args.length > 0 ? args[0] : "src/main/resources");
-        if (!root.exists() && !root.mkdirs()) {
-            throw new IOException("无法创建目录：" + root);
+        File source = new File(args.length > 0 ? args[0] : SOURCE);
+        File output = new File(args.length > 1 ? args[1] : OUTPUT);
+        BufferedImage art = ImageIO.read(source);
+        if (art == null) {
+            throw new IOException("读不出图片（文件不存在或格式不支持）：" + source.getAbsolutePath());
         }
-        write(new File(root, "emerald_economy_logo.png"), logo());
-        System.out.println("模组图标已生成到 " + root.getAbsolutePath());
+        BufferedImage cut = cutWhiteBackground(art);
+        BufferedImage icon = shrinkToSquare(cut, ICON_SIZE);
+        File parent = output.getParentFile();
+        if (parent != null && !parent.exists() && !parent.mkdirs()) {
+            throw new IOException("无法创建目录：" + parent);
+        }
+        ImageIO.write(icon, "png", output);
+        System.out.println("模组图标已生成：" + output.getAbsolutePath()
+                + "（源 " + source.getName() + " " + art.getWidth() + "×" + art.getHeight()
+                + " → 输出 " + icon.getWidth() + "×" + icon.getHeight() + "）");
     }
 
-    private static void write(File file, BufferedImage image) throws IOException {
-        ImageIO.write(image, "png", file);
-    }
-
-    /** 金属外壳：底色 + 暗边 + 铆钉 + 两条装饰缝。 */
-    private static BufferedImage casing() {
-        BufferedImage image = blank(CASING);
-        // 四周暗边
-        for (int i = 0; i < SIZE; i++) {
-            set(image, i, 0, CASING_DARK);
-            set(image, i, SIZE - 1, CASING_DARK);
-            set(image, 0, i, CASING_DARK);
-            set(image, SIZE - 1, i, CASING_DARK);
-        }
-        // 装饰缝
-        for (int i = 1; i < SIZE - 1; i++) {
-            set(image, i, 3, CASING_LIGHT);
-            set(image, i, SIZE - 4, CASING_LIGHT);
-        }
-        // 四角铆钉
-        int[] xs = {2, SIZE - 3};
-        int[] ys = {2, SIZE - 3};
-        for (int x : xs) {
-            for (int y : ys) {
-                set(image, x, y, RIVET);
+    /**
+     * 把与画布四边连通的白色像素抠成透明。
+     * <p>用「从边缘泛洪」而不是「全图白色都透明」，是为了保住图形内部的白色：例如宝石上的高光、
+     * 字母内侧的填白，这些白色不与边缘连通，不能被误抠。
+     */
+    private static BufferedImage cutWhiteBackground(BufferedImage source) {
+        int width = source.getWidth();
+        int height = source.getHeight();
+        // 统一转成 ARGB，后面可以直接改 alpha 通道
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                image.setRGB(x, y, 0xFF000000 | (source.getRGB(x, y) & 0x00FFFFFF));
             }
         }
-        // 轻微的高光，让平面不至于死板
-        for (int i = 4; i < SIZE - 4; i++) {
-            set(image, i, 4, CASING_LIGHT);
+        boolean[] visited = new boolean[width * height];
+        int[] stack = new int[width * height];
+        int top = 0;
+        // 种子：四条边上的白色像素（入栈时立刻标记 visited，保证每个像素最多进栈一次）
+        for (int x = 0; x < width; x++) {
+            top = pushIfBackground(image, visited, stack, top, x, 0);
+            top = pushIfBackground(image, visited, stack, top, x, height - 1);
         }
-        return image;
-    }
-
-    /** 屏幕面板：深色底 + 强调色边框与「文字行」。 */
-    private static BufferedImage face(int accentRgb) {
-        int accent = 0xFF000000 | accentRgb;
-        int accentDark = darken(accentRgb, 0.55D);
-        BufferedImage image = blank(SCREEN_BG);
-        // 边框
-        for (int i = 0; i < SIZE; i++) {
-            set(image, i, 0, accent);
-            set(image, i, SIZE - 1, accentDark);
-            set(image, 0, i, accentDark);
-            set(image, SIZE - 1, i, accentDark);
+        for (int y = 0; y < height; y++) {
+            top = pushIfBackground(image, visited, stack, top, 0, y);
+            top = pushIfBackground(image, visited, stack, top, width - 1, y);
         }
-        // 屏幕里的「数据行」
-        int[][] rows = {
-                {4, 3, 8},
-                {6, 5, 11},
-                {8, 3, 6},
-                {10, 7, 12},
-        };
-        for (int[] row : rows) {
-            int y = row[0];
-            for (int x = row[1]; x <= row[2]; x++) {
-                set(image, x, y, accent);
+        // 泛洪：把连通的背景白一格一格抠掉，并尝试向上下左右扩散
+        while (top > 0) {
+            int index = stack[--top];
+            int x = index % width;
+            int y = index / width;
+            image.setRGB(x, y, 0x00000000);
+            if (x > 0) {
+                top = pushIfBackground(image, visited, stack, top, x - 1, y);
+            }
+            if (x < width - 1) {
+                top = pushIfBackground(image, visited, stack, top, x + 1, y);
+            }
+            if (y > 0) {
+                top = pushIfBackground(image, visited, stack, top, x, y - 1);
+            }
+            if (y < height - 1) {
+                top = pushIfBackground(image, visited, stack, top, x, y + 1);
             }
         }
         return image;
     }
 
-    /** 模组图标：深色底 + 绿宝石菱形 + 金色环。 */
-    private static BufferedImage logo() {
-        int size = 128;
-        BufferedImage image = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
-        fill(image, 0xFF101418);
-        int center = size / 2;
-        // 金色圆环
-        for (int angle = 0; angle < 360; angle++) {
-            double rad = Math.toRadians(angle);
-            for (int r = 46; r <= 52; r++) {
-                int x = (int) Math.round(center + Math.cos(rad) * r);
-                int y = (int) Math.round(center + Math.sin(rad) * r);
-                set(image, x, y, 0xFFFFC24D);
-            }
+    /** 若 (x, y) 是还没访问过的背景白，就压入栈；返回新的栈顶。 */
+    private static int pushIfBackground(BufferedImage image, boolean[] visited, int[] stack,
+                                        int top, int x, int y) {
+        int index = y * image.getWidth() + x;
+        if (visited[index]) {
+            return top;
         }
-        // 绿宝石菱形
-        int half = 34;
-        for (int dy = -half; dy <= half; dy++) {
-            int span = half - Math.abs(dy);
-            for (int dx = -span; dx <= span; dx++) {
-                int x = center + dx;
-                int y = center + dy;
-                // 简单的明暗：左上亮、右下暗
-                int shade = (dx - dy) > 0 ? 0xFF0F9C49 : 0xFF17DD62;
-                if (dx + dy < -half / 2) {
-                    shade = 0xFF57F08A;
-                }
-                set(image, x, y, shade);
-            }
+        visited[index] = true;
+        if (!isNeutralWhite(image.getRGB(x, y))) {
+            return top;
         }
-        return image;
+        stack[top] = index;
+        return top + 1;
     }
 
-    private static BufferedImage blank(int argb) {
-        BufferedImage image = new BufferedImage(SIZE, SIZE, BufferedImage.TYPE_INT_ARGB);
-        fill(image, argb);
-        return image;
+    /** 判断一个像素是否算「背景白」：够亮，且三个通道彼此接近（中性灰白，不是浅绿/浅黄）。 */
+    private static boolean isNeutralWhite(int argb) {
+        int r = (argb >> 16) & 0xFF;
+        int g = (argb >> 8) & 0xFF;
+        int b = argb & 0xFF;
+        int min = Math.min(r, Math.min(g, b));
+        int max = Math.max(r, Math.max(g, b));
+        return min >= WHITE_MIN && (max - min) <= WHITE_SPREAD;
     }
 
-    private static void fill(BufferedImage image, int argb) {
-        for (int y = 0; y < image.getHeight(); y++) {
-            for (int x = 0; x < image.getWidth(); x++) {
-                image.setRGB(x, y, argb);
-            }
+    /**
+     * 等比缩放到指定边长。
+     * <p>一步从 1254 缩到 256 会丢细节（双线性插值只采样附近几个像素），
+     * 所以先按「每次减半」缩几轮，最后一步再缩到目标尺寸，这是 Java2D 里常用的高质量缩小做法。
+     */
+    private static BufferedImage shrinkToSquare(BufferedImage source, int target) {
+        BufferedImage current = source;
+        while (current.getWidth() / 2 >= target && current.getHeight() / 2 >= target) {
+            current = resize(current, current.getWidth() / 2, current.getHeight() / 2);
         }
+        return resize(current, target, target);
     }
 
-    private static void set(BufferedImage image, int x, int y, int argb) {
-        if (x < 0 || y < 0 || x >= image.getWidth() || y >= image.getHeight()) {
-            return;
-        }
-        image.setRGB(x, y, argb);
-    }
-
-    private static int darken(int rgb, double factor) {
-        Color color = new Color(rgb);
-        return 0xFF000000 | ((int) (color.getRed() * factor) << 16)
-                | ((int) (color.getGreen() * factor) << 8)
-                | (int) (color.getBlue() * factor);
+    private static BufferedImage resize(BufferedImage source, int width, int height) {
+        BufferedImage out = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = out.createGraphics();
+        graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        graphics.setRenderingHint(RenderingHints.KEY_RENDERING,
+                RenderingHints.VALUE_RENDER_QUALITY);
+        graphics.drawImage(source, 0, 0, width, height, null);
+        graphics.dispose();
+        return out;
     }
 }
