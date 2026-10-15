@@ -121,7 +121,7 @@
 - 生成全部资源：5 个方块状态（含 4 向朝向）、6 个模型、5 个配方、5 个战利品表、6 个方块/实体标签 + 1 个物品标签、中英双语语言文件、6 张程序化生成的贴图 + 模组图标。
 - 新增 `tools/TextureGenerator.java`（贴图生成）、`tools/check_lang.py`（翻译键校验）、`dev/SelfTest.java`（引擎自检）。
 
-### 第五轮：模组 logo 换成美术素材（本轮）
+### 第五轮：模组 logo 换成美术素材 + 新增英文版 README（本轮）
 
 ### 公共
 - **模组列表里的 logo 换成美术素材**：`src/main/resources/emerald_economy_logo.png` 原本是程序化画的
@@ -132,10 +132,17 @@
   输出 256×256 ARGB PNG（约 126 KB，素材原图 1.5 MB，原尺寸进 jar 太浪费）。
   以后换 logo：替换 `素材/logo.png` 再跑一次脚本即可。
 - **保持不变**：创造模式标签页图标仍是绿宝石图标物品（`emerald_icon`，贴图就是 `素材/绿宝石.png`）。
+- **新增英文版 `README_EN.md`**：`README.md` 的完整英译，章节、表格、19 张截图、配置说明、命令表与
+  开发流程一一对应；游戏内术语沿用 `en_us.json` 里已有的英文（`Exchange Terminal`、`Crazy Friday`、
+  `Acquisition Machine`、`Fund Exchange`……），不在文档里另造译名。
+  两份 README 顶部互加语言切换链接，文件名后缀用 `_EN`（GitHub 上最常见的英文版写法）。
+- **两份 README 顶部加发布渠道链接**：Modrinth 页面（`https://modrinth.com/mod/emerald-economy-daenmax`）
+  与 GitHub 仓库（`https://github.com/daenmax/emerald-economy`，也是本项目的 `origin`）。
 
 ### 验证
 - `java tools/TextureGenerator.java` 运行成功；产物四角透明、图形内部不透明，
   贴到深色背景上目视无白边（模组列表是深色 UI）。`gradlew build` 通过。
+- 中英两份 README 的标题结构（20 个）与截图引用（19 张）逐条对应，引用的图片文件全部存在。
 
 ### 第四轮：内容配置改成 JSON + 挖掘体验修复 + 界面细节
 
@@ -330,7 +337,7 @@
       + `/ee reload` 热重载）、收购按钮按背包置灰并显示拥有数量、机器硬度与掉落修复
       （`mineable/pickaxe` 标签）、骨粉换骨头（详见第四节）
 - [x] **第五轮（本轮）**：模组 logo 从程序化简笔画换成美术素材 `素材/logo.png`，
-      `TextureGenerator` 改为「抠白底 + 缩放」生成（详见第四节）
+      `TextureGenerator` 改为「抠白底 + 缩放」生成；新增英文版 `README_EN.md`（详见第四节）
 
 **进行中**：无。
 
@@ -812,12 +819,13 @@ JSON 的键名与默认模板见 `tools/gen_economy_json.py`。
 | `acquire.batchSizes` | 新增批次收购（鸡蛋 8、羽毛 8、竹子 4） |
 | `acquire.fridayPool` / `fridayBasePrices` | 基准价整体 ÷6；**删掉潜影壳**（进了杂物常驻表） |
 
-## 十一、README.md 的维护规则
+## 十一、README 的维护规则
 
 **每次完成需求后，如果这一轮涉及「新增功能 / 删除功能 / 玩法或数值变更 / 界面变化」，
-就要顺手更新项目根目录的 `README.md`**（README 面向使用者，JOB.md 面向下一轮开发，两者都要更新）。
+就要顺手更新项目根目录的 `README.md` 和英文版 `README_EN.md`——两份必须同步改，只改一份等于留了半份过期文档**
+（README 面向使用者，JOB.md 面向下一轮开发，都要更新）。
 
-README 里值得跟着改的地方：
+README 里值得跟着改的地方（两份都要改，章节位置一一对应）：
 
 | 改动类型 | README 里要动的地方 |
 | --- | --- |
@@ -827,7 +835,12 @@ README 里值得跟着改的地方：
 | 新增命令 | 命令表 |
 | 新增机器或外观重做 | 顶部的机器外观图（`素材/README截图/machine_*.png`） |
 | 开发流程 / 工具变化 | 「开发」一节（脚本列表、自动化验证的断言数与截图数） |
+| 仓库地址 / 发布渠道变化 | 两份 README 顶部的链接行（Modrinth / GitHub） |
 
 截图怎么来：跑一遍 `runClientUiTest`，把 `run/screenshots/ee/` 里需要的图复制到
-`素材/README截图/`（全量仍留在 `素材/验证截图/`），README 用相对路径 `素材/README截图/xxx.png` 引用。
+`素材/README截图/`（全量仍留在 `素材/验证截图/`），两份 README 用同一个相对路径
+`素材/README截图/xxx.png` 引用（图只有一份，不用复制两套）。
+
+英文版用词跟着 `assets/emerald_economy/lang/en_us.json` 走（机器名、界面标题、提示语都以它为准），
+不要在文档里另造一套译名。
 

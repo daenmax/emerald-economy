@@ -1,4 +1,8 @@
+**简体中文** | [English](README_EN.md)
+
 # 绿宝石经济 · Emerald Economy
+
+[Modrinth 下载](https://modrinth.com/mod/emerald-economy-daenmax) · [GitHub 源码](https://github.com/daenmax/emerald-economy)
 
 > Minecraft Java 版 **1.21.1** + **NeoForge** 的经济玩法模组：把绿宝石变成真正的货币，
 > 围绕一个**统一的玩家账户**搭出六套互相打通的经济系统。
