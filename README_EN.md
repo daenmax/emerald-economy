@@ -64,12 +64,37 @@ To install on a real client / server, drop `build/libs/emerald_economy-<version>
 
 **Your first time in game**:
 
-1. Crafting: all five machines are "eight redstone components around one core item" — an emerald for the ATM,
-   a redstone lamp for the Exchange Terminal, a clock for the Lottery Machine, an item frame for the
-   Vending Machine, a cauldron for the Acquisition Machine. Picking up redstone for the first time unlocks
-   all five recipes (searchable in the recipe book).
+1. Crafting: all five machines share **one recipe** and differ only in the center slot — see
+   **Crafting recipes** below. Picking up redstone for the first time unlocks all five recipes
+   (searchable in the recipe book).
 2. Place a machine on a redstone block (**required**) and right-click it to open its screen.
 3. Want to try things out fast: `/ee give @s 10000` puts money straight into your account.
+
+---
+
+## Crafting recipes
+
+All five machines share **one recipe**; only the center slot changes — eight redstone components
+surrounding each machine's own core item.
+
+|  |  |  |
+| :---: | :---: | :---: |
+| Redstone Dust | Sticky Piston | Hopper |
+| Observer | **Core item** | Lever |
+| Redstone Repeater | Chest | Redstone Comparator |
+
+The core item for each machine (the center slot):
+
+| Machine | Core item |
+| --- | --- |
+| ATM | Emerald |
+| Exchange Terminal | Redstone Lamp |
+| Lottery Machine | Clock |
+| Vending Machine | Item Frame |
+| Acquisition Machine | Cauldron |
+
+Each recipe yields one machine. Picking up redstone for the first time unlocks all five, and searching
+"emerald" in the recipe book finds them too.
 
 ---
 

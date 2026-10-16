@@ -121,7 +121,7 @@
 - 生成全部资源：5 个方块状态（含 4 向朝向）、6 个模型、5 个配方、5 个战利品表、6 个方块/实体标签 + 1 个物品标签、中英双语语言文件、6 张程序化生成的贴图 + 模组图标。
 - 新增 `tools/TextureGenerator.java`（贴图生成）、`tools/check_lang.py`（翻译键校验）、`dev/SelfTest.java`（引擎自检）。
 
-### 第五轮：模组 logo 换成美术素材 + 新增英文版 README（本轮）
+### 第五轮：模组 logo 换成美术素材 + README 中英双份与完善（本轮）
 
 ### 公共
 - **模组列表里的 logo 换成美术素材**：`src/main/resources/emerald_economy_logo.png` 原本是程序化画的
@@ -138,11 +138,17 @@
   两份 README 顶部互加语言切换链接，文件名后缀用 `_EN`（GitHub 上最常见的英文版写法）。
 - **两份 README 顶部加发布渠道链接**：Modrinth 页面（`https://modrinth.com/mod/emerald-economy-daenmax`）
   与 GitHub 仓库（`https://github.com/daenmax/emerald-economy`，也是本项目的 `origin`）。
+- **两份 README 补上「合成配方」一节**：五台机器共用同一套 3×3 配方（红石 / 粘性活塞 / 漏斗；
+  侦测器 / **核心物品** / 拉杆；红石中继器 / 箱子 / 红石比较器），只有正中间那格不同 ——
+  ATM 绿宝石、交易所电脑红石灯、抽奖机时钟、自动售货机物品展示框、自动收购机炼药锅。
+  内容取自 `data/emerald_economy/recipe/*.json`，改配方时记得同步这一节；
+  「快速开始」里原来那段口头描述改成指向这一节，避免同一份信息写两处。
 
 ### 验证
 - `java tools/TextureGenerator.java` 运行成功；产物四角透明、图形内部不透明，
   贴到深色背景上目视无白边（模组列表是深色 UI）。`gradlew build` 通过。
-- 中英两份 README 的标题结构（20 个）与截图引用（19 张）逐条对应，引用的图片文件全部存在。
+- 中英两份 README 的标题结构（21 个）与截图引用（19 张）逐条对应，引用的图片文件全部存在；
+  「合成配方」一节里的九宫格与核心物品表和 `recipe/*.json` 逐个核对过。
 
 ### 第四轮：内容配置改成 JSON + 挖掘体验修复 + 界面细节
 
@@ -336,8 +342,9 @@
 - [x] **第四轮**：货架与收购价表改成 JSON 内容文件（`config/emerald_economy/*.json`
       + `/ee reload` 热重载）、收购按钮按背包置灰并显示拥有数量、机器硬度与掉落修复
       （`mineable/pickaxe` 标签）、骨粉换骨头（详见第四节）
-- [x] **第五轮（本轮）**：模组 logo 从程序化简笔画换成美术素材 `素材/logo.png`，
-      `TextureGenerator` 改为「抠白底 + 缩放」生成；新增英文版 `README_EN.md`（详见第四节）
+- [x] **第五轮（本轮）**：模组 logo 从程序化简笔画换成美术素材 `素材/logo.png`（`TextureGenerator`
+      改成「抠白底 + 缩放」生成）；新增英文版 `README_EN.md`；两份 README 加语言切换链接、
+      发布渠道链接（Modrinth / GitHub）与「合成配方」一节（详见第四节）
 
 **进行中**：无。
 
@@ -833,7 +840,7 @@ README 里值得跟着改的地方（两份都要改，章节位置一一对应�
 | 玩法规则或默认数值变化 | 「玩法细则」对应小节（例如日息、起算线、批次规则、限购） |
 | 新增 / 改名配置项 | 「配置」一节的分节说明与示例 TOML |
 | 新增命令 | 命令表 |
-| 新增机器或外观重做 | 顶部的机器外观图（`素材/README截图/machine_*.png`） |
+| 新增机器或外观重做 | 顶部的机器外观图（`素材/README截图/machine_*.png`）与「合成配方」一节 |
 | 开发流程 / 工具变化 | 「开发」一节（脚本列表、自动化验证的断言数与截图数） |
 | 仓库地址 / 发布渠道变化 | 两份 README 顶部的链接行（Modrinth / GitHub） |
 
