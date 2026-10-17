@@ -1,9 +1,9 @@
 {
-  "_comment": "自动售货机的货架。改完在游戏里执行 /ee reload 立刻生效（也可以重启服务器）。",
-  "_format": "groups[].subcategories[]，附魔书用 enchants（id/min/max），普通商品用 items（item/price）",
+  "_comment": "自动售货机的货架。改完在游戏里执行 /ee reload 立刻生效（也可以重启服务器）。\nVending machine shelves. Run /ee reload in game after editing (a restart also works).",
+  "_format": "groups[].subcategories[]：附魔书用 enchants（id/min/max），普通商品用 items（item/price），经验值商品用 items（exp/price）。\ngroups[].subcategories[]: enchanted books use enchants (id/min/max), ordinary goods use items (item/price), XP goods use items (exp/price).",
   "groups": [
     {
-      "_comment": "unlockable=true 的大分类走「花绿宝石逐格解锁」；附魔书价格是区间，游戏里按附魔 ID 稳定随机",
+      "_comment": "unlockable=true 的大分类走「花绿宝石逐格解锁」；附魔书价格是区间，游戏里按附魔 ID 稳定随机。\nGroups with unlockable=true are unlocked slot by slot with emeralds; book prices are ranges and a stable value per enchant id is picked in game.",
       "id": "ENCHANTED_BOOK",
       "lang": "shop.group.enchanted_book",
       "name": "附魔书",
@@ -263,7 +263,7 @@
       ]
     },
     {
-      "_comment": "unlockable=false 的大分类随时能买；items 里写物品 ID 与价格即可",
+      "_comment": "unlockable=false 的大分类随时能买；items 里写物品 ID 与价格，或者写 exp（经验点数）卖经验值。\nGroups with unlockable=false are always available; items entries take an item id plus price, or exp (XP points) plus price for XP goods.",
       "id": "OTHER",
       "lang": "shop.group.other",
       "name": "其他",
@@ -295,6 +295,26 @@
             {
               "item": "minecraft:birch_sapling",
               "price": 16
+            }
+          ]
+        },
+        {
+          "id": "MISC",
+          "lang": "shop.sub.misc",
+          "name": "杂物",
+          "icon": "🧪",
+          "items": [
+            {
+              "exp": 10,
+              "price": 100
+            },
+            {
+              "exp": 100,
+              "price": 800
+            },
+            {
+              "exp": 1000,
+              "price": 6000
             }
           ]
         }

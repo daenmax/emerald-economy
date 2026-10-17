@@ -95,6 +95,7 @@ public final class ServerSync {
             return;
         }
         AccountData account = data.account(player.getUUID());
+        long today = currentDay(player);
         List<ServerPayloads.TxLine> transactions = new ArrayList<>();
         for (TransactionRecord record : account.records()) {
             transactions.add(new ServerPayloads.TxLine(record.type().name(), record.amount(),
@@ -110,6 +111,13 @@ public final class ServerSync {
                 EEConfig.dailyInterestRate(),
                 EEConfig.loanInterestRate(),
                 EEConfig.interestMinBalance(),
+                account.levelUnlocked(),
+                account.storedLevels(),
+                player.experienceLevel,
+                EEConfig.levelUnlockCost(),
+                account.hasOnlineReward(today),
+                account.onlineRewardClaimedToday(today),
+                EEConfig.onlineRewardLevels(),
                 transactions));
     }
 
@@ -197,7 +205,7 @@ public final class ServerSync {
         List<ServerPayloads.ShopGood> goods = new ArrayList<>();
         for (ShopService.Good good : ShopService.goods(data, access, player.getUUID())) {
             goods.add(new ServerPayloads.ShopGood(good.key(), good.group(), good.sub(), good.id(),
-                    good.price(), good.remaining(), good.enchant()));
+                    good.price(), good.remaining(), good.enchant(), good.exp()));
         }
         PacketDistributor.sendToPlayer(player, new ServerPayloads.SyncShop(
                 tabs,
@@ -244,7 +252,7 @@ public final class ServerSync {
         List<ServerPayloads.AcquireLine> lines = new ArrayList<>();
         for (AcquireService.Entry entry : AcquireService.entries(data, categoryId)) {
             lines.add(new ServerPayloads.AcquireLine(entry.itemId(), entry.price(), entry.friday(),
-                    entry.batch()));
+                    entry.batch(), entry.tag(), nullSafe(entry.lang()), nullSafe(entry.name())));
         }
         return lines;
     }

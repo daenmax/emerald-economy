@@ -35,13 +35,31 @@ public enum TransactionType {
     /** 商店升级 */
     SHOP_UPGRADE,
     /** 收购出售 */
-    ACQUIRE_SELL;
+    ACQUIRE_SELL,
+    /** 解锁 ATM 的「等级存取」功能（花绿宝石） */
+    LEVEL_UNLOCK,
+    /** 把玩家身上的等级存进 ATM（金额字段记的是「等级数」） */
+    LEVEL_DEPOSIT,
+    /** 从 ATM 取回等级（金额字段记的是「等级数」） */
+    LEVEL_WITHDRAW,
+    /** 每日在线奖励（金额字段记的是「赠送的等级数」） */
+    ONLINE_REWARD;
 
     private final String langKey = EEConstants.langKey("tx." + name().toLowerCase(Locale.ROOT));
 
     /** 该交易类型的翻译键。 */
     public String langKey() {
         return langKey;
+    }
+
+    /**
+     * 这笔记录动的是「等级」而不是「绿宝石余额」。
+     * <p>
+     * 等级存取不会改变账户余额，所以交易记录界面不能只按「余额有没有变」来筛选，
+     * 否则这些记录会被静默丢掉；金额列也要按「级」而不是「绿宝石」来展示。
+     */
+    public boolean isLevelRecord() {
+        return this == LEVEL_DEPOSIT || this == LEVEL_WITHDRAW || this == ONLINE_REWARD;
     }
 
     /** 按名字解析，失败时返回默认值（用于 NBT 反序列化）。 */

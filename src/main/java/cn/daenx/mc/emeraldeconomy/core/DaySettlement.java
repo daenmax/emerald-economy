@@ -135,6 +135,10 @@ public final class DaySettlement {
         // 2. 账户利息与贷款利息
         AccountService.applyDailyInterest(server, data, endDay);
 
+        // 2.5 重置在线奖励领取资格：只有「此刻在线」的玩家才有新一天的领取资格
+        //     （不在线的玩家今天没有资格，也不能事后补领）
+        AccountService.resetOnlineReward(server, data, newDay);
+
         // 3. 抽奖开奖并广播
         LotteryService.draw(server, data, endDay, random);
 

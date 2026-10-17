@@ -41,7 +41,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 public final class NetworkHandler {
 
     /** 协议版本，客户端与服务端不一致时会被拒绝连接。 */
-    private static final String PROTOCOL_VERSION = "2";
+    private static final String PROTOCOL_VERSION = "3";
 
     private NetworkHandler() {
     }
@@ -186,9 +186,61 @@ public final class NetworkHandler {
                         notifyAtmFailure(player, outcome.result());
                     }
                 }
+                case LEVEL_UNLOCK -> {
+                    AccountService.Outcome outcome = AccountService.unlockLevelAccess(data, player);
+                    if (outcome.ok()) {
+                        feedbackPrefixed(player, "💰 ", false, "atm.level_unlock_ok", outcome.credited());
+                    } else {
+                        notifyAtmFailure(player, outcome.result());
+                    }
+                }
+                case LEVEL_DEPOSIT -> {
+                    AccountService.LevelOutcome outcome = AccountService.depositLevels(
+                            data, player, (int) Math.min(Integer.MAX_VALUE, amount));
+                    if (outcome.ok()) {
+                        feedbackPrefixed(player, "💰 ", false, "atm.level_deposit_ok",
+                                outcome.levels(), outcome.stored(), player.experienceLevel);
+                    } else {
+                        notifyLevelFailure(player, outcome.result());
+                    }
+                }
+                case LEVEL_WITHDRAW -> {
+                    AccountService.LevelOutcome outcome = AccountService.withdrawLevels(
+                            data, player, (int) Math.min(Integer.MAX_VALUE, amount));
+                    if (outcome.ok()) {
+                        feedbackPrefixed(player, "💰 ", false, "atm.level_withdraw_ok",
+                                outcome.levels(), outcome.stored(), player.experienceLevel);
+                    } else {
+                        notifyLevelFailure(player, outcome.result());
+                    }
+                }
+                case CLAIM_ONLINE_REWARD -> {
+                    long day = cn.daenx.mc.emeraldeconomy.core.DaySettlement.currentDay(player.serverLevel());
+                    if (!AccountService.claimOnlineReward(data, player, day)) {
+                        // 提示要说清「为什么领不了」：今天没资格 / 已经领过 / 没在线
+                        if (data.account(player.getUUID()).onlineRewardClaimedToday(day)) {
+                            feedback(player, true, "atm.online_reward_already");
+                        } else {
+                            feedback(player, true, "atm.online_reward_unavailable");
+                        }
+                    }
+                }
             }
             ServerSync.sendAccount(player);
         });
+    }
+
+    /** 等级存取失败时的提示。 */
+    private static void notifyLevelFailure(ServerPlayer player, AccountService.Result result) {
+        String key = switch (result) {
+            case LEVEL_LOCKED -> "atm.level_fail_locked";
+            case LEVEL_ALREADY_UNLOCKED -> "atm.level_fail_unlocked";
+            case INSUFFICIENT_LEVELS -> "atm.level_fail_levels";
+            case INVALID_AMOUNT -> "atm.fail_invalid_amount";
+            case INSUFFICIENT_BALANCE -> "atm.fail_no_balance";
+            default -> "atm.fail_unknown";
+        };
+        feedback(player, true, key);
     }
 
     private static void notifyAtmFailure(ServerPlayer player, AccountService.Result result) {
@@ -199,6 +251,10 @@ public final class NetworkHandler {
             case EXCEEDS_CREDIT -> "atm.fail_credit";
             case NO_DEBT -> "atm.fail_no_debt";
             case NO_SPACE -> "atm.fail_no_space";
+            case LEVEL_LOCKED -> "atm.level_fail_locked";
+            case LEVEL_ALREADY_UNLOCKED -> "atm.level_fail_unlocked";
+            case INSUFFICIENT_LEVELS -> "atm.level_fail_levels";
+            case NO_ONLINE_REWARD -> "atm.online_reward_unavailable";
             case OK -> "atm.fail_unknown";
         };
         feedback(player, true, key);

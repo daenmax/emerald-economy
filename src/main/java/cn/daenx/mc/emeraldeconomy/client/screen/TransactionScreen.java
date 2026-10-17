@@ -83,7 +83,10 @@ public class TransactionScreen extends EEScreen {
         for (ServerPayloads.TxLine line : account.transactions()) {
             boolean affectsDebt = line.debtAfter() != line.debtBefore();
             boolean affectsBalance = line.balanceAfter() != line.balanceBefore();
-            if (tab == TAB_DEBT ? affectsDebt : affectsBalance) {
+            // 等级存取 / 在线奖励动的是「等级」，账户余额不变。
+            // 如果只按「余额有没有变」筛选，这些记录会一条都显示不出来。
+            boolean levelRecord = TransactionType.byName(line.type(), TransactionType.DEPOSIT).isLevelRecord();
+            if (tab == TAB_DEBT ? affectsDebt : (affectsBalance || levelRecord)) {
                 out.add(line);
             }
         }
@@ -192,11 +195,18 @@ public class TransactionScreen extends EEScreen {
             int rowColor = i % 2 == 0 ? COLOR_TEXT : 0xFFC0C0C0;
             long delta = tab == TAB_DEBT
                     ? line.debtAfter() - line.debtBefore() : line.balanceAfter() - line.balanceBefore();
+            // 等级类记录：金额列显示的是「级」，前/后列仍然显示余额（它确实没变）
+            boolean levelRecord = type.isLevelRecord() && tab == TAB_BALANCE;
+            long amountValue = levelRecord ? line.amount() : delta;
 
             drawTrimmed(graphics, Component.translatable(type.langKey()).getString(), x + COL_TYPE, lineY,
                     rowColor, COL_AMOUNT - 8);
-            drawRight(graphics, (delta >= 0 ? "+" : "") + money(delta), x + COL_AMOUNT, lineY,
-                    delta >= 0 ? COLOR_UP : COLOR_DOWN);
+            String amountText = (amountValue >= 0 ? "+" : "") + money(amountValue);
+            if (levelRecord) {
+                amountText = amountText + " " + label("screen.atm.records.unit_level");
+            }
+            drawRight(graphics, amountText, x + COL_AMOUNT, lineY,
+                    amountValue >= 0 ? COLOR_UP : COLOR_DOWN);
             drawRight(graphics, money(tab == TAB_DEBT ? line.debtBefore() : line.balanceBefore()),
                     x + COL_BEFORE, lineY, COLOR_MUTED);
             drawRight(graphics, money(tab == TAB_DEBT ? line.debtAfter() : line.balanceAfter()),

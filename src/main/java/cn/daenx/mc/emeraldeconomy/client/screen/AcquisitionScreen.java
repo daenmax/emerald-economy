@@ -12,13 +12,17 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 自动收购机界面（需求文档 6.5）。
@@ -120,7 +124,7 @@ public class AcquisitionScreen extends EEScreen {
             int rowY = listTop + (i - from) * ROW_H;
             Button button = Button.builder(
                             Component.translatable(EEConstants.langKey("screen.acquire.sell")),
-                            b -> sell(entry.itemId()))
+                            b -> sell(entry))
                     .bounds(x + contentW() - 48, rowY - 1, 48, 16).build();
             sellButtons.add(button);
             addRenderableWidget(button);
@@ -158,7 +162,7 @@ public class AcquisitionScreen extends EEScreen {
             }
             ServerPayloads.AcquireLine entry = entries.get(index);
             // 背包里不够一份就置灰（数量不足整份的话服务端也会拒绝）
-            sellButtons.get(i).active = ownedCount(entry.itemId()) >= Math.max(1, entry.batch());
+            sellButtons.get(i).active = ownedCount(entry) >= Math.max(1, entry.batch());
         }
     }
 
@@ -168,12 +172,14 @@ public class AcquisitionScreen extends EEScreen {
      * 有批次的物品（鸡蛋 8 个一份）如果框里的数量还不到一份，就自动改成
      * 「把手里的整份全卖掉」——不然玩家会看到「我明明有 16 个，却说数量不足」，
      * 而数字框默认就是 1，很容易撞上。框里的数字会同步改掉，玩家看得见卖了多少。
+     * <p>
+     * 标签行（例如「任意音乐唱片」）也一样按「整份」处理，只不过数的是该类物品的总数。
      */
-    private void sell(String itemId) {
+    private void sell(ServerPayloads.AcquireLine entry) {
         long count = countBox == null ? 0L : countBox.longValue();
-        int batch = batchOf(itemId);
+        int batch = Math.max(1, entry.batch());
         if (batch > 1 && count < batch) {
-            long owned = ownedCount(itemId);
+            long owned = ownedCount(entry);
             if (owned >= batch) {
                 count = (owned / batch) * batch;
                 if (countBox != null) {
@@ -185,23 +191,7 @@ public class AcquisitionScreen extends EEScreen {
             return;
         }
         PacketDistributor.sendToServer(
-                new ClientPayloads.AcquireSellRequest(itemId, (int) count));
-    }
-
-    /** 某个物品的批次大小（从当前快照里查，查不到按 1 算）。 */
-    private static int batchOf(String itemId) {
-        ServerPayloads.SyncAcquire acquire = ClientEconomyCache.acquire;
-        if (acquire == null || itemId == null) {
-            return 1;
-        }
-        for (ServerPayloads.AcquireCategoryLine line : acquire.categories()) {
-            for (ServerPayloads.AcquireLine entry : line.entries()) {
-                if (entry.itemId().equals(itemId)) {
-                    return Math.max(1, entry.batch());
-                }
-            }
-        }
-        return 1;
+                new ClientPayloads.AcquireSellRequest(entry.itemId(), (int) count));
     }
 
     /** 分类标签的显示名：优先用翻译键，查不到就用内容文件里写的原样名字。 */
@@ -240,15 +230,79 @@ public class AcquisitionScreen extends EEScreen {
         if (item == null) {
             return 0L;
         }
+        return countOwned(player, java.util.Set.of(item));
+    }
+
+    /**
+     * 一行条目在背包里的拥有数量。
+     * <p>
+     * 标签行（「任意音乐唱片」「所有树苗」……）数的是该类里<b>所有</b>物品加起来的数量，
+     * 因为出售时也确实允许混着卖。
+     */
+    private static long ownedCount(ServerPayloads.AcquireLine entry) {
+        var player = Minecraft.getInstance().player;
+        if (player == null) {
+            return 0L;
+        }
+        if (!entry.tag()) {
+            return ownedCount(entry.itemId());
+        }
+        Set<Item> members = tagMembers(entry.itemId());
+        return members.isEmpty() ? 0L : countOwned(player, members);
+    }
+
+    /** 标签行里的全部物品（客户端本地解析，用于显示图标与统计数量）。 */
+    private static Set<Item> tagMembers(String tagRowId) {
+        Set<Item> out = new LinkedHashSet<>();
+        if (tagRowId == null || tagRowId.length() < 2) {
+            return out;
+        }
+        ResourceLocation id = ResourceLocation.tryParse(tagRowId.substring(1));
+        if (id == null) {
+            return out;
+        }
+        TagKey<Item> tag = TagKey.create(Registries.ITEM, id);
+        for (var holder : BuiltInRegistries.ITEM.getTagOrEmpty(tag)) {
+            out.add(holder.value());
+        }
+        return out;
+    }
+
+    private static long countOwned(net.minecraft.world.entity.player.Player player, Set<Item> items) {
         long total = 0L;
         var inventory = player.getInventory();
         for (int i = 0; i < inventory.getContainerSize(); i++) {
             ItemStack stack = inventory.getItem(i);
-            if (!stack.isEmpty() && stack.is(item)) {
+            if (!stack.isEmpty() && items.contains(stack.getItem())) {
                 total += stack.getCount();
             }
         }
         return total;
+    }
+
+    /** 一行的显示名：翻译键 → 原样文本 → 物品名 / 标签 ID。 */
+    private static Component rowName(ServerPayloads.AcquireLine entry) {
+        if (entry.lang() != null && !entry.lang().isBlank()) {
+            return Component.translatable(EEConstants.langKey(entry.lang()));
+        }
+        if (entry.name() != null && !entry.name().isBlank()) {
+            return Component.literal(entry.name());
+        }
+        if (entry.tag()) {
+            return Component.literal(entry.itemId());
+        }
+        return iconOf(entry.itemId()).getHoverName();
+    }
+
+    /** 一行的图标：标签行取该类里的第一个物品当代表。 */
+    private static ItemStack rowIcon(ServerPayloads.AcquireLine entry) {
+        if (!entry.tag()) {
+            return iconOf(entry.itemId());
+        }
+        for (Item item : tagMembers(entry.itemId())) {
+            return new ItemStack(item);
+        }
+        return ItemStack.EMPTY;
     }
 
     @Override
@@ -301,12 +355,12 @@ public class AcquisitionScreen extends EEScreen {
             int rowY = listTop + (i - from) * ROW_H;
             graphics.fill(x, rowY - 2, x + contentW(), rowY + 17, COLOR_PANEL_ALT);
 
-            ItemStack icon = iconOf(entry.itemId());
-            long owned = ownedCount(entry.itemId());
+            ItemStack icon = rowIcon(entry);
+            long owned = ownedCount(entry);
             if (!icon.isEmpty()) {
                 graphics.renderItem(icon, x + 2, rowY - 1);
             }
-            drawTrimmed(graphics, icon.getHoverName().getString(), x + 22, rowY + 3, COLOR_TEXT, 120);
+            drawTrimmed(graphics, rowName(entry).getString(), x + 22, rowY + 3, COLOR_TEXT, 120);
             // 背包里有几个：没有就标红，让玩家一眼看出为什么按钮是灰的
             drawText(graphics, Component.translatable(EEConstants.langKey("screen.acquire.owned"),
                     owned).getString(), x + 144, rowY + 3, owned > 0 ? COLOR_MUTED : COLOR_DOWN);
@@ -337,7 +391,7 @@ public class AcquisitionScreen extends EEScreen {
             if (builder.length() > 0) {
                 builder.append("、");
             }
-            builder.append(iconOf(entry.itemId()).getHoverName().getString())
+            builder.append(rowName(entry).getString())
                     .append("(").append(entry.price()).append(")");
         }
         return builder.toString();

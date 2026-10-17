@@ -75,6 +75,8 @@ public final class SelfTest {
             testShopCost();
             testFriday();
             testAccountPersistence();
+            testLevelAndOnlineReward();
+            testMarketRandomDrift();
             testEconomyPersistence();
         } catch (Throwable throwable) {
             failed++;
@@ -251,25 +253,67 @@ public final class SelfTest {
     private static void testAcquireTables() {
         Map<String, Long> farming = priceMap("AGRICULTURE");
         check("农业表里能展开出小麦", farming.containsKey("minecraft:wheat"));
-        check("农业表的 saplings 标签展开成了具体树苗",
-                farming.containsKey("minecraft:oak_sapling") && farming.containsKey("minecraft:birch_sapling"));
-        check("树苗的价格是 1", farming.getOrDefault("minecraft:oak_sapling", 0L) == 1L);
+        check("农业表新增毒马铃薯（10），且排在马铃薯后面",
+                farming.getOrDefault("minecraft:poisonous_potato", 0L) == 10L
+                        && rowOrder("AGRICULTURE").indexOf("minecraft:potato")
+                        < rowOrder("AGRICULTURE").indexOf("minecraft:poisonous_potato"));
+
+        Map<String, Long> forestry = priceMap("FORESTRY");
+        check("林业表新增所有树苗（1）",
+                forestry.getOrDefault("minecraft:oak_sapling", 0L) == 1L
+                        && forestry.containsKey("minecraft:cherry_sapling"));
+        check("林业表新增所有花（1）",
+                forestry.getOrDefault("minecraft:dandelion", 0L) == 1L
+                        && forestry.getOrDefault("minecraft:sunflower", 0L) == 1L);
+        check("林业表新增所有蘑菇（1）",
+                forestry.getOrDefault("minecraft:brown_mushroom", 0L) == 1L
+                        && forestry.getOrDefault("minecraft:red_mushroom", 0L) == 1L);
+        check("林业表新增仙人掌（1）", forestry.getOrDefault("minecraft:cactus", 0L) == 1L);
+        check("林业表不再收购木棍", !forestry.containsKey("minecraft:stick"));
+        check("林业表原木统一 1 个", forestry.getOrDefault("minecraft:oak_log", 0L) == 1L);
 
         Map<String, Long> misc = priceMap("MISC");
         check("杂物表里有山羊角与潜影壳",
                 misc.containsKey("minecraft:goat_horn") && misc.containsKey("minecraft:shulker_shell"));
-        check("杂物表的音乐唱片标签展开了（含 13 号与猪布林）", misc.containsKey("minecraft:music_disc_13")
-                && misc.containsKey("minecraft:music_disc_pigstep"));
+        check("杂物表新增不祥旗帜（50，按白色旗帜收）",
+                misc.getOrDefault("minecraft:white_banner", 0L) == 50L);
+        check("杂物表新增恶魂之泪（20）", misc.getOrDefault("minecraft:ghast_tear", 0L) == 20L);
+        check("杂物表新增腐肉 / 蜘蛛眼（1）",
+                misc.getOrDefault("minecraft:rotten_flesh", 0L) == 1L
+                        && misc.getOrDefault("minecraft:spider_eye", 0L) == 1L);
+        check("杂物表新增幽匿感测体（20）", misc.getOrDefault("minecraft:sculk_sensor", 0L) == 20L);
+        check("岩浆膏（5）排在粘液球（2）下面，烈焰棒 5",
+                misc.getOrDefault("minecraft:magma_cream", 0L) == 5L
+                        && misc.getOrDefault("minecraft:slime_ball", 0L) == 2L
+                        && misc.getOrDefault("minecraft:blaze_rod", 0L) == 5L
+                        && rowOrder("MISC").indexOf("minecraft:slime_ball")
+                        < rowOrder("MISC").indexOf("minecraft:magma_cream"));
         check("杂物表的马铠标签展开了 4 件", misc.containsKey("minecraft:diamond_horse_armor"));
+
+        // 「整类」条目在界面上只占一行：唱片 / 树苗 / 花 / 蘑菇 / 马铠都是标签行
+        check("唱片是一行标签行（不再把 19 张唱片一件件列出来）",
+                hasTagRow("MISC", "emerald_economy:acquire/music_discs")
+                        && !rowOrder("MISC").contains("minecraft:music_disc_13"));
+        check("树苗 / 花 / 蘑菇都是标签行",
+                hasTagRow("FORESTRY", "minecraft:saplings")
+                        && hasTagRow("FORESTRY", "emerald_economy:acquire/flowers")
+                        && hasTagRow("FORESTRY", "emerald_economy:acquire/mushrooms"));
+        check("标签行有配置好的显示名（音乐唱片）",
+                tagRowLang("MISC", "emerald_economy:acquire/music_discs") != null);
+        // 每一行标签都要有名字：裸标签 ID（#emerald_economy:acquire/xxx）玩家看不懂
+        List<String> unnamed = new java.util.ArrayList<>();
+        for (AcquireService.Entry entry : entriesOfAllCategories()) {
+            if (entry.tag() && (entry.lang() == null || entry.lang().isBlank())
+                    && (entry.name() == null || entry.name().isBlank())) {
+                unnamed.add(entry.itemId());
+            }
+        }
+        check("所有标签行都配了显示名（没有裸标签 ID 露到界面上）：" + unnamed, unnamed.isEmpty());
 
         Map<String, Long> mining = priceMap("MINING");
         check("矿物表不再收购绿宝石", !mining.containsKey("minecraft:emerald"));
         check("矿物表里有下界合金碎片（10）",
                 mining.getOrDefault("minecraft:netherite_scrap", 0L) == 10L);
-
-        Map<String, Long> forestry = priceMap("FORESTRY");
-        check("林业表不再收购木棍", !forestry.containsKey("minecraft:stick"));
-        check("林业表原木统一 1 个", forestry.getOrDefault("minecraft:oak_log", 0L) == 1L);
 
         Map<String, Long> livestock = priceMap("LIVESTOCK");
         check("畜牧表有鱼肉类（fishes 标签展开出鳕鱼）", livestock.containsKey("minecraft:cod"));
@@ -281,21 +325,75 @@ public final class SelfTest {
         check("竹子配了 4 个一份", AcquireService.batchOf(null, "minecraft:bamboo") == 4);
         check("没配批次的物品按 1 个算", AcquireService.batchOf(null, "minecraft:wheat") == 1);
         check("甘蔗单价 2", farming.getOrDefault("minecraft:sugar_cane", 0L) == 2L);
+        check("标签行也能查到价格（树苗 1）",
+                AcquireService.priceOf(null, "#minecraft:saplings") == 1L);
 
         check("收购分类来自内容文件（5 个）", AcquireService.categories().size() == 5);
         check("疯狂星期五那段配置存在", AcquireService.hasFriday());
     }
 
-    /** 某个分类展开成「物品 ID -> 价格」表（不需要玩家数据）。 */
+    /** 某个分类展开成「物品 ID -> 价格」表（标签会展开成具体物品，与旧断言兼容）。 */
     private static Map<String, Long> priceMap(String categoryId) {
         Map<String, Long> out = new java.util.LinkedHashMap<>();
         for (AcquireService.Entry entry : AcquireService.entries(null, categoryId)) {
-            out.putIfAbsent(entry.itemId(), entry.price());
+            if (entry.tag()) {
+                for (String id : AcquireService.tagMemberIds(entry.itemId().substring(1))) {
+                    out.putIfAbsent(id, entry.price());
+                }
+            } else {
+                out.putIfAbsent(entry.itemId(), entry.price());
+            }
         }
         return out;
     }
 
-    /** 疯狂星期五的物品池里不该再有潜影壳。 */
+    /** 一个分类里「具体物品行」的 ID 顺序（用于校验配置里的先后顺序）。 */
+    private static List<String> rowOrder(String categoryId) {
+        List<String> out = new java.util.ArrayList<>();
+        for (AcquireService.Entry entry : AcquireService.entries(null, categoryId)) {
+            if (!entry.tag()) {
+                out.add(entry.itemId());
+            }
+        }
+        return out;
+    }
+
+    /** 某个分类里有没有指定的标签行。 */
+    private static boolean hasTagRow(String categoryId, String tag) {
+        for (AcquireService.Entry entry : AcquireService.entries(null, categoryId)) {
+            if (entry.tag() && entry.itemId().equalsIgnoreCase("#" + tag)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** 所有常驻分类的全部行（用于「每个标签行都得有名字」这类全局检查）。 */
+    private static List<AcquireService.Entry> entriesOfAllCategories() {
+        List<AcquireService.Entry> out = new java.util.ArrayList<>();
+        for (var category : AcquireService.categories()) {
+            out.addAll(AcquireService.entries(null, category.idOr("")));
+        }
+        return out;
+    }
+
+    /** 标签行的显示名翻译键。 */
+    private static String tagRowLang(String categoryId, String tag) {
+        for (AcquireService.Entry entry : AcquireService.entries(null, categoryId)) {
+            if (entry.tag() && entry.itemId().equalsIgnoreCase("#" + tag)) {
+                return entry.lang();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 疯狂星期五的物品池：池子写法（具体物品 / 标签 / 通配）与「同类最多占几件」。
+     * <p>
+     * 需求：一天挑 3 件时，<b>头颅最多占 1 件、刷怪蛋最多占 1 件</b>；具体是哪一种头颅
+     * （6 种）与哪一种刷怪蛋（80 多种）是随机挑的。这里的「最多 1 件」说的是
+     * <b>随机结果里这类物品出现几次</b>，跟「收购数量」无关（挑中的物品想卖多少卖多少）。
+     */
     private static void testFridayPool() {
         var friday = cn.daenx.mc.emeraldeconomy.content.EconomyContent.acquire().friday();
         check("疯狂星期五配置存在", friday != null);
@@ -306,10 +404,83 @@ public final class SelfTest {
                 friday.poolList().stream().noneMatch(id -> id != null && id.contains("shulker_shell")));
         check("疯狂星期五基准价里没有潜影壳",
                 friday.basePriceMap().keySet().stream().noneMatch(id -> id.contains("shulker_shell")));
-        check("疯狂星期五物品池有 9 件", friday.poolList().size() == 9);
+        check("池子里有刷怪笼", friday.poolList().contains("minecraft:spawner"));
+        check("池子里有「所有怪物的头颅」标签",
+                friday.poolList().contains("#emerald_economy:acquire/heads"));
+        check("池子里有「所有怪物的刷怪蛋」通配",
+                friday.poolList().contains("*_spawn_egg"));
+        // 龙首并进了头颅标签（不再单独列、不再单独配价），不死图腾从池子里删掉
+        check("头颅标签里含龙首（6 种头颅同一个池子条目）",
+                AcquireService.tagMemberIds("emerald_economy:acquire/heads")
+                        .contains("minecraft:dragon_head")
+                        && !friday.poolList().contains("minecraft:dragon_head"));
+        check("池子里没有不死图腾",
+                friday.poolList().stream().noneMatch(id -> id != null && id.contains("totem_of_undying"))
+                        && friday.basePriceMap().keySet().stream()
+                        .noneMatch(id -> id.contains("totem_of_undying")));
+        check("池子条目没有把挑选上限调大（默认就是每天最多 1 件）",
+                friday.poolMaxPickMap().values().stream().allMatch(value -> value <= 1));
+        check("池子条目的基准价（头颅 83 / 刷怪蛋 52）",
+                friday.basePriceMap().getOrDefault("#emerald_economy:acquire/heads", 0) == 83
+                        && friday.basePriceMap().getOrDefault("*_spawn_egg", 0) == 52);
+
+        // 200 次抽样：每天挑满 3 件、三件互不相同、同类不超 1 件，
+        // 并且「具体是哪一种头颅 / 刷怪蛋」确实是随机的（出现过不止一种）
+        boolean countOk = true;
+        boolean distinctOk = true;
+        boolean headLimitOk = true;
+        boolean eggLimitOk = true;
+        boolean priceOk = true;
+        long headPriceMin = -1L;
+        long headPriceMax = -1L;
+        java.util.Set<String> heads = new java.util.HashSet<>(List.of(
+                "minecraft:zombie_head", "minecraft:skeleton_skull", "minecraft:wither_skeleton_skull",
+                "minecraft:creeper_head", "minecraft:dragon_head", "minecraft:piglin_head"));
+        java.util.Set<String> pickedHeads = new java.util.HashSet<>();
+        java.util.Set<String> pickedEggs = new java.util.HashSet<>();
+        for (int day = 1; day <= 200; day++) {
+            EconomyData data = new EconomyData();
+            AcquireService.ensureFridayState(data, EEConfig.fridayIntervalDays(), RandomSource.create(day));
+            List<String> picked = data.acquire().fridayItems();
+            if (picked.size() != EEConfig.fridayPickCount()) {
+                countOk = false;
+            }
+            if (new java.util.HashSet<>(picked).size() != picked.size()) {
+                distinctOk = false;
+            }
+            if (picked.stream().filter(heads::contains).count() > 1) {
+                headLimitOk = false;
+            }
+            if (picked.stream().filter(id -> id.endsWith("_spawn_egg")).count() > 1) {
+                eggLimitOk = false;
+            }
+            picked.stream().filter(heads::contains).forEach(pickedHeads::add);
+            picked.stream().filter(id -> id.endsWith("_spawn_egg")).forEach(pickedEggs::add);
+            for (var entry : AcquireService.fridayEntries(data)) {
+                if (entry.price() < 1) {
+                    priceOk = false;
+                }
+                if (heads.contains(entry.itemId())) {
+                    headPriceMin = headPriceMin < 0 ? entry.price() : Math.min(headPriceMin, entry.price());
+                    headPriceMax = Math.max(headPriceMax, entry.price());
+                }
+            }
+        }
+        check("每天都能挑满配置数量的物品（200 次抽样）", countOk);
+        check("同一天不会重复挑中同一件物品（200 次抽样）", distinctOk);
+        check("头颅每天最多占 1 件（200 次抽样）", headLimitOk);
+        check("刷怪蛋每天最多占 1 件（200 次抽样）", eggLimitOk);
+        check("「是哪种头颅」是随机挑的（200 次里出现过 " + pickedHeads.size() + " 种）",
+                pickedHeads.size() >= 2);
+        check("「是哪种刷怪蛋」是随机挑的（200 次里出现过 " + pickedEggs.size() + " 种）",
+                pickedEggs.size() >= 2);
+        check("疯狂星期五价格为正", priceOk);
+        check("挑中头颅时按基准价 83 算（含龙首）：" + headPriceMin + "~" + headPriceMax,
+                headPriceMin >= 0 && headPriceMin >= 83 * EEConfig.fridayMultiplierMin() - 1
+                        && headPriceMax <= 83 * EEConfig.fridayMultiplierMax() + 1);
     }
 
-    /** 自动售货机的货架：附魔书 + 「其他」商品（种子 / 树苗）。 */
+    /** 自动售货机的货架：附魔书 + 「其他」商品（种子 / 树苗 / 杂物里的经验值）。 */
     private static void testShopGoods() {
         var content = cn.daenx.mc.emeraldeconomy.content.EconomyContent.shop();
         check("售货机有大分类", content.groupList().size() >= 2);
@@ -320,10 +491,32 @@ public final class SelfTest {
                 content.plainItems().getOrDefault("minecraft:wheat_seeds", -1) == 8);
         check("「其他」商品表里有橡树树苗（16）",
                 content.plainItems().getOrDefault("minecraft:oak_sapling", -1) == 16);
+        check("「其他」新增杂物子分类（排在树苗后面）", subOrder("OTHER").indexOf("SAPLING")
+                < subOrder("OTHER").indexOf("MISC"));
+        check("杂物子分类卖三档经验值（10/100/1000 点）",
+                content.expItems().getOrDefault(10, -1) == 100
+                        && content.expItems().getOrDefault(100, -1) == 800
+                        && content.expItems().getOrDefault(1000, -1) == 6000);
+        check("经验值商品算得进「其他」货架（不是附魔书）",
+                content.tabOfExp(1000) != null && !content.tabOfExp(1000).unlockable());
         check("锋利的价格区间是 896-1280", content.enchantSpec("minecraft:sharpness") != null
                 && content.enchantSpec("minecraft:sharpness").minPrice() == 896
                 && content.enchantSpec("minecraft:sharpness").maxPrice() == 1280);
         check("附魔都能查到自己的子分类", content.tabOfEnchant("minecraft:mending") != null);
+    }
+
+    /** 某个大分类下的子分类 ID 顺序。 */
+    private static List<String> subOrder(String groupId) {
+        List<String> out = new java.util.ArrayList<>();
+        for (var group : cn.daenx.mc.emeraldeconomy.content.EconomyContent.shop().groupList()) {
+            if (!group.idOr("").equalsIgnoreCase(groupId)) {
+                continue;
+            }
+            for (var sub : cn.daenx.mc.emeraldeconomy.content.ShopContent.subList(group)) {
+                out.add(sub.idOr(""));
+            }
+        }
+        return out;
     }
 
     private static void testShopCost() {
@@ -417,6 +610,99 @@ public final class SelfTest {
         TransactionRecord record = loaded.records().peekFirst();
         check("流水记录余额变动后的余额", record.balanceAfter() == 1234L);
         check("流水记录欠款变动后的欠款", record.debtAfter() == 540L);
+    }
+
+    /**
+     * ATM 的「等级存取」与「在线奖励」（本轮新增）。
+     * <p>
+     * 这两块的核心规则都是纯数据判断，很适合放在这里验：
+     * 资格只发给「结算那一刻在线」的玩家、每天只能领一次、等级库存不会被扣成负数。
+     */
+    private static void testLevelAndOnlineReward() {
+        check("等级存取解锁费用默认 1000", EEConfig.levelUnlockCost() == 1000L);
+        check("在线奖励默认送 1 级", EEConfig.onlineRewardLevels() == 1);
+        check("每日随机情绪修正默认开启", EEConfig.dailyRandomDrift() > 0.0D);
+
+        UUID uuid = UUID.fromString("00000000-0000-0000-0000-0000000000ef");
+        AccountData account = new AccountData(uuid);
+        check("等级存取默认未解锁", !account.levelUnlocked());
+        check("等级库存默认 0", account.storedLevels() == 0L);
+        check("默认没有在线奖励资格", !account.hasOnlineReward(5L));
+
+        account.grantOnlineReward(5L);
+        check("结算时在线 → 当天拿到资格", account.hasOnlineReward(5L));
+        check("资格只对当天有效（第 6 天要重新结算）", !account.hasOnlineReward(6L));
+        account.markOnlineRewardClaimed();
+        check("领取后当天不能再领", !account.hasOnlineReward(5L) && account.onlineRewardClaimedToday(5L));
+
+        account.grantOnlineReward(6L);
+        check("第二天结算时又在线 → 重新拿到资格", account.hasOnlineReward(6L));
+        account.revokeOnlineReward();
+        check("结算时不在线 → 资格被收回、也不能补领",
+                !account.hasOnlineReward(6L) && !account.onlineRewardClaimedToday(6L));
+
+        account.setLevelUnlocked(true);
+        account.addStoredLevels(12);
+        check("存入等级会增加库存", account.storedLevels() == 12L);
+        account.addStoredLevels(-20);
+        check("等级库存不会变成负数", account.storedLevels() == 0L);
+        account.addStoredLevels(3);
+
+        AccountData loaded = AccountData.load(account.save());
+        check("等级解锁 / 等级库存随存档持久化",
+                loaded.levelUnlocked() && loaded.storedLevels() == 3L);
+        check("在线奖励资格随存档持久化（不会重启就白送一次）",
+                !loaded.hasOnlineReward(6L));
+
+        // 旧存档没有这几个字段：必须按「未解锁 / 库存 0 / 没有资格」读，不能读出乱数字
+        AccountData legacy = AccountData.load(new CompoundTag());
+        check("旧存档读出来是未解锁、库存 0、没有资格",
+                !legacy.levelUnlocked() && legacy.storedLevels() == 0L && !legacy.hasOnlineReward(0L));
+
+        check("等级类流水会被交易记录界面认出来（不按余额变动过滤）",
+                TransactionType.LEVEL_DEPOSIT.isLevelRecord()
+                        && TransactionType.LEVEL_WITHDRAW.isLevelRecord()
+                        && TransactionType.ONLINE_REWARD.isLevelRecord()
+                        && !TransactionType.LEVEL_UNLOCK.isLevelRecord()
+                        && !TransactionType.DEPOSIT.isLevelRecord());
+    }
+
+    /**
+     * 每日结算里的随机情绪修正（需求：即便玩家什么都没干，行情也要有随机性）。
+     */
+    private static void testMarketRandomDrift() {
+        // 谁都没做事（供给 0）+ 晴天：矿业的天气修正也是 0，此时动量的唯一来源就是随机修正
+        EconomyData calm = new EconomyData();
+        calm.ensureMarketInitialized();
+        MarketEngine.settleDay(null, calm, 0L, WeatherKind.CLEAR, RandomSource.create(7L));
+        int nonzero = 0;
+        for (FundType type : FundType.values()) {
+            if (Math.abs(calm.market().fund(type).momentum()) > 1.0E-9D) {
+                nonzero++;
+            }
+        }
+        check("没有世界活动时每支基金也会拿到随机修正（7 支里至少 6 支有值）", nonzero >= 6);
+        check("矿业基金在晴天不受天气影响（说明上面测的确实是随机项）",
+                Math.abs(EEConfig.dailyRandomDrift()) > 0.0D);
+
+        // 正负对称：跑 300 天，矿业基金的随机修正必须涨跌都出现过。
+        // 注意种子要「散开」：java.util.Random 的相邻种子第一次取值的差异极小，
+        // 用 1000+i 当种子会让 300 天几乎取到同一个随机数（假失败），所以这里乘以一个大质数。
+        int positive = 0;
+        int negative = 0;
+        for (int i = 0; i < 300; i++) {
+            EconomyData data = new EconomyData();
+            data.ensureMarketInitialized();
+            MarketEngine.settleDay(null, data, 0L, WeatherKind.CLEAR, RandomSource.create(7919L * i + 13L));
+            double momentum = data.market().fund(FundType.EMR_MIN).momentum();
+            if (momentum > 0.0D) {
+                positive++;
+            } else if (momentum < 0.0D) {
+                negative++;
+            }
+        }
+        log("  矿业基金 300 天的随机修正：正 " + positive + " 天 / 负 " + negative + " 天");
+        check("随机修正正负对称（300 天里矿业涨跌都出现过）", positive > 50 && negative > 50);
     }
 
     private static void testEconomyPersistence() {

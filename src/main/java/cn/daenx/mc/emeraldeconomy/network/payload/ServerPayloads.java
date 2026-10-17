@@ -83,16 +83,17 @@ public final class ServerPayloads {
     /**
      * 一个商店货架条目的快照。
      *
-     * @param key       商品键（{@code E:附魔ID} / {@code I:物品ID}），客户端购买时原样回传
+     * @param key       商品键（{@code E:附魔ID} / {@code I:物品ID} / {@code X:经验点数}），客户端购买时原样回传
      * @param groupId   大分类 ID（对应 {@link ShopTab#groupId()}）
      * @param subId     子分类 ID（对应 {@link ShopTab#subId()}）
-     * @param id        附魔 ID 或物品 ID
+     * @param id        附魔 ID 或物品 ID（经验值商品是经验点数）
      * @param price     售价
      * @param remaining 今日剩余可购次数
      * @param enchant   是不是附魔书（界面据此决定要不要显示等级与适用物品）
+     * @param exp       经验值商品的点数（0 表示不是经验值商品）
      */
     public record ShopGood(String key, String groupId, String subId, String id, int price,
-                           int remaining, boolean enchant) {
+                           int remaining, boolean enchant, int exp) {
     }
 
     /**
@@ -112,12 +113,16 @@ public final class ServerPayloads {
     /**
      * 一条收购条目。
      *
-     * @param itemId 物品注册名
+     * @param itemId 物品注册名；{@code tag} 为真时是「标签行」，形如 {@code #minecraft:saplings}
      * @param price  收购单价（每「一份」的价格）
      * @param friday 是否属于疯狂星期五
      * @param batch  一份等于几个（1 表示按个收）
+     * @param tag    是不是「整类收购」行（卖背包里该类里的任意一种都行）
+     * @param lang   显示名翻译键（可为空）
+     * @param name   显示名原样文本（翻译键查不到时用它）
      */
-    public record AcquireLine(String itemId, long price, boolean friday, int batch) {
+    public record AcquireLine(String itemId, long price, boolean friday, int batch,
+                              boolean tag, String lang, String name) {
     }
 
     /**
@@ -183,12 +188,26 @@ public final class ServerPayloads {
     /**
      * 账户快照（ATM 界面用）。
      *
-     * @param transactions 最近的全部流水（新的在前）
+     * @param balance              绿宝石余额
+     * @param debt                 贷款欠款
+     * @param creditLimit          信用额度
+     * @param availableCredit      可贷额度
+     * @param levelUnlocked        「等级存取」是否已付费解锁
+     * @param storedLevels         存在 ATM 里的等级数量
+     * @param playerLevel          玩家当前的等级（用于界面显示与「最多能存几级」）
+     * @param levelUnlockCost      解锁「等级存取」需要的绿宝石（来自服务端配置）
+     * @param onlineRewardReady    今天有没有可领的在线奖励（结算时在线且还没领）
+     * @param onlineRewardClaimed  今天是否已经领过在线奖励
+     * @param onlineRewardLevels   在线奖励送几级（来自服务端配置）
+     * @param transactions         最近的全部流水（新的在前）
      */
     public record SyncAccount(long balance, long debt, long creditLimit, long availableCredit,
                               double depositFeeRate, double withdrawFeeRate,
                               double dailyInterestRate, double loanInterestRate,
                               long interestMinBalance,
+                              boolean levelUnlocked, long storedLevels, int playerLevel,
+                              long levelUnlockCost, boolean onlineRewardReady,
+                              boolean onlineRewardClaimed, int onlineRewardLevels,
                               List<TxLine> transactions) implements CustomPacketPayload {
 
         public static final CustomPacketPayload.Type<SyncAccount> TYPE =
@@ -299,6 +318,13 @@ public final class ServerPayloads {
         buf.writeDouble(payload.dailyInterestRate());
         buf.writeDouble(payload.loanInterestRate());
         buf.writeVarLong(payload.interestMinBalance());
+        buf.writeBoolean(payload.levelUnlocked());
+        buf.writeVarLong(payload.storedLevels());
+        buf.writeVarInt(payload.playerLevel());
+        buf.writeVarLong(payload.levelUnlockCost());
+        buf.writeBoolean(payload.onlineRewardReady());
+        buf.writeBoolean(payload.onlineRewardClaimed());
+        buf.writeVarInt(payload.onlineRewardLevels());
         buf.writeVarInt(payload.transactions().size());
         for (TxLine line : payload.transactions()) {
             buf.writeUtf(line.type());
@@ -320,6 +346,13 @@ public final class ServerPayloads {
         double dailyRate = buf.readDouble();
         double loanRate = buf.readDouble();
         long minBalance = buf.readVarLong();
+        boolean levelUnlocked = buf.readBoolean();
+        long storedLevels = buf.readVarLong();
+        int playerLevel = buf.readVarInt();
+        long levelUnlockCost = buf.readVarLong();
+        boolean onlineRewardReady = buf.readBoolean();
+        boolean onlineRewardClaimed = buf.readBoolean();
+        int onlineRewardLevels = buf.readVarInt();
         int count = buf.readVarInt();
         List<TxLine> transactions = new ArrayList<>(Math.max(0, count));
         for (int i = 0; i < count; i++) {
@@ -327,7 +360,9 @@ public final class ServerPayloads {
                     buf.readVarLong(), buf.readVarLong(), buf.readVarLong()));
         }
         return new SyncAccount(balance, debt, creditLimit, availableCredit,
-                depositFee, withdrawFee, dailyRate, loanRate, minBalance, transactions);
+                depositFee, withdrawFee, dailyRate, loanRate, minBalance,
+                levelUnlocked, storedLevels, playerLevel, levelUnlockCost,
+                onlineRewardReady, onlineRewardClaimed, onlineRewardLevels, transactions);
     }
 
     private static void writeMarket(RegistryFriendlyByteBuf buf, SyncMarket payload) {
@@ -432,6 +467,7 @@ public final class ServerPayloads {
             buf.writeVarInt(good.price());
             buf.writeVarInt(good.remaining());
             buf.writeBoolean(good.enchant());
+            buf.writeVarInt(good.exp());
         }
         buf.writeVarLong(payload.nextUpgradeCost());
         buf.writeVarInt(payload.unlocked());
@@ -451,7 +487,7 @@ public final class ServerPayloads {
         List<ShopGood> goods = new ArrayList<>(Math.max(0, size));
         for (int i = 0; i < size; i++) {
             goods.add(new ShopGood(buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readUtf(),
-                    buf.readVarInt(), buf.readVarInt(), buf.readBoolean()));
+                    buf.readVarInt(), buf.readVarInt(), buf.readBoolean(), buf.readVarInt()));
         }
         return new SyncShop(tabs, goods, buf.readVarLong(), buf.readVarInt(), buf.readVarInt(),
                 buf.readVarInt(), buf.readVarLong());
@@ -469,6 +505,9 @@ public final class ServerPayloads {
                 buf.writeVarLong(line.price());
                 buf.writeBoolean(line.friday());
                 buf.writeVarInt(line.batch());
+                buf.writeBoolean(line.tag());
+                buf.writeUtf(line.lang() == null ? "" : line.lang());
+                buf.writeUtf(line.name() == null ? "" : line.name());
             }
         }
         buf.writeBoolean(payload.fridayActive());
@@ -489,7 +528,7 @@ public final class ServerPayloads {
             List<AcquireLine> entries = new ArrayList<>(Math.max(0, entryCount));
             for (int j = 0; j < entryCount; j++) {
                 entries.add(new AcquireLine(buf.readUtf(), buf.readVarLong(), buf.readBoolean(),
-                        buf.readVarInt()));
+                        buf.readVarInt(), buf.readBoolean(), buf.readUtf(), buf.readUtf()));
             }
             categories.add(new AcquireCategoryLine(id, lang, name, entries));
         }

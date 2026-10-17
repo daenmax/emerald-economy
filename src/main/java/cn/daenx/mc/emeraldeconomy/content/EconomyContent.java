@@ -104,7 +104,7 @@ public final class EconomyContent {
         loaded = true;
 
         int groups = shop.groupList().size();
-        int goods = shop.unlockableEnchants().size() + shop.plainItems().size();
+        int goods = shop.unlockableEnchants().size() + shop.plainItems().size() + shop.expItems().size();
         int categories = acquire.categoryList().size();
         String summary = String.format("内容已加载：售货机 %d 个大分类 / %d 件商品；收购机 %d 个分类",
                 groups, goods, categories);

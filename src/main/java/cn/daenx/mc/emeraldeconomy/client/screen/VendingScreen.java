@@ -332,16 +332,20 @@ public class VendingScreen extends EEScreen {
             if (!icon.isEmpty()) {
                 graphics.renderItem(icon, x + 2, rowY + 4);
             }
-            // 第一行：名称（附魔书带等级）
+            // 第一行：名称（附魔书带等级；经验值商品写「N 点经验值」）
             Component name = good.enchant()
                     ? Component.empty().append(enchantName(good.id())).append(" ")
                     .append(Component.translatable("enchantment.level." + levelOf(good.id())))
+                    : good.exp() > 0
+                    ? Component.translatable(EEConstants.langKey("screen.vending.exp_goods"), good.exp())
                     : itemName(good.id());
             drawTrimmed(graphics, name.getString(), x + 22, rowY + 3, COLOR_TEXT, 150);
-            // 第二行：附魔书显示适用物品，其他商品显示它的子分类
+            // 第二行：附魔书显示适用物品，经验值商品说明「不是等级」，其他商品显示它的子分类
             drawTrimmed(graphics, good.enchant()
                             ? Component.translatable(EEConstants.langKey("screen.vending.applicable"),
                             applicableOf(good.id())).getString()
+                            : good.exp() > 0
+                            ? Component.translatable(EEConstants.langKey("screen.vending.exp_hint")).getString()
                             : subNameOf(good).getString(),
                     x + 22, rowY + 14, COLOR_MUTED, 190);
 
@@ -384,10 +388,14 @@ public class VendingScreen extends EEScreen {
         return Component.literal(good.subId());
     }
 
-    /** 商品图标：附魔书本地造一本满级书，其他商品直接取物品。 */
+    /** 商品图标：附魔书本地造一本满级书，经验值商品用经验瓶示意，其他商品直接取物品。 */
     private static ItemStack iconOf(ServerPayloads.ShopGood good) {
         if (good.enchant()) {
             return bookOf(good.id());
+        }
+        if (good.exp() > 0) {
+            // 经验值没有物品形态，用经验瓶当图标，让玩家一眼看出这条卖的是经验
+            return new ItemStack(net.minecraft.world.item.Items.EXPERIENCE_BOTTLE);
         }
         ResourceLocation id = ResourceLocation.tryParse(good.id());
         Level level = Minecraft.getInstance().level;

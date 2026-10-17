@@ -29,7 +29,15 @@ public final class ClientPayloads {
         /** 把背包里的绿宝石全部存入 */
         DEPOSIT_ALL,
         /** 把账户余额全部取出（背包放不下就失败） */
-        WITHDRAW_ALL;
+        WITHDRAW_ALL,
+        /** 付费解锁「等级存取」 */
+        LEVEL_UNLOCK,
+        /** 把玩家身上的等级存进 ATM */
+        LEVEL_DEPOSIT,
+        /** 从 ATM 取回等级 */
+        LEVEL_WITHDRAW,
+        /** 领取当天的在线奖励（奖励是等级） */
+        CLAIM_ONLINE_REWARD;
 
         public static AtmAction byIndex(int index) {
             AtmAction[] values = values();

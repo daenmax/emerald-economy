@@ -32,6 +32,10 @@ public class AccountData {
     private static final String KEY_CREDIT_LIMIT = "creditLimit";
     private static final String KEY_RECORDS = "records";
     private static final String KEY_HOLDINGS = "holdings";
+    private static final String KEY_LEVEL_UNLOCKED = "levelUnlocked";
+    private static final String KEY_STORED_LEVELS = "storedLevels";
+    private static final String KEY_ONLINE_REWARD_DAY = "onlineRewardDay";
+    private static final String KEY_ONLINE_REWARD_CLAIMED = "onlineRewardClaimed";
 
     private final UUID playerId;
     private String name;
@@ -43,6 +47,17 @@ public class AccountData {
     private long debtInterest;
     /** 该玩家的信用额度，可被单独调整，默认取配置值。 */
     private long creditLimit;
+    /** 是否已经付费解锁 ATM 的「等级存取」功能（每个玩家独立，默认未解锁）。 */
+    private boolean levelUnlocked;
+    /** 存在 ATM 里的等级数量（不是经验值）。 */
+    private long storedLevels;
+    /** 最近一次被发放「在线奖励领取资格」的游戏日（-1 表示从没拿到过）。 */
+    private long onlineRewardDay = NO_REWARD_DAY;
+    /** 当日资格是否已经被领走。 */
+    private boolean onlineRewardClaimed;
+
+    /** 没有在线奖励资格时的游戏日标记。 */
+    public static final long NO_REWARD_DAY = -1L;
     /** 最近若干笔收支记录，新的在前。 */
     private final Deque<TransactionRecord> records = new ArrayDeque<>();
     /** 基金持仓，与账户一起持久化，保证「账户数据持久化到世界存档」。 */
@@ -131,6 +146,71 @@ public class AccountData {
         return Math.max(0L, creditLimit - debt);
     }
 
+    // ------------------------------------------------------------------
+    // ATM 等级存取与在线奖励（本轮新增）
+    // ------------------------------------------------------------------
+
+    /** 是否已解锁「等级存取」。 */
+    public boolean levelUnlocked() {
+        return levelUnlocked;
+    }
+
+    /** 解锁「等级存取」（调用方负责扣费）。 */
+    public void setLevelUnlocked(boolean levelUnlocked) {
+        this.levelUnlocked = levelUnlocked;
+    }
+
+    /** ATM 里存着的等级数量（不是经验值）。 */
+    public long storedLevels() {
+        return storedLevels;
+    }
+
+    /** 直接增减库存等级（调用方负责与玩家身上的等级同步）。 */
+    public void addStoredLevels(long delta) {
+        storedLevels = Math.max(0L, storedLevels + delta);
+    }
+
+    /** 最近一次获得「在线奖励领取资格」的游戏日。 */
+    public long onlineRewardDay() {
+        return onlineRewardDay;
+    }
+
+    /** 当日在线奖励是否已经领过。 */
+    public boolean onlineRewardClaimed() {
+        return onlineRewardClaimed;
+    }
+
+    /**
+     * 发放某一天的在线奖励领取资格（每日结算时对在线玩家调用）。
+     *
+     * @param day 新的一天（结算后进入的那一天）
+     */
+    public void grantOnlineReward(long day) {
+        this.onlineRewardDay = day;
+        this.onlineRewardClaimed = false;
+    }
+
+    /** 收回资格（结算时不在线的玩家：今天没有资格）。 */
+    public void revokeOnlineReward() {
+        this.onlineRewardDay = NO_REWARD_DAY;
+        this.onlineRewardClaimed = false;
+    }
+
+    /** 标记当日奖励已领取。 */
+    public void markOnlineRewardClaimed() {
+        this.onlineRewardClaimed = true;
+    }
+
+    /** 今天是否有可领取的在线奖励（结算时在线且还没领）。 */
+    public boolean hasOnlineReward(long today) {
+        return onlineRewardDay == today && !onlineRewardClaimed;
+    }
+
+    /** 今天是否已经领过在线奖励。 */
+    public boolean onlineRewardClaimedToday(long today) {
+        return onlineRewardDay == today && onlineRewardClaimed;
+    }
+
     /** 余额是否够支付指定金额。 */
     public boolean canAfford(long amount) {
         return amount >= 0 && balance >= amount;
@@ -202,6 +282,10 @@ public class AccountData {
         tag.putLong(KEY_DEBT, debt);
         tag.putLong(KEY_DEBT_INTEREST, debtInterest);
         tag.putLong(KEY_CREDIT_LIMIT, creditLimit);
+        tag.putBoolean(KEY_LEVEL_UNLOCKED, levelUnlocked);
+        tag.putLong(KEY_STORED_LEVELS, storedLevels);
+        tag.putLong(KEY_ONLINE_REWARD_DAY, onlineRewardDay);
+        tag.putBoolean(KEY_ONLINE_REWARD_CLAIMED, onlineRewardClaimed);
         ListTag list = new ListTag();
         for (TransactionRecord record : records) {
             list.add(record.save());
@@ -222,6 +306,12 @@ public class AccountData {
         data.debt = Math.max(0L, tag.getLong(KEY_DEBT));
         data.debtInterest = Math.max(0L, tag.getLong(KEY_DEBT_INTEREST));
         data.creditLimit = Math.max(0L, tag.getLong(KEY_CREDIT_LIMIT));
+        // 旧存档没有这几个字段：按「未解锁 / 没有库存 / 没有资格」读取，不会读出乱数字
+        data.levelUnlocked = tag.getBoolean(KEY_LEVEL_UNLOCKED);
+        data.storedLevels = Math.max(0L, tag.getLong(KEY_STORED_LEVELS));
+        data.onlineRewardDay = tag.contains(KEY_ONLINE_REWARD_DAY)
+                ? tag.getLong(KEY_ONLINE_REWARD_DAY) : NO_REWARD_DAY;
+        data.onlineRewardClaimed = tag.getBoolean(KEY_ONLINE_REWARD_CLAIMED);
         ListTag list = tag.getList(KEY_RECORDS, Tag.TAG_COMPOUND);
         for (int i = 0; i < list.size(); i++) {
             data.records.addLast(TransactionRecord.load(list.getCompound(i)));

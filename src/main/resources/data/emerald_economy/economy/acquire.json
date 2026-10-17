@@ -1,6 +1,6 @@
 {
-  "_comment": "自动收购机的价格表。改完在游戏里执行 /ee reload 立刻生效。",
-  "_format": "categories[].items[]：每条形如 {\"item\":\"minecraft:wheat\",\"price\":1}，或 {\"tag\":\"minecraft:saplings\",\"price\":1}；batch=8 表示 8 个算一份",
+  "_comment": "自动收购机的价格表。改完在游戏里执行 /ee reload 立刻生效。\nAcquisition machine price table. Run /ee reload in game after editing.",
+  "_format": "categories[].items[]：每条形如 {\"item\":\"minecraft:wheat\",\"price\":1}，或 {\"tag\":\"minecraft:saplings\",\"price\":1}；batch=8 表示 8 个算一份；lang 是这一行显示名的翻译键（标签行建议写上）。\ncategories[].items[]: entries look like {\"item\":\"minecraft:wheat\",\"price\":1} or {\"tag\":\"minecraft:saplings\",\"price\":1}; batch=8 means eight items per unit; lang is the translation key for the row label (recommended for tag rows).",
   "categories": [
     {
       "id": "AGRICULTURE",
@@ -18,6 +18,10 @@
         {
           "item": "minecraft:potato",
           "price": 1
+        },
+        {
+          "item": "minecraft:poisonous_potato",
+          "price": 10
         },
         {
           "item": "minecraft:beetroot",
@@ -54,11 +58,6 @@
         },
         {
           "item": "minecraft:cocoa_beans",
-          "price": 1
-        },
-        {
-          "_comment": "tag 表示收整类物品（原版标签或本模组标签都行）",
-          "tag": "minecraft:saplings",
           "price": 1
         }
       ]
@@ -119,9 +118,10 @@
           "price": 1
         },
         {
-          "_comment": "tag 表示收整类物品（原版标签或本模组标签都行）",
+          "_comment": "tag 表示收整类物品（原版标签或本模组标签都行）；界面上只占一行，卖这一类里的任意一种都可以。\ntag means \"buy the whole class\" (vanilla or this mod's item tags); it takes a single row on screen and accepts any item of that class.",
           "tag": "minecraft:fishes",
-          "price": 2
+          "price": 2,
+          "lang": "acquire.tag.fishes"
         }
       ]
     },
@@ -228,6 +228,28 @@
         {
           "item": "minecraft:warped_stem",
           "price": 1
+        },
+        {
+          "_comment": "tag 表示收整类物品（原版标签或本模组标签都行）；界面上只占一行，卖这一类里的任意一种都可以。\ntag means \"buy the whole class\" (vanilla or this mod's item tags); it takes a single row on screen and accepts any item of that class.",
+          "tag": "minecraft:saplings",
+          "price": 1,
+          "lang": "acquire.tag.saplings"
+        },
+        {
+          "_comment": "tag 表示收整类物品（原版标签或本模组标签都行）；界面上只占一行，卖这一类里的任意一种都可以。\ntag means \"buy the whole class\" (vanilla or this mod's item tags); it takes a single row on screen and accepts any item of that class.",
+          "tag": "emerald_economy:acquire/flowers",
+          "price": 1,
+          "lang": "acquire.tag.flowers"
+        },
+        {
+          "_comment": "tag 表示收整类物品（原版标签或本模组标签都行）；界面上只占一行，卖这一类里的任意一种都可以。\ntag means \"buy the whole class\" (vanilla or this mod's item tags); it takes a single row on screen and accepts any item of that class.",
+          "tag": "emerald_economy:acquire/mushrooms",
+          "price": 1,
+          "lang": "acquire.tag.mushrooms"
+        },
+        {
+          "item": "minecraft:cactus",
+          "price": 1
         }
       ]
     },
@@ -237,9 +259,15 @@
       "name": "杂物",
       "items": [
         {
-          "_comment": "tag 表示收整类物品（原版标签或本模组标签都行）",
+          "_comment": "tag 表示收整类物品（原版标签或本模组标签都行）；界面上只占一行，卖这一类里的任意一种都可以。\ntag means \"buy the whole class\" (vanilla or this mod's item tags); it takes a single row on screen and accepts any item of that class.",
           "tag": "emerald_economy:acquire/music_discs",
-          "price": 3
+          "price": 3,
+          "lang": "acquire.tag.music_discs"
+        },
+        {
+          "item": "minecraft:white_banner",
+          "price": 50,
+          "lang": "acquire.item.ominous_banner"
         },
         {
           "item": "minecraft:goat_horn",
@@ -247,6 +275,10 @@
         },
         {
           "item": "minecraft:shulker_shell",
+          "price": 20
+        },
+        {
+          "item": "minecraft:sculk_sensor",
           "price": 20
         },
         {
@@ -258,13 +290,22 @@
           "price": 5
         },
         {
-          "_comment": "tag 表示收整类物品（原版标签或本模组标签都行）",
+          "_comment": "tag 表示收整类物品（原版标签或本模组标签都行）；界面上只占一行，卖这一类里的任意一种都可以。\ntag means \"buy the whole class\" (vanilla or this mod's item tags); it takes a single row on screen and accepts any item of that class.",
           "tag": "emerald_economy:acquire/horse_armors",
-          "price": 4
+          "price": 4,
+          "lang": "acquire.tag.horse_armors"
+        },
+        {
+          "item": "minecraft:ghast_tear",
+          "price": 20
         },
         {
           "item": "minecraft:slime_ball",
-          "price": 1
+          "price": 2
+        },
+        {
+          "item": "minecraft:magma_cream",
+          "price": 5
         },
         {
           "item": "minecraft:clay_ball",
@@ -272,40 +313,49 @@
         },
         {
           "item": "minecraft:blaze_rod",
-          "price": 1
+          "price": 5
         },
         {
           "item": "minecraft:phantom_membrane",
           "price": 4
+        },
+        {
+          "item": "minecraft:rotten_flesh",
+          "price": 1
+        },
+        {
+          "item": "minecraft:spider_eye",
+          "price": 1
         }
       ]
     }
   ],
   "friday": {
-    "_comment": "疯狂星期五：每天从 pool 里随机挑几件按倍率收购，basePrices 是基准价",
+    "_comment": "疯狂星期五：每天从 pool 里随机挑几件按倍率收购，basePrices 是基准价。pool 支持具体物品、#标签、*通配；每个池子条目默认每天最多被挑中 1 件，poolMaxPicks 只用来把某一类调大。\nCrazy Friday: a few items are picked from pool each day and bought with a multiplier; basePrices are the base prices. pool accepts plain item ids, #tags and * wildcards; each pool entry contributes at most 1 item per day by default, and poolMaxPicks is only used to raise a specific entry's limit.",
     "lang": "acquire.category.friday",
     "name": "疯狂星期五",
     "pool": [
-      "minecraft:dragon_head",
-      "minecraft:totem_of_undying",
       "minecraft:nether_star",
       "minecraft:elytra",
       "minecraft:trident",
       "minecraft:heart_of_the_sea",
       "minecraft:echo_shard",
       "minecraft:spawner",
-      "minecraft:ominous_bottle"
+      "minecraft:ominous_bottle",
+      "#emerald_economy:acquire/heads",
+      "*_spawn_egg"
     ],
+    "poolMaxPicks": {},
     "basePrices": {
-      "minecraft:dragon_head": 83,
-      "minecraft:totem_of_undying": 67,
       "minecraft:nether_star": 133,
       "minecraft:elytra": 100,
       "minecraft:trident": 75,
       "minecraft:heart_of_the_sea": 58,
       "minecraft:echo_shard": 33,
       "minecraft:spawner": 50,
-      "minecraft:ominous_bottle": 42
+      "minecraft:ominous_bottle": 42,
+      "#emerald_economy:acquire/heads": 83,
+      "*_spawn_egg": 52
     }
   }
 }

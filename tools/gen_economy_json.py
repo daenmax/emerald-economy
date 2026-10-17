@@ -1,16 +1,5 @@
 # -*- coding: utf-8 -*-
-"""生成模组内置的「内容配置」默认模板。
-
-产物（同时写两份：jar 里的默认模板 + 开发环境 config 目录）：
-  src/main/resources/data/emerald_economy/economy/shop.json     自动售货机的货架
-  src/main/resources/data/emerald_economy/economy/acquire.json  自动收购机的价格表
-
-这两个 JSON 是**运行时以 config/emerald_economy/ 下的同名文件为准**的：
-服务端第一次启动会把这里的模板复制过去，之后玩家直接编辑 config 里的那份，
-游戏里 `/ee reload` 立刻生效。
-
-用法：python tools/gen_economy_json.py
-"""
+"""生成模组内置的「内容配置」默认模板。\n\n产物（同时写两份：jar 里的默认模板 + 开发环境 config 目录）：\nsrc/main/resources/data/emerald_economy/economy/shop.json     自动售货机的货架\nsrc/main/resources/data/emerald_economy/economy/acquire.json  自动收购机的价格表\n\n这两个 JSON 是**运行时以 config/emerald_economy/ 下的同名文件为准**的：\n服务端第一次启动会把这里的模板复制过去，之后玩家直接编辑 config 里的那份，\n游戏里 `/ee reload` 立刻生效。\n\n用法：python tools/gen_economy_json.py\n"""
 import io
 import json
 import os
@@ -74,98 +63,131 @@ ENCHANT_GROUPS = [
     ]),
 ]
 
-# 「其他」大分类：子分类 -> (翻译键, 显示名, 图标, [(物品, 价格)...])
+# 「其他」大分类：子分类 -> (翻译键, 显示名, 图标, [商品...])
+# 商品有两种写法：
+#   {'item': 'minecraft:wheat_seeds', 'price': 8}   买一件物品
+#   {'exp': 1000, 'price': 6000}                    买一份经验点（注意是经验值，不是等级）
 OTHER_GROUPS = [
     ('SEED', 'shop.sub.seed', '种子', '🌱', [
-        ('minecraft:wheat_seeds', 8),
+        {'item': 'minecraft:wheat_seeds', 'price': 8},
     ]),
     ('SAPLING', 'shop.sub.sapling', '树苗', '🌳', [
-        ('minecraft:oak_sapling', 16),
-        ('minecraft:birch_sapling', 16),
+        {'item': 'minecraft:oak_sapling', 'price': 16},
+        {'item': 'minecraft:birch_sapling', 'price': 16},
+    ]),
+    ('MISC', 'shop.sub.misc', '杂物', '🧪', [
+        {'exp': 10, 'price': 100},
+        {'exp': 100, 'price': 800},
+        {'exp': 1000, 'price': 6000},
     ]),
 ]
 
-# 收购分类：id -> (翻译键, 显示名, [(物品, 标签, 价格, 批次)...])
+# 收购分类：id -> (翻译键, 显示名, [(物品, 标签, 价格, 批次, 翻译键)...])
+#   物品 / 标签二选一；标签条目在界面上只占一行，卖这一类里的任意一种都行；
+#   翻译键可选，写它是为了让「整类收购」的那一行有个好听的名字。
 ACQUIRE_CATEGORIES = [
     ('AGRICULTURE', 'acquire.category.agriculture', '农业产物', [
-        ('minecraft:wheat', None, 1, None),
-        ('minecraft:carrot', None, 1, None),
-        ('minecraft:potato', None, 1, None),
-        ('minecraft:beetroot', None, 1, None),
-        ('minecraft:sugar_cane', None, 2, None),
-        ('minecraft:melon_slice', None, 1, None),
-        ('minecraft:pumpkin', None, 2, None),
-        ('minecraft:apple', None, 2, None),
-        ('minecraft:sweet_berries', None, 1, None),
-        ('minecraft:nether_wart', None, 2, None),
-        ('minecraft:bamboo', None, 1, 4),
-        ('minecraft:cocoa_beans', None, 1, None),
-        (None, 'minecraft:saplings', 1, None),
+        ('minecraft:wheat', None, 1, None, None),
+        ('minecraft:carrot', None, 1, None, None),
+        ('minecraft:potato', None, 1, None, None),
+        ('minecraft:poisonous_potato', None, 10, None, None),
+        ('minecraft:beetroot', None, 1, None, None),
+        ('minecraft:sugar_cane', None, 2, None, None),
+        ('minecraft:melon_slice', None, 1, None, None),
+        ('minecraft:pumpkin', None, 2, None, None),
+        ('minecraft:apple', None, 2, None, None),
+        ('minecraft:sweet_berries', None, 1, None, None),
+        ('minecraft:nether_wart', None, 2, None, None),
+        ('minecraft:bamboo', None, 1, 4, None),
+        ('minecraft:cocoa_beans', None, 1, None, None),
     ]),
     ('LIVESTOCK', 'acquire.category.livestock', '畜牧产物', [
-        ('minecraft:beef', None, 2, None),
-        ('minecraft:porkchop', None, 2, None),
-        ('minecraft:chicken', None, 2, None),
-        ('minecraft:mutton', None, 2, None),
-        ('minecraft:rabbit', None, 2, None),
-        ('minecraft:leather', None, 2, None),
-        ('minecraft:white_wool', None, 1, None),
-        ('minecraft:egg', None, 1, 8),
-        ('minecraft:milk_bucket', None, 3, None),
-        ('minecraft:honey_bottle', None, 3, None),
-        ('minecraft:feather', None, 1, 8),
-        ('minecraft:bone', None, 1, None),
-        (None, 'minecraft:fishes', 2, None),
+        ('minecraft:beef', None, 2, None, None),
+        ('minecraft:porkchop', None, 2, None, None),
+        ('minecraft:chicken', None, 2, None, None),
+        ('minecraft:mutton', None, 2, None, None),
+        ('minecraft:rabbit', None, 2, None, None),
+        ('minecraft:leather', None, 2, None, None),
+        ('minecraft:white_wool', None, 1, None, None),
+        ('minecraft:egg', None, 1, 8, None),
+        ('minecraft:milk_bucket', None, 3, None, None),
+        ('minecraft:honey_bottle', None, 3, None, None),
+        ('minecraft:feather', None, 1, 8, None),
+        ('minecraft:bone', None, 1, None, None),
+        (None, 'minecraft:fishes', 2, None, 'acquire.tag.fishes'),
     ]),
     ('MINING', 'acquire.category.mining', '矿物', [
-        ('minecraft:coal', None, 1, None),
-        ('minecraft:raw_iron', None, 2, None),
-        ('minecraft:raw_copper', None, 2, None),
-        ('minecraft:raw_gold', None, 4, None),
-        ('minecraft:redstone', None, 1, None),
-        ('minecraft:lapis_lazuli', None, 2, None),
-        ('minecraft:diamond', None, 15, None),
-        ('minecraft:quartz', None, 1, None),
-        ('minecraft:amethyst_shard', None, 2, None),
-        ('minecraft:flint', None, 1, None),
-        ('minecraft:obsidian', None, 3, None),
-        ('minecraft:netherite_scrap', None, 10, None),
+        ('minecraft:coal', None, 1, None, None),
+        ('minecraft:raw_iron', None, 2, None, None),
+        ('minecraft:raw_copper', None, 2, None, None),
+        ('minecraft:raw_gold', None, 4, None, None),
+        ('minecraft:redstone', None, 1, None, None),
+        ('minecraft:lapis_lazuli', None, 2, None, None),
+        ('minecraft:diamond', None, 15, None, None),
+        ('minecraft:quartz', None, 1, None, None),
+        ('minecraft:amethyst_shard', None, 2, None, None),
+        ('minecraft:flint', None, 1, None, None),
+        ('minecraft:obsidian', None, 3, None, None),
+        ('minecraft:netherite_scrap', None, 10, None, None),
     ]),
     ('FORESTRY', 'acquire.category.forestry', '林业产物', [
-        ('minecraft:oak_log', None, 1, None),
-        ('minecraft:spruce_log', None, 1, None),
-        ('minecraft:birch_log', None, 1, None),
-        ('minecraft:jungle_log', None, 1, None),
-        ('minecraft:acacia_log', None, 1, None),
-        ('minecraft:dark_oak_log', None, 1, None),
-        ('minecraft:mangrove_log', None, 1, None),
-        ('minecraft:cherry_log', None, 1, None),
-        ('minecraft:bamboo_block', None, 1, None),
-        ('minecraft:crimson_stem', None, 1, None),
-        ('minecraft:warped_stem', None, 1, None),
+        ('minecraft:oak_log', None, 1, None, None),
+        ('minecraft:spruce_log', None, 1, None, None),
+        ('minecraft:birch_log', None, 1, None, None),
+        ('minecraft:jungle_log', None, 1, None, None),
+        ('minecraft:acacia_log', None, 1, None, None),
+        ('minecraft:dark_oak_log', None, 1, None, None),
+        ('minecraft:mangrove_log', None, 1, None, None),
+        ('minecraft:cherry_log', None, 1, None, None),
+        ('minecraft:bamboo_block', None, 1, None, None),
+        ('minecraft:crimson_stem', None, 1, None, None),
+        ('minecraft:warped_stem', None, 1, None, None),
+        # 「整类」条目：界面上只占一行，背包里有这一类里的任意一种都能卖
+        (None, 'minecraft:saplings', 1, None, 'acquire.tag.saplings'),
+        (None, 'emerald_economy:acquire/flowers', 1, None, 'acquire.tag.flowers'),
+        (None, 'emerald_economy:acquire/mushrooms', 1, None, 'acquire.tag.mushrooms'),
+        ('minecraft:cactus', None, 1, None, None),
     ]),
     ('MISC', 'acquire.category.misc', '杂物', [
-        (None, 'emerald_economy:acquire/music_discs', 3, None),
-        ('minecraft:goat_horn', None, 3, None),
-        ('minecraft:shulker_shell', None, 20, None),
-        ('minecraft:axolotl_bucket', None, 8, None),
-        ('minecraft:turtle_helmet', None, 5, None),
-        (None, 'emerald_economy:acquire/horse_armors', 4, None),
-        ('minecraft:slime_ball', None, 1, None),
-        ('minecraft:clay_ball', None, 1, None),
-        ('minecraft:blaze_rod', None, 1, None),
-        ('minecraft:phantom_membrane', None, 4, None),
+        (None, 'emerald_economy:acquire/music_discs', 3, None, 'acquire.tag.music_discs'),
+        # 「不祥旗帜」在游戏里就是「白色旗帜」这一件物品（名字与花纹写在物品数据里），
+        # 本模组按物品类型收，所以这里收的是白色旗帜；不想要它就把这一行删掉。
+        ('minecraft:white_banner', None, 50, None, 'acquire.item.ominous_banner'),
+        ('minecraft:goat_horn', None, 3, None, None),
+        ('minecraft:shulker_shell', None, 20, None, None),
+        ('minecraft:sculk_sensor', None, 20, None, None),
+        ('minecraft:axolotl_bucket', None, 8, None, None),
+        ('minecraft:turtle_helmet', None, 5, None, None),
+        (None, 'emerald_economy:acquire/horse_armors', 4, None, 'acquire.tag.horse_armors'),
+        ('minecraft:ghast_tear', None, 20, None, None),
+        ('minecraft:slime_ball', None, 2, None, None),
+        ('minecraft:magma_cream', None, 5, None, None),
+        ('minecraft:clay_ball', None, 1, None, None),
+        ('minecraft:blaze_rod', None, 5, None, None),
+        ('minecraft:phantom_membrane', None, 4, None, None),
+        ('minecraft:rotten_flesh', None, 1, None, None),
+        ('minecraft:spider_eye', None, 1, None, None),
     ]),
 ]
 
+# 疯狂星期五的随机池。三种写法混用：
+#   'minecraft:spawner'                        具体物品
+#   '#emerald_economy:acquire/heads'           整个物品标签（所有怪物的头颅，含龙首）
+#   '*_spawn_egg'                              通配（所有刷怪蛋；原版加了新怪物也不用改）
 FRIDAY_POOL = [
-    'minecraft:dragon_head', 'minecraft:totem_of_undying', 'minecraft:nether_star',
-    'minecraft:elytra', 'minecraft:trident', 'minecraft:heart_of_the_sea',
-    'minecraft:echo_shard', 'minecraft:spawner', 'minecraft:ominous_bottle',
+    'minecraft:nether_star', 'minecraft:elytra', 'minecraft:trident',
+    'minecraft:heart_of_the_sea', 'minecraft:echo_shard', 'minecraft:spawner',
+    'minecraft:ominous_bottle',
+    '#emerald_economy:acquire/heads',
+    '*_spawn_egg',
 ]
+# 池子条目的挑选上限：**默认就是每天最多 1 件**（同一个具体物品、以及同一个「整类」条目
+# 都不会在一天里出现两次，例如不会同时出两个下界之星、两种头颅）。
+# 这个表只用来「把某一类调大」——例如想让刷怪蛋一天能出 2 件，就写
+#   '*_spawn_egg': 2
+# 不改就留空，代码里的默认值 1 会接管。
+FRIDAY_POOL_MAX_PICKS = {}
 FRIDAY_BASE_PRICES = {
-    'minecraft:dragon_head': 83,
-    'minecraft:totem_of_undying': 67,
     'minecraft:nether_star': 133,
     'minecraft:elytra': 100,
     'minecraft:trident': 75,
@@ -173,6 +195,10 @@ FRIDAY_BASE_PRICES = {
     'minecraft:echo_shard': 33,
     'minecraft:spawner': 50,
     'minecraft:ominous_bottle': 42,
+    # 池子条目也可以直接配基准价：整个标签 / 整个通配下的物品都用它
+    # （头颅这一类里含龙首，六种头颅的价格一样）
+    '#emerald_economy:acquire/heads': 83,
+    '*_spawn_egg': 52,
 }
 
 
@@ -180,7 +206,7 @@ def shop_json():
     groups = []
     # 附魔书：五个附魔子分类都挂在同一个「解锁制」大分类下面
     groups.append({
-        "_comment": "unlockable=true 的大分类走「花绿宝石逐格解锁」；附魔书价格是区间，游戏里按附魔 ID 稳定随机",
+        "_comment": "unlockable=true 的大分类走「花绿宝石逐格解锁」；附魔书价格是区间，游戏里按附魔 ID 稳定随机。\nGroups with unlockable=true are unlocked slot by slot with emeralds; book prices are ranges and a stable value per enchant id is picked in game.",
         "id": "ENCHANTED_BOOK",
         "lang": "shop.group.enchanted_book",
         "name": "附魔书",
@@ -198,7 +224,7 @@ def shop_json():
         ],
     })
     groups.append({
-        "_comment": "unlockable=false 的大分类随时能买；items 里写物品 ID 与价格即可",
+        "_comment": "unlockable=false 的大分类随时能买；items 里写物品 ID 与价格，或者写 exp（经验点数）卖经验值。\nGroups with unlockable=false are always available; items entries take an item id plus price, or exp (XP points) plus price for XP goods.",
         "id": "OTHER",
         "lang": "shop.group.other",
         "name": "其他",
@@ -210,14 +236,14 @@ def shop_json():
                 "lang": lang,
                 "name": name,
                 "icon": icon,
-                "items": [{"item": item, "price": price} for item, price in items],
+                "items": items,
             }
             for sub_id, lang, name, icon, items in OTHER_GROUPS
         ],
     })
     return {
-        "_comment": "自动售货机的货架。改完在游戏里执行 /ee reload 立刻生效（也可以重启服务器）。",
-        "_format": "groups[].subcategories[]，附魔书用 enchants（id/min/max），普通商品用 items（item/price）",
+        "_comment": "自动售货机的货架。改完在游戏里执行 /ee reload 立刻生效（也可以重启服务器）。\nVending machine shelves. Run /ee reload in game after editing (a restart also works).",
+        "_format": "groups[].subcategories[]：附魔书用 enchants（id/min/max），普通商品用 items（item/price），经验值商品用 items（exp/price）。\ngroups[].subcategories[]: enchanted books use enchants (id/min/max), ordinary goods use items (item/price), XP goods use items (exp/price).",
         "groups": groups,
     }
 
@@ -226,16 +252,20 @@ def acquire_json():
     categories = []
     for cat_id, lang, name, items in ACQUIRE_CATEGORIES:
         entries = []
-        for item, tag, price, batch in items:
+        for item, tag, price, batch, name_key in items:
             entry = {}
             if tag:
-                entry["_comment"] = "tag 表示收整类物品（原版标签或本模组标签都行）"
+                entry["_comment"] = ("tag 表示收整类物品（原版标签或本模组标签都行）；"
+                                     "界面上只占一行，卖这一类里的任意一种都可以。\ntag means \"buy the whole class\" (vanilla or this mod's item tags); "
+                                     "it takes a single row on screen and accepts any item of that class.")
                 entry["tag"] = tag
             else:
                 entry["item"] = item
             entry["price"] = price
             if batch:
                 entry["batch"] = batch
+            if name_key:
+                entry["lang"] = name_key
             entries.append(entry)
         categories.append({
             "id": cat_id,
@@ -244,15 +274,24 @@ def acquire_json():
             "items": entries,
         })
     return {
-        "_comment": "自动收购机的价格表。改完在游戏里执行 /ee reload 立刻生效。",
+        "_comment": "自动收购机的价格表。改完在游戏里执行 /ee reload 立刻生效。\nAcquisition machine price table. Run /ee reload in game after editing.",
         "_format": "categories[].items[]：每条形如 {\"item\":\"minecraft:wheat\",\"price\":1}，"
-                   "或 {\"tag\":\"minecraft:saplings\",\"price\":1}；batch=8 表示 8 个算一份",
+                   "或 {\"tag\":\"minecraft:saplings\",\"price\":1}；batch=8 表示 8 个算一份；"
+                   "lang 是这一行显示名的翻译键（标签行建议写上）。\ncategories[].items[]: entries look like {\"item\":\"minecraft:wheat\",\"price\":1} or "
+                   "{\"tag\":\"minecraft:saplings\",\"price\":1}; batch=8 means eight items per unit; "
+                   "lang is the translation key for the row label (recommended for tag rows).",
         "categories": categories,
         "friday": {
-            "_comment": "疯狂星期五：每天从 pool 里随机挑几件按倍率收购，basePrices 是基准价",
+            "_comment": "疯狂星期五：每天从 pool 里随机挑几件按倍率收购，basePrices 是基准价。"
+                        "pool 支持具体物品、#标签、*通配；每个池子条目默认每天最多被挑中 1 件，"
+                        "poolMaxPicks 只用来把某一类调大。\nCrazy Friday: a few items are picked from pool each day and bought with a multiplier; "
+                        "basePrices are the base prices. pool accepts plain item ids, #tags and * wildcards; "
+                        "each pool entry contributes at most 1 item per day by default, and poolMaxPicks is only "
+                        "used to raise a specific entry's limit.",
             "lang": "acquire.category.friday",
             "name": "疯狂星期五",
             "pool": FRIDAY_POOL,
+            "poolMaxPicks": FRIDAY_POOL_MAX_PICKS,
             "basePrices": FRIDAY_BASE_PRICES,
         },
     }

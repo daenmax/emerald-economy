@@ -13,7 +13,13 @@ import java.util.Map;
  * （写 {@code tag} 而不是 {@code item}，例如 {@code minecraft:saplings} 收所有树苗）；
  * {@code batch} 表示「多少个算一份」（鸡蛋 8 个一份），不写就是按个收。
  * <p>
- * 疯狂星期五的每日随机池与基准价也在这里（{@code friday} 段）。
+ * 标签条目在界面上是<b>一行</b>（不会把标签里的东西一件件列出来），
+ * 玩家卖背包里的任意一种都行 —— 唱片、树苗、花、蘑菇这类「种类一大堆、价格还一样」的
+ * 东西因此只占一行。想给它起个好名字就写 {@code lang}（翻译键）或 {@code name}（原样文本）。
+ * <p>
+ * 疯狂星期五的每日随机池与基准价也在这里（{@code friday} 段），
+ * 池子里除了具体物品，还支持 {@code #标签} 与 {@code *_spawn_egg} 这种通配写法，
+ * 并用 {@code poolMaxPicks} 限制「某个池子最多被挑中几件」（头颅最多 1 个、刷怪蛋最多 1 个）。
  */
 public record AcquireContent(List<Category> categories, Friday friday) {
 
@@ -36,8 +42,10 @@ public record AcquireContent(List<Category> categories, Friday friday) {
      * @param tag   物品标签（二选一，写 {@code minecraft:saplings} 这种不带 # 的形式）
      * @param price 每「一份」的价格
      * @param batch 一份等于几个（缺省 1）
+     * @param lang  显示名翻译键（可选，标签行尤其需要它）
+     * @param name  显示名原样文本（可选，翻译键查不到时用它）
      */
-    public record Item(String item, String tag, Integer price, Integer batch) {
+    public record Item(String item, String tag, Integer price, Integer batch, String lang, String name) {
 
         /** 是不是标签条目。 */
         public boolean isTag() {
@@ -56,21 +64,45 @@ public record AcquireContent(List<Category> categories, Friday friday) {
         public int batchOrOne() {
             return batch == null ? 1 : Math.max(1, batch);
         }
+
+        public String langOrNull() {
+            return lang == null || lang.isBlank() ? null : lang.trim();
+        }
+
+        public String nameOrNull() {
+            return name == null || name.isBlank() ? null : name.trim();
+        }
     }
 
-    /** 疯狂星期五的配置段。 */
-    public record Friday(String lang, String name, List<String> pool, Map<String, Integer> basePrices) {
+    /**
+     * 疯狂星期五的配置段。
+     *
+     * @param pool          随机池：具体物品 ID、{@code #标签}、或 {@code *_spawn_egg} 这类通配
+     * @param poolMaxPicks  池子条目 → 每天最多被挑中几件（不写的条目不受限制）
+     * @param basePrices    基准价：具体物品 ID 或池子条目（{@code #标签} / 通配）→ 基准价
+     */
+    public record Friday(String lang, String name, List<String> pool, Map<String, Integer> poolMaxPicks,
+                         Map<String, Integer> basePrices) {
 
         public List<String> poolList() {
             return pool == null ? List.of() : pool;
         }
 
         public Map<String, Integer> basePriceMap() {
-            if (basePrices == null) {
+            return cleanIntMap(basePrices);
+        }
+
+        /** 池子条目的挑选上限（不配置就是不限制）。 */
+        public Map<String, Integer> poolMaxPickMap() {
+            return cleanIntMap(poolMaxPicks);
+        }
+
+        private static Map<String, Integer> cleanIntMap(Map<String, Integer> source) {
+            if (source == null) {
                 return Map.of();
             }
             Map<String, Integer> out = new LinkedHashMap<>();
-            basePrices.forEach((key, value) -> {
+            source.forEach((key, value) -> {
                 if (key != null && value != null) {
                     out.put(key.trim().toLowerCase(Locale.ROOT), value);
                 }
@@ -89,22 +121,6 @@ public record AcquireContent(List<Category> categories, Friday friday) {
 
     public List<Category> categoryList() {
         return categories == null ? List.of() : categories;
-    }
-
-    /** 全部条目的「物品 ID -> (价格, 批次)」，标签会展开成具体物品。 */
-    public Map<String, long[]> flatten() {
-        Map<String, long[]> out = new LinkedHashMap<>();
-        for (Category category : categoryList()) {
-            for (Item item : category.itemList()) {
-                if (item.isTag()) {
-                    continue;
-                }
-                if (!item.raw().isEmpty()) {
-                    out.putIfAbsent(item.raw(), new long[]{item.priceOr(0L), item.batchOrOne()});
-                }
-            }
-        }
-        return out;
     }
 
     /** 按 ID 找分类（找不到返回 null）。 */

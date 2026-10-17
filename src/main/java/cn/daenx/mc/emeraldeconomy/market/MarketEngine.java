@@ -149,6 +149,13 @@ public final class MarketEngine {
         // 步骤 2、3：读取当天天气，把天气修正累加到动量
         applyWeatherCorrections(data, weather);
 
+        // 步骤 3.5：叠加当天的随机情绪修正。
+        // 这一条是为了「即便今天谁都没做任何事，行情也要有随机性」：
+        // 世界供给（挖矿/收割/杀怪……）与天气都是「有方向」的修正，
+        // 长期下来会把行情拧成固定的涨跌方向，玩家只要买涨的那几支、什么都不干就能稳赚。
+        // 每天给每支基金加一个正负对称的随机动量之后，任何一支基金都不可能长期单边走。
+        applyRandomDrift(data, random);
+
         // 步骤 4：清空当日供给量
         market.resetSupply();
 
@@ -207,6 +214,28 @@ public final class MarketEngine {
                 continue;
             }
             market.fund(type).addMomentum(value * strength);
+        }
+    }
+
+    /**
+     * 每日随机情绪修正（本轮新增）。
+     * <p>
+     * 给七支基金各叠加一个 {@code ±dailyRandomDrift} 之间的随机动量，正负完全对称：
+     * 这样一来「今天什么都没发生」的日子行情同样会变，而且没有任何一支基金能长期单边走
+     * （否则玩家只要买入一直涨的那几支、什么都不干就能稳赚）。
+     * <p>
+     * 综合基金在这里同样会被随机化——它的动量会按同样的衰减规则作用到自身价格上，
+     * 用户看到的「综合基金只会跟着涨」的现象也就消失了。
+     */
+    private static void applyRandomDrift(EconomyData data, RandomSource random) {
+        double drift = EEConfig.dailyRandomDrift();
+        if (drift <= 0.0D) {
+            return;
+        }
+        MarketBook market = data.market();
+        for (FundType type : FundType.values()) {
+            double value = (random.nextDouble() * 2.0D - 1.0D) * drift;
+            market.fund(type).addMomentum(value);
         }
     }
 

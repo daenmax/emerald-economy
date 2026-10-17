@@ -4,6 +4,7 @@ import cn.daenx.mc.emeraldeconomy.config.EEConfig;
 import cn.daenx.mc.emeraldeconomy.content.AcquireContent;
 import cn.daenx.mc.emeraldeconomy.content.EconomyContent;
 import cn.daenx.mc.emeraldeconomy.core.Amounts;
+import cn.daenx.mc.emeraldeconomy.core.EEConstants;
 import cn.daenx.mc.emeraldeconomy.core.Notify;
 import cn.daenx.mc.emeraldeconomy.data.AccountData;
 import cn.daenx.mc.emeraldeconomy.data.EconomyData;
@@ -23,10 +24,14 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 自动收购机业务（需求文档 6.3 / 6.4）。
@@ -35,13 +40,23 @@ import java.util.Map;
  * （见 {@link AcquireContent}）；本类负责把配置翻译成游戏里的物品与结算规则：
  * <ul>
  *     <li>条目可以写具体物品，也可以写<b>物品标签</b>（收一整类，能收原版标签）</li>
+ *     <li><b>标签条目在界面上只占一行</b>：玩家卖背包里该类中的任意一种都行
+ *         （唱片、树苗、花、蘑菇这种「种类多、价格又一样」的东西因此不再刷屏）</li>
  *     <li>{@code batch} 表示「多少个算一份」：鸡蛋 8 个一份，一次出售里每满一份才按 1 个计价，
  *         不足一份的数量不会被吃掉</li>
- *     <li>疯狂星期五逢 N 天开放，随机挑几件按倍率收购；<b>欠款没还清不能参加</b></li>
+ *     <li>疯狂星期五逢 N 天开放，随机挑几件按倍率收购；池子支持 {@code #标签} 与
+ *         {@code *_spawn_egg} 通配，并能用 {@code poolMaxPicks} 限制「最多挑几件」
+ *         （默认就是：头颅最多 1 个、刷怪蛋最多 1 个）；<b>欠款没还清不能参加</b></li>
  * </ul>
  * 收购所得直接进入 ATM 账户，不经过背包，也不收手续费。
  */
 public final class AcquireService {
+
+    /** 标签行的标识前缀（界面上与网络包里用它表示「卖这一类里的任意一种」）。 */
+    public static final String TAG_PREFIX = "#";
+
+    /** 疯狂星期五池子里没有被单独配价的物品使用的兜底基准价。 */
+    private static final long DEFAULT_FRIDAY_BASE_PRICE = 100L;
 
     private AcquireService() {
     }
@@ -62,14 +77,18 @@ public final class AcquireService {
     }
 
     /**
-     * 一条收购条目。
+     * 一条收购条目（也就是界面上的「一行」）。
      *
-     * @param itemId 物品注册名
+     * @param itemId 物品注册名；标签行是 {@code #标签名}
      * @param price  单价（每「一份」的价格）
      * @param friday 是否来自疯狂星期五
      * @param batch  一份等于几个（1 表示按个收）
+     * @param tag    是不是「整类收购」的标签行
+     * @param lang   显示名翻译键（可为空）
+     * @param name   显示名原样文本（可为空）
      */
-    public record Entry(String itemId, long price, boolean friday, int batch) {
+    public record Entry(String itemId, long price, boolean friday, int batch, boolean tag,
+                        String lang, String name) {
     }
 
     // ------------------------------------------------------------------
@@ -87,7 +106,7 @@ public final class AcquireService {
     }
 
     /**
-     * 展开一个分类：把 {@code tag} 条目展开成具体物品，并丢掉游戏里不存在的物品。
+     * 展开一个分类：<b>标签条目保留成一行</b>，具体物品照原样，并丢掉游戏里不存在的物品。
      *
      * @param categoryId 分类 ID（{@link AcquireContent#FRIDAY_ID} 表示疯狂星期五）
      */
@@ -103,59 +122,77 @@ public final class AcquireService {
         for (AcquireContent.Item item : category.itemList()) {
             int batch = item.batchOrOne();
             if (item.isTag()) {
-                for (String id : tagItems(item.tag())) {
-                    out.add(new Entry(id, item.priceOr(0L), false, batch));
+                // 标签行：整类一起卖，界面上只占一行；标签当前一个物品都没有时跳过
+                if (!tagMemberIds(item.tag()).isEmpty()) {
+                    out.add(new Entry(TAG_PREFIX + item.tag().trim().toLowerCase(Locale.ROOT),
+                            item.priceOr(0L), false, batch, true, item.langOrNull(), item.nameOrNull()));
                 }
             } else if (exists(item.raw())) {
-                out.add(new Entry(item.raw(), item.priceOr(0L), false, batch));
+                out.add(new Entry(item.raw(), item.priceOr(0L), false, batch, false,
+                        item.langOrNull(), item.nameOrNull()));
             }
         }
         return out;
     }
 
-    /** 疯狂星期五当日的重金收购条目。 */
+    /** 疯狂星期五当日的重金收购条目（当天挑中的东西，价格 = 基准价 × 当日倍率）。 */
     public static List<Entry> fridayEntries(EconomyData data) {
         List<Entry> out = new ArrayList<>();
-        AcquireBook book = data.acquire();
         AcquireContent.Friday friday = EconomyContent.acquire().friday();
-        if (friday == null || !book.isFridayActive()) {
+        // data 为 null 表示「只看配置、不看存档」（自检与静态查询会这么调）
+        if (data == null || friday == null || !data.acquire().isFridayActive()) {
             return out;
         }
+        AcquireBook book = data.acquire();
         Map<String, Integer> basePrices = friday.basePriceMap();
         for (String id : book.fridayItems()) {
             if (!exists(id)) {
                 continue;
             }
-            long base = basePrices.getOrDefault(id, 100);
+            long base = book.basePriceOf(id, basePrices.getOrDefault(id, (int) DEFAULT_FRIDAY_BASE_PRICE));
             long price = Amounts.floorAtLeastOne(base * book.multiplierOf(id));
-            out.add(new Entry(id, price, true, 1));
+            out.add(new Entry(id, price, true, 1, false, null, null));
         }
         return out;
     }
 
-    /** 物品 ID -> 单价（所有常驻分类里第一个命中的）。 */
-    public static Map<String, Long> priceTable(EconomyData data) {
-        Map<String, Long> out = new LinkedHashMap<>();
+    /**
+     * 全部常驻分类的「具体物品 → {价格, 批次}」表（标签会被展开成具体物品）。
+     * <p>
+     * 界面展示用的是 {@link #entries}（标签占一行），这张表只用于「拿着一个具体物品 ID 查价」。
+     */
+    public static Map<String, long[]> itemTable(EconomyData data) {
+        Map<String, long[]> out = new LinkedHashMap<>();
         for (AcquireContent.Category category : categories()) {
-            for (Entry entry : entries(data, category.idOr(""))) {
-                out.putIfAbsent(entry.itemId(), entry.price());
+            for (AcquireContent.Item item : category.itemList()) {
+                int batch = item.batchOrOne();
+                if (item.isTag()) {
+                    for (String id : tagMemberIds(item.tag())) {
+                        out.putIfAbsent(id, new long[]{item.priceOr(0L), batch});
+                    }
+                } else if (exists(item.raw())) {
+                    out.putIfAbsent(item.raw(), new long[]{item.priceOr(0L), batch});
+                }
             }
         }
         return out;
     }
 
-    /** 物品 ID -> 批次（多个分类里都写着同一个物品时取第一个）。 */
-    public static Map<String, Integer> batchTable(EconomyData data) {
-        Map<String, Integer> out = new LinkedHashMap<>();
+    /** 标签行（{@code #标签名}）→ {价格, 批次}。 */
+    public static Map<String, long[]> tagRowTable(EconomyData data) {
+        Map<String, long[]> out = new LinkedHashMap<>();
         for (AcquireContent.Category category : categories()) {
-            for (Entry entry : entries(data, category.idOr(""))) {
-                out.putIfAbsent(entry.itemId(), entry.batch());
+            for (AcquireContent.Item item : category.itemList()) {
+                if (item.isTag() && !tagMemberIds(item.tag()).isEmpty()) {
+                    out.putIfAbsent(TAG_PREFIX + item.tag().trim().toLowerCase(Locale.ROOT),
+                            new long[]{item.priceOr(0L), item.batchOrOne()});
+                }
             }
         }
         return out;
     }
 
-    /** 查询某个物品的收购单价（优先匹配疯狂星期五；不在表里返回 0）。 */
+    /** 查询某个物品（或标签行）的收购单价（优先匹配疯狂星期五；不在表里返回 0）。 */
     public static long priceOf(EconomyData data, String itemId) {
         if (itemId == null) {
             return 0L;
@@ -166,15 +203,24 @@ public final class AcquireService {
                 return entry.price();
             }
         }
-        return priceTable(data).getOrDefault(key, 0L);
+        if (key.startsWith(TAG_PREFIX)) {
+            long[] row = tagRowTable(data).get(key);
+            return row == null ? 0L : row[0];
+        }
+        return itemTable(data).getOrDefault(key, new long[]{0L, 1L})[0];
     }
 
-    /** 某个物品的批次大小（不在表里按 1 算）。 */
+    /** 某个物品（或标签行）的批次大小（不在表里按 1 算）。 */
     public static int batchOf(EconomyData data, String itemId) {
         if (itemId == null) {
             return 1;
         }
-        return batchTable(data).getOrDefault(itemId.toLowerCase(Locale.ROOT), 1);
+        String key = itemId.toLowerCase(Locale.ROOT);
+        if (key.startsWith(TAG_PREFIX)) {
+            long[] row = tagRowTable(data).get(key);
+            return row == null ? 1 : (int) Math.max(1L, row[1]);
+        }
+        return (int) Math.max(1L, itemTable(data).getOrDefault(key, new long[]{0L, 1L})[1]);
     }
 
     /** 某个物品是否属于「疯狂星期五」当日的重金收购名单。 */
@@ -191,8 +237,12 @@ public final class AcquireService {
         return false;
     }
 
+    // ------------------------------------------------------------------
+    // 标签 / 物品解析
+    // ------------------------------------------------------------------
+
     /** 标签里的全部物品 ID（标签不存在时返回空表）。 */
-    private static List<String> tagItems(String tagId) {
+    public static List<String> tagMemberIds(String tagId) {
         List<String> out = new ArrayList<>();
         ResourceLocation id = ResourceLocation.tryParse(tagId);
         if (id == null) {
@@ -205,10 +255,62 @@ public final class AcquireService {
         return out;
     }
 
+    /** 标签里的全部物品对象（标签不存在时返回空表）。 */
+    private static List<Item> tagMemberItems(String tagId) {
+        List<Item> out = new ArrayList<>();
+        for (String id : tagMemberIds(tagId)) {
+            Item item = resolveItem(id);
+            if (item != null && item != Items.AIR) {
+                out.add(item);
+            }
+        }
+        return out;
+    }
+
     /** 物品 ID 在游戏里是否存在。 */
     private static boolean exists(String itemId) {
         Item item = resolveItem(itemId);
         return item != null && item != Items.AIR;
+    }
+
+    private static Item resolveItem(String itemId) {
+        ResourceLocation id = ResourceLocation.tryParse(itemId);
+        if (id == null) {
+            return null;
+        }
+        return BuiltInRegistries.ITEM.get(id);
+    }
+
+    /**
+     * 物品的显示名，用于聊天栏提示。
+     * <p>
+     * 返回可翻译组件，客户端会按自己的语言显示；取不到物品时退回注册名。
+     */
+    public static Component displayName(String itemId) {
+        if (itemId != null && itemId.startsWith(TAG_PREFIX)) {
+            // 标签行：报出这一类的名字（配置里写的翻译键 / 原样文本），再退回标签 ID
+            for (AcquireContent.Category category : categories()) {
+                for (AcquireContent.Item item : category.itemList()) {
+                    if (item.isTag() && (TAG_PREFIX + item.tag().trim().toLowerCase(Locale.ROOT))
+                            .equals(itemId.toLowerCase(Locale.ROOT))) {
+                        if (item.langOrNull() != null) {
+                            return Component.translatable(EEConstants.langKey(item.langOrNull()));
+                        }
+                        if (item.nameOrNull() != null) {
+                            return Component.literal(item.nameOrNull());
+                        }
+                    }
+                }
+            }
+            return Component.literal(itemId);
+        }
+        Item item = resolveItem(itemId);
+        return item == null ? Component.literal(itemId) : Component.translatable(item.getDescriptionId());
+    }
+
+    /** 物品图标用的注册表（客户端画界面时也要用）。 */
+    public static Registry<Item> itemRegistry() {
+        return BuiltInRegistries.ITEM;
     }
 
     // ------------------------------------------------------------------
@@ -220,17 +322,16 @@ public final class AcquireService {
      * <p>
      * 配了批次的物品（例如鸡蛋 8 个一份）按「满一份才算 1 个」计价：
      * 卖 20 个鸡蛋按 2 份算、只扣 16 个、给 2 绿宝石，剩下 4 个留在背包里。
+     * <p>
+     * {@code itemId} 写成 {@code #标签名} 时表示「卖这一类里的任意一种」：
+     * 数量按背包里该类的总数算，扣除时从背包里逐格拿（不要求是同一种物品）。
      *
-     * @param itemId 物品注册名
+     * @param itemId 物品注册名，或 {@code #标签名}
      * @param count  出售数量（实际扣除的是「份数 × 每份个数」）
      */
     public static Result sell(EconomyData data, ServerPlayer player, String itemId, long count) {
         if (count < 1L) {
             return Result.INVALID_COUNT;
-        }
-        Item item = resolveItem(itemId);
-        if (item == null || item == Items.AIR) {
-            return Result.UNKNOWN_ITEM;
         }
         long price = priceOf(data, itemId);
         if (price <= 0L) {
@@ -248,12 +349,31 @@ public final class AcquireService {
             return Result.TOO_FEW_FOR_BATCH;
         }
         long consumed = units * batch;
-        if (AccountService.countItems(player, item) < consumed) {
-            return Result.INSUFFICIENT_ITEMS;
+
+        if (itemId != null && itemId.startsWith(TAG_PREFIX)) {
+            List<Item> members = tagMemberItems(itemId.substring(1));
+            if (members.isEmpty()) {
+                return Result.UNKNOWN_ITEM;
+            }
+            if (AccountService.countItems(player, members) < consumed) {
+                return Result.INSUFFICIENT_ITEMS;
+            }
+            if (!AccountService.removeItems(player, members, consumed)) {
+                return Result.INSUFFICIENT_ITEMS;
+            }
+        } else {
+            Item item = resolveItem(itemId);
+            if (item == null || item == Items.AIR) {
+                return Result.UNKNOWN_ITEM;
+            }
+            if (AccountService.countItems(player, item) < consumed) {
+                return Result.INSUFFICIENT_ITEMS;
+            }
+            if (!AccountService.removeItems(player, item, consumed)) {
+                return Result.INSUFFICIENT_ITEMS;
+            }
         }
-        if (!AccountService.removeItems(player, item, consumed)) {
-            return Result.INSUFFICIENT_ITEMS;
-        }
+
         long total = price * units;
         long balanceBefore = account.balance();
         long debtBefore = account.debt();
@@ -264,32 +384,22 @@ public final class AcquireService {
         return Result.OK;
     }
 
-    private static Item resolveItem(String itemId) {
-        ResourceLocation id = ResourceLocation.tryParse(itemId);
-        if (id == null) {
-            return null;
-        }
-        return BuiltInRegistries.ITEM.get(id);
-    }
-
-    /**
-     * 物品的显示名，用于聊天栏提示。
-     * <p>
-     * 返回可翻译组件，客户端会按自己的语言显示；取不到物品时退回注册名。
-     */
-    public static Component displayName(String itemId) {
-        Item item = resolveItem(itemId);
-        return item == null ? Component.literal(itemId) : Component.translatable(item.getDescriptionId());
-    }
-
-    /** 物品图标用的注册表（客户端画界面时也要用）。 */
-    public static Registry<Item> itemRegistry() {
-        return BuiltInRegistries.ITEM;
-    }
-
     // ------------------------------------------------------------------
     // 疯狂星期五
     // ------------------------------------------------------------------
+
+    /** 池子里的一个条目（具体物品 / 标签 / 通配）以及它的挑选上限。 */
+    private record PoolEntry(String key, int maxPick, List<String> members) {
+    }
+
+    /**
+     * 池子条目默认的挑选上限：<b>每天最多 1 件</b>。
+     * <p>
+     * 也就是说，一天挑 3 件时：同一个具体物品不会出现两次（候选本来就做了去重），
+     * 同一个「整类」条目（例如所有头颅、所有刷怪蛋）也只会贡献 1 件。
+     * 如果以后真想让某一类一天出现多件，在 {@code friday.poolMaxPicks} 里把它显式调大即可。
+     */
+    private static final int DEFAULT_POOL_MAX_PICK = 1;
 
     /**
      * 确保疯狂星期五状态与当前游戏日一致。
@@ -311,6 +421,7 @@ public final class AcquireService {
             book.setFridayActive(false);
             book.fridayItems().clear();
             book.fridayMultipliers().clear();
+            book.fridayBasePrices().clear();
             data.setDirty();
             return false;
         }
@@ -319,53 +430,179 @@ public final class AcquireService {
         return true;
     }
 
-    /** 随机挑选当日的重金收购物品并决定倍率。 */
+    /**
+     * 随机挑选当日的重金收购物品并决定倍率。
+     * <p>
+     * 池子里可以有具体物品、{@code #标签}（例如「所有怪物的头颅」）与通配（例如
+     * {@code *_spawn_egg} 表示所有刷怪蛋）。每个池子条目<b>默认每天最多贡献 1 件</b>：
+     * 同一件物品不会出现两次，同一个「整类」条目也不会一次挑出两件（例如不会同时出现两个下界之星、
+     * 两种头颅），具体挑中类里的哪一个仍然是随机的。
+     * <p>
+     * 基准价选中时就算好并写进存档，这样当天中途改配置也不会把已公布的价格改掉。
+     */
     private static void rollFridayItems(EconomyData data, RandomSource random) {
         AcquireBook book = data.acquire();
         AcquireContent.Friday friday = EconomyContent.acquire().friday();
-        List<String> pool = new ArrayList<>();
-        if (friday != null) {
-            for (String raw : friday.poolList()) {
-                if (raw == null) {
-                    continue;
-                }
-                String id = raw.trim().toLowerCase(Locale.ROOT);
-                if (!id.isEmpty() && !id.startsWith("#") && exists(id)) {
-                    pool.add(id);
+        book.fridayItems().clear();
+        book.fridayMultipliers().clear();
+        book.fridayBasePrices().clear();
+        if (friday == null) {
+            return;
+        }
+
+        List<PoolEntry> pool = resolvePool(friday);
+        // 一个物品可能同时属于「具体物品条目」和「标签条目」，这里记下它的全部归属，
+        // 判断上限时按所有归属一起算（否则「龙首」既在头颅标签里、又被单独列出来时会重复计数）
+        Map<String, List<PoolEntry>> owners = new LinkedHashMap<>();
+        List<String> candidates = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        for (PoolEntry entry : pool) {
+            for (String id : entry.members()) {
+                owners.computeIfAbsent(id, key -> new ArrayList<>()).add(entry);
+                if (seen.add(id)) {
+                    candidates.add(id);
                 }
             }
         }
-        book.fridayItems().clear();
-        book.fridayMultipliers().clear();
-        int pick = Math.min(Math.max(1, EEConfig.fridayPickCount()), pool.size());
-        for (int i = 0; i < pick && !pool.isEmpty(); i++) {
-            String id = pool.remove(random.nextInt(pool.size()));
-            book.fridayItems().add(id);
+        // 洗牌用 RandomSource 自己实现（Collections.shuffle 只接受 java.util.Random）
+        for (int i = candidates.size() - 1; i > 0; i--) {
+            int j = random.nextInt(i + 1);
+            Collections.swap(candidates, i, j);
         }
+
+        int pick = Math.min(Math.max(1, EEConfig.fridayPickCount()), candidates.size());
+        Map<String, Integer> pickedPerEntry = new HashMap<>();
+        for (String id : candidates) {
+            if (book.fridayItems().size() >= pick) {
+                break;
+            }
+            List<PoolEntry> itemOwners = owners.getOrDefault(id, List.of());
+            if (!withinLimits(itemOwners, pickedPerEntry)) {
+                continue;
+            }
+            book.fridayItems().add(id);
+            for (PoolEntry entry : itemOwners) {
+                pickedPerEntry.merge(entry.key(), 1, Integer::sum);
+            }
+        }
+
+        Map<String, Integer> basePrices = friday.basePriceMap();
         double lo = EEConfig.fridayMultiplierMin();
         double hi = Math.max(lo, EEConfig.fridayMultiplierMax());
         for (String id : book.fridayItems()) {
+            long base = basePriceFor(id, owners.getOrDefault(id, List.of()), basePrices);
+            book.fridayBasePrices().put(id, (int) base);
             book.fridayMultipliers().put(id, lo + random.nextDouble() * (hi - lo));
         }
         book.setFridayActive(true);
     }
 
-    /** 广播疯狂星期五开始（需求文档 6.4）。 */
+    /** 挑中这个物品会不会超出它所属池子条目的上限。 */
+    private static boolean withinLimits(List<PoolEntry> owners, Map<String, Integer> pickedPerEntry) {
+        for (PoolEntry entry : owners) {
+            if (pickedPerEntry.getOrDefault(entry.key(), 0) + 1 > entry.maxPick()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** 解析配置里的池子条目（具体物品 / {@code #标签} / {@code *通配}）。 */
+    private static List<PoolEntry> resolvePool(AcquireContent.Friday friday) {
+        List<PoolEntry> out = new ArrayList<>();
+        Map<String, Integer> limits = friday.poolMaxPickMap();
+        for (String raw : friday.poolList()) {
+            if (raw == null) {
+                continue;
+            }
+            String key = raw.trim().toLowerCase(Locale.ROOT);
+            if (key.isEmpty()) {
+                continue;
+            }
+            List<String> members = new ArrayList<>();
+            if (key.startsWith(TAG_PREFIX)) {
+                members.addAll(tagMemberIds(key.substring(1)));
+            } else if (key.contains("*")) {
+                members.addAll(wildcardMemberIds(key));
+            } else if (exists(key)) {
+                members.add(key);
+            }
+            if (members.isEmpty()) {
+                continue;
+            }
+            out.add(new PoolEntry(key,
+                    Math.max(1, limits.getOrDefault(key, DEFAULT_POOL_MAX_PICK)), members));
+        }
+        return out;
+    }
+
+    /**
+     * 通配匹配物品 ID：{@code *_spawn_egg} 表示「所有刷怪蛋」。
+     * <p>
+     * 用通配而不是把几十个刷怪蛋一个个写出来，是为了以后原版加了新怪物也不用改配置。
+     */
+    private static List<String> wildcardMemberIds(String pattern) {
+        List<String> out = new ArrayList<>();
+        boolean prefixWildcard = pattern.startsWith("*");
+        boolean suffixWildcard = pattern.endsWith("*");
+        String core = pattern.replace("*", "");
+        if (core.isEmpty()) {
+            return out;
+        }
+        for (ResourceLocation id : BuiltInRegistries.ITEM.keySet()) {
+            String value = id.toString();
+            boolean match;
+            if (prefixWildcard && suffixWildcard) {
+                match = value.contains(core);
+            } else if (prefixWildcard) {
+                match = value.endsWith(core);
+            } else if (suffixWildcard) {
+                match = value.startsWith(core);
+            } else {
+                match = value.equals(core);
+            }
+            if (match && exists(value)) {
+                out.add(value);
+            }
+        }
+        return out;
+    }
+
+    /** 一个物品的疯狂星期五基准价：先看具体物品，再看它所属的池子条目，最后用兜底价。 */
+    private static long basePriceFor(String itemId, List<PoolEntry> owners, Map<String, Integer> basePrices) {
+        Integer exact = basePrices.get(itemId.toLowerCase(Locale.ROOT));
+        if (exact != null) {
+            return Math.max(1, exact);
+        }
+        for (PoolEntry entry : owners) {
+            Integer byEntry = basePrices.get(entry.key());
+            if (byEntry != null) {
+                return Math.max(1, byEntry);
+            }
+        }
+        return DEFAULT_FRIDAY_BASE_PRICE;
+    }
+
+    /** 广播疯狂星期五开始（需求文档 6.4：广播里要带上价格）。 */
     public static void announceFriday(MinecraftServer server, EconomyData data) {
         List<Entry> entries = fridayEntries(data);
         if (entries.isEmpty() || server == null) {
             return;
         }
-        Component names = Component.empty();
+        Component list = Component.empty();
         for (int i = 0; i < entries.size(); i++) {
+            Entry entry = entries.get(i);
             if (i > 0) {
-                names = names.copy().append(Component.literal("、"));
+                list = list.copy().append(Component.literal("、"));
             }
-            Item item = resolveItem(entries.get(i).itemId());
-            names = names.copy().append(item == null
-                    ? Component.literal(entries.get(i).itemId())
-                    : Component.translatable(item.getDescriptionId()));
+            Item item = resolveItem(entry.itemId());
+            Component name = item == null
+                    ? Component.literal(entry.itemId())
+                    : Component.translatable(item.getDescriptionId());
+            // 「物品 ×倍率 = 单价」都写出来，玩家一眼就能看到今天哪件最值钱
+            list = list.copy().append(name)
+                    .append(Component.literal(" " + entry.price() + "/个"));
         }
-        Notify.broadcastAcquire(server, "acquire.friday_start", names);
+        Notify.broadcastAcquire(server, "acquire.friday_start", list);
     }
 }

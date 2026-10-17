@@ -3,6 +3,7 @@ package cn.daenx.mc.emeraldeconomy.shop;
 import cn.daenx.mc.emeraldeconomy.config.EEConfig;
 import cn.daenx.mc.emeraldeconomy.content.EconomyContent;
 import cn.daenx.mc.emeraldeconomy.content.ShopContent;
+import cn.daenx.mc.emeraldeconomy.core.EEConstants;
 import cn.daenx.mc.emeraldeconomy.core.Notify;
 import cn.daenx.mc.emeraldeconomy.data.AccountData;
 import cn.daenx.mc.emeraldeconomy.data.EconomyData;
@@ -40,6 +41,8 @@ public final class ShopService {
     public static final String KEY_ENCHANT = "E:";
     /** 商品键前缀：普通物品。 */
     public static final String KEY_ITEM = "I:";
+    /** 商品键前缀：经验值商品（买一份直接加经验点，不是等级）。 */
+    public static final String KEY_EXP = "X:";
 
     private ShopService() {
     }
@@ -79,9 +82,19 @@ public final class ShopService {
         return KEY_ITEM + itemId;
     }
 
+    /** 经验值商品的商品键（{@code X:1000} 表示 1000 点经验）。 */
+    public static String expKey(int exp) {
+        return KEY_EXP + exp;
+    }
+
     /** 判断一个商品键是不是附魔书。 */
     public static boolean isEnchantKey(String goodKey) {
         return goodKey != null && goodKey.startsWith(KEY_ENCHANT);
+    }
+
+    /** 判断一个商品键是不是经验值商品。 */
+    public static boolean isExpKey(String goodKey) {
+        return goodKey != null && goodKey.startsWith(KEY_EXP);
     }
 
     /** 去掉前缀后的商品 ID（附魔 ID 或物品 ID）。 */
@@ -160,16 +173,17 @@ public final class ShopService {
     /**
      * 一个货架条目。
      *
-     * @param key       商品键（{@code E:附魔ID} / {@code I:物品ID}）
+     * @param key       商品键（{@code E:附魔ID} / {@code I:物品ID} / {@code X:经验点数}）
      * @param group     大分类 ID（内容文件里写的 id）
      * @param sub       子分类 ID
-     * @param id        附魔 ID 或物品 ID
+     * @param id        附魔 ID 或物品 ID（经验值商品写经验点数）
      * @param price     售价
      * @param remaining 今日剩余可购次数
      * @param enchant   是不是附魔书
+     * @param exp       经验值商品的点数（0 表示不是经验值商品）
      */
     public record Good(String key, String group, String sub, String id, int price, int remaining,
-                       boolean enchant) {
+                       boolean enchant, int exp) {
     }
 
     /** 商店的全部货架内容（解锁制大分类只列已解锁的，常驻大分类全部列出）。 */
@@ -187,7 +201,7 @@ public final class ShopService {
             }
             String key = enchantKey(id);
             out.add(new Good(key, tab.group().idOr("ENCHANTED_BOOK"), tab.sub().idOr(""), id,
-                    EnchantCatalog.priceOf(access, id), remainingPurchases(data, playerId, key), true));
+                    EnchantCatalog.priceOf(access, id), remainingPurchases(data, playerId, key), true, 0));
         }
 
         content.plainItems().forEach((itemId, price) -> {
@@ -197,7 +211,18 @@ public final class ShopService {
             }
             String key = itemKey(itemId);
             out.add(new Good(key, tab.group().idOr("OTHER"), tab.sub().idOr(""), itemId, price,
-                    remainingPurchases(data, playerId, key), false));
+                    remainingPurchases(data, playerId, key), false, 0));
+        });
+
+        // 经验值商品：没有物品形态，买下就直接加到经验条上
+        content.expItems().forEach((exp, price) -> {
+            ShopContent.Tab tab = content.tabOfExp(exp);
+            if (tab == null) {
+                return;
+            }
+            String key = expKey(exp);
+            out.add(new Good(key, tab.group().idOr("OTHER"), tab.sub().idOr(""), String.valueOf(exp),
+                    price, remainingPurchases(data, playerId, key), false, exp));
         });
         return out;
     }
@@ -215,18 +240,20 @@ public final class ShopService {
     // 购买
     // ------------------------------------------------------------------
 
-    /** 购买一个商品（附魔书或普通物品）。 */
+    /** 购买一个商品（附魔书 / 普通物品 / 经验值商品）。 */
     public static Result buy(EconomyData data, ServerPlayer player, RegistryAccess access,
                              String goodKey, long day) {
         if (goodKey == null || goodKey.length() < 2) {
             return Result.SLOT_LOCKED;
         }
         boolean enchant = isEnchantKey(goodKey);
+        boolean expGood = isExpKey(goodKey);
         String id = idOf(goodKey);
         ShopBook shop = data.shop();
 
         int price;
-        ItemStack stack;
+        ItemStack stack = ItemStack.EMPTY;
+        int expAmount = 0;
         if (enchant) {
             // 必须是已经解锁的格子，而且内容文件里还有它
             if (!shop.enchantments().contains(id) || shop.enchantments().indexOf(id) >= shop.unlockedSlots()
@@ -238,6 +265,18 @@ public final class ShopService {
             if (stack.isEmpty()) {
                 return Result.SLOT_LOCKED;
             }
+        } else if (expGood) {
+            int exp;
+            try {
+                exp = Integer.parseInt(id.trim());
+            } catch (NumberFormatException ex) {
+                return Result.SLOT_LOCKED;
+            }
+            price = EconomyContent.shop().expPrice(exp);
+            if (price <= 0) {
+                return Result.SLOT_LOCKED;
+            }
+            expAmount = exp;
         } else {
             Integer configured = EconomyContent.shop().plainItems().get(id);
             if (configured == null) {
@@ -265,7 +304,12 @@ public final class ShopService {
         account.addBalance(-price);
         account.pushRecord(TransactionType.SHOP_BUY, -price, balanceBefore, debtBefore,
                 player.level().getGameTime());
-        AccountService.giveItem(player, stack);
+        if (expAmount > 0) {
+            // 经验值商品：直接把经验点加到玩家身上（不是等级）
+            player.giveExperiencePoints(expAmount);
+        } else {
+            AccountService.giveItem(player, stack);
+        }
         shop.addPurchase(player.getUUID(), goodKey);
         data.setDirty();
         return Result.OK;
@@ -320,11 +364,14 @@ public final class ShopService {
         return Math.max(0, limit - data.shop().purchasedCount(playerId, goodKey));
     }
 
-    /** 商品键的显示名（附魔书报附魔名，普通商品报物品名）。 */
+    /** 商品键的显示名（附魔书报附魔名，普通商品报物品名，经验值商品报「N 点经验值」）。 */
     public static Component goodName(RegistryAccess access, String goodKey) {
         String id = idOf(goodKey);
         if (isEnchantKey(goodKey)) {
             return EnchantCatalog.displayName(access, id);
+        }
+        if (isExpKey(goodKey)) {
+            return Component.translatable(EEConstants.langKey("screen.vending.exp_goods"), id);
         }
         ResourceLocation location = ResourceLocation.tryParse(id);
         Item item = location == null ? null : BuiltInRegistries.ITEM.get(location);

@@ -74,8 +74,27 @@ public record ShopContent(List<Group> groups) {
         }
     }
 
-    /** 一件普通物品：物品 ID + 售价。 */
-    public record ItemSpec(String item, Integer price) {
+    /**
+     * 一件普通商品：物品 ID + 售价，或者「经验值商品」：经验点数 + 售价。
+     * <p>
+     * 写 {@code items} 时一条要么给 {@code item}（买一件物品放背包），
+     * 要么给 {@code exp}（买一份经验点，直接加到玩家的经验条上）。
+     *
+     * @param item  物品 ID（与 {@code exp} 二选一）
+     * @param exp   经验点数（与 {@code item} 二选一，注意是经验值不是等级）
+     * @param price 售价（绿宝石）
+     */
+    public record ItemSpec(String item, Integer exp, Integer price) {
+
+        /** 是不是经验值商品。 */
+        public boolean isExp() {
+            return exp != null && exp > 0;
+        }
+
+        /** 经验点数（不是经验值商品时为 0）。 */
+        public int expAmount() {
+            return isExp() ? exp : 0;
+        }
 
         public int priceOr(int fallback) {
             return price == null ? fallback : Math.max(1, price);
@@ -139,7 +158,7 @@ public record ShopContent(List<Group> groups) {
         return out;
     }
 
-    /** 所有普通商品（物品 ID -> 价格）。 */
+    /** 所有普通商品（物品 ID -> 价格）。经验值商品不在这里（它们没有物品 ID）。 */
     public Map<String, Integer> plainItems() {
         Map<String, Integer> out = new LinkedHashMap<>();
         for (Group group : groupList()) {
@@ -155,6 +174,41 @@ public record ShopContent(List<Group> groups) {
             }
         }
         return out;
+    }
+
+    /** 所有经验值商品（点数 -> 售价），用于「买了直接加经验」的货架条目。 */
+    public Map<Integer, Integer> expItems() {
+        Map<Integer, Integer> out = new LinkedHashMap<>();
+        for (Group group : groupList()) {
+            if (group.isUnlockable()) {
+                continue;
+            }
+            for (Sub sub : subList(group)) {
+                for (ItemSpec spec : sub.itemList()) {
+                    if (spec.isExp()) {
+                        out.putIfAbsent(spec.expAmount(), spec.priceOr(1));
+                    }
+                }
+            }
+        }
+        return out;
+    }
+
+    /** 某份经验值商品属于哪个「大分类 / 子分类」（不在表里时返回 null）。 */
+    public Tab tabOfExp(int exp) {
+        for (Tab tab : tabs()) {
+            for (ItemSpec spec : tab.sub().itemList()) {
+                if (spec.isExp() && spec.expAmount() == exp) {
+                    return tab;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** 某份经验值商品的单价（不在表里时返回 0）。 */
+    public int expPrice(int exp) {
+        return expItems().getOrDefault(exp, 0);
     }
 
     /** 某个附魔属于哪个「大分类 / 子分类」（不在表里时返回 null）。 */

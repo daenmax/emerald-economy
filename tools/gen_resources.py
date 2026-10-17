@@ -318,8 +318,12 @@ def recipe_advancement():
 def acquire_tags():
     """收购用的物品标签。
 
-    原版没有「音乐唱片」和「马铠」的物品标签，但配置里想一次收掉一整类东西，
-    所以自己建两个标签；整合包可以往标签里追加自己的唱片 / 马铠。
+    原版没有「音乐唱片 / 马铠 / 怪物的头颅 / 花 / 蘑菇」这类物品标签，
+    但配置里想一次收掉一整类东西，所以自己建这几个标签；
+    整合包可以往标签里追加自己的物品（例如自定义模组的唱片、头颅）。
+
+    注意「花」直接引用原版的两个子标签（小花朵 + 高花），
+    这样原版加了新花、整合包往原版标签里塞了花，我们这边都会自动跟着收。
     """
     discs = [
         'minecraft:music_disc_13', 'minecraft:music_disc_cat', 'minecraft:music_disc_blocks',
@@ -334,9 +338,25 @@ def acquire_tags():
         'minecraft:leather_horse_armor', 'minecraft:iron_horse_armor',
         'minecraft:golden_horse_armor', 'minecraft:diamond_horse_armor',
     ]
+    # 怪物的头颅：不含玩家头颅（那个在生存里拿不到，也不是「怪物」掉的）
+    heads = [
+        'minecraft:zombie_head', 'minecraft:skeleton_skull', 'minecraft:wither_skeleton_skull',
+        'minecraft:creeper_head', 'minecraft:dragon_head', 'minecraft:piglin_head',
+    ]
+    flowers = [
+        '#minecraft:small_flowers',
+        '#minecraft:tall_flowers',
+    ]
+    mushrooms = [
+        'minecraft:brown_mushroom',
+        'minecraft:red_mushroom',
+    ]
     return {
         'music_discs': discs,
         'horse_armors': horse_armors,
+        'heads': heads,
+        'flowers': flowers,
+        'mushrooms': mushrooms,
     }
 
 
