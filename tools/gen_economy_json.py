@@ -158,7 +158,11 @@ ACQUIRE_CATEGORIES = [
         ('minecraft:sculk_sensor', None, 20, None, None),
         ('minecraft:axolotl_bucket', None, 8, None, None),
         ('minecraft:turtle_helmet', None, 5, None, None),
-        (None, 'emerald_economy:acquire/horse_armors', 4, None, 'acquire.tag.horse_armors'),
+        # 马铠按品质分开收（不再合并成「马铠（任意）」一行）：品质差别大，价格也应该分开
+        ('minecraft:leather_horse_armor', None, 10, None, None),
+        ('minecraft:iron_horse_armor', None, 50, None, None),
+        ('minecraft:golden_horse_armor', None, 100, None, None),
+        ('minecraft:diamond_horse_armor', None, 200, None, None),
         ('minecraft:ghast_tear', None, 20, None, None),
         ('minecraft:slime_ball', None, 2, None, None),
         ('minecraft:magma_cream', None, 5, None, None),

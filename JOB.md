@@ -172,6 +172,14 @@
 - README（中英两份）新增「**默认数值与价格总表**」一节（需求 11）、
   更新玩法细则 / 界面一览 / 配置说明（需求 12）。
 
+### 马铠按品质拆开（需求方补充）
+- 原来杂物里用 `#emerald_economy:acquire/horse_armors` **合并成一行**、统一 4 绿宝石；
+  需求方要求按品质分开，现在是 4 条具体物品：皮革 **10**、铁 **50**、金 **100**、钻石 **200**。
+- 标签文件 `data/emerald_economy/tags/item/acquire/horse_armors.json` 仍然由 `gen_resources.py` 生成并保留
+  （默认配置不再引用它），整合包想恢复「一整行」的话把 `{"tag":"emerald_economy:acquire/horse_armors","price":...}`
+  加回 `acquire.json` 即可。
+- 测试口径同步：自检与主用例都改成核对这 4 个价格、并断言不再存在马铠标签行。
+
 ### 配置注释规范
 - **所有面向使用者的配置说明必须是中英双语**（中文在前、英文在后）：`EEConfig.java` 里每个
   `b.comment(...)`、`tools/gen_economy_json.py` 里每个 `_comment` / `_format` 文本。

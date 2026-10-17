@@ -207,8 +207,9 @@ Each recipe yields one machine. Picking up redstone for the first time unlocks a
   cactus) / Miscellaneous**. Categories, items and prices can be added or removed freely in
   `acquire.json`; the full default price list is in **Default values and price lists** below.
 - **Whole-tag rows take a single line**: music discs (any disc, 3 each), saplings, flowers, mushrooms and
-  horse armors each occupy one row instead of listing dozens of individual items. Selling accepts any item
-  from that class, and you can even mix several kinds in one sale.
+  fish each occupy one row instead of listing dozens of individual items. Selling accepts any item
+  from that class, and you can even mix several kinds in one sale. Horse armors are **not** merged: they
+  are four separate entries by quality — leather 10, iron 50, golden 100, diamond 200.
 - **Items you do not have are greyed out** (each row also shows "Owned N"), and quantities below one full
   batch cannot be sold either — no more clicking just to be told no.
 - **Batch buyout**: eggs and feathers need **8** for one batch (8 = 1 emerald), bamboo needs **4**;
@@ -424,7 +425,10 @@ Values inside an existing save / config file are not updated automatically — s
 | Misc | Sculk Sensor | 20 | 1 |
 | Misc | Bucket of Axolotl | 8 | 1 |
 | Misc | Turtle Shell | 5 | 1 |
-| Misc | Horse armor (any) | 4 | 1 |
+| Misc | Leather Horse Armor | 10 | 1 |
+| Misc | Iron Horse Armor | 50 | 1 |
+| Misc | Golden Horse Armor | 100 | 1 |
+| Misc | Diamond Horse Armor | 200 | 1 |
 | Misc | Ghast Tear | 20 | 1 |
 | Misc | Slimeball | 2 | 1 |
 | Misc | Magma Cream | 5 | 1 |

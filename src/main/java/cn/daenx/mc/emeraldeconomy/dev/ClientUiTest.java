@@ -704,10 +704,13 @@ public final class ClientUiTest {
         add("校验杂物分类", 10, (mc, player) -> {
             var acquire = ClientEconomyCache.acquire;
             log("  杂物条目数 = " + entriesOf(acquire, "MISC").size());
-            check("杂物分类里有山羊角、潜影壳、马铠（马铠是一整行标签）",
+            check("杂物分类里有山羊角、潜影壳，马铠拆成 4 条按品质单独收",
                     hasEntry(acquire, "MISC", "minecraft:goat_horn")
                             && hasEntry(acquire, "MISC", "minecraft:shulker_shell")
-                            && hasEntry(acquire, "MISC", "#emerald_economy:acquire/horse_armors"));
+                            && entryPrice(acquire, "MISC", "minecraft:leather_horse_armor") == 10L
+                            && entryPrice(acquire, "MISC", "minecraft:iron_horse_armor") == 50L
+                            && entryPrice(acquire, "MISC", "minecraft:golden_horse_armor") == 100L
+                            && entryPrice(acquire, "MISC", "minecraft:diamond_horse_armor") == 200L);
             // 本轮新增：不祥旗帜 / 恶魂之泪 / 岩浆膏 / 腐肉 / 蜘蛛眼 / 幽匿感测体
             check("杂物新增不祥旗帜 50、恶魂之泪 20、岩浆膏 5、腐肉 1、蜘蛛眼 1、幽匿感测体 20",
                     entryPrice(acquire, "MISC", "minecraft:white_banner") == 50L

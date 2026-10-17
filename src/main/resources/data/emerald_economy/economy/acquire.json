@@ -290,10 +290,20 @@
           "price": 5
         },
         {
-          "_comment": "tag 表示收整类物品（原版标签或本模组标签都行）；界面上只占一行，卖这一类里的任意一种都可以。\ntag means \"buy the whole class\" (vanilla or this mod's item tags); it takes a single row on screen and accepts any item of that class.",
-          "tag": "emerald_economy:acquire/horse_armors",
-          "price": 4,
-          "lang": "acquire.tag.horse_armors"
+          "item": "minecraft:leather_horse_armor",
+          "price": 10
+        },
+        {
+          "item": "minecraft:iron_horse_armor",
+          "price": 50
+        },
+        {
+          "item": "minecraft:golden_horse_armor",
+          "price": 100
+        },
+        {
+          "item": "minecraft:diamond_horse_armor",
+          "price": 200
         },
         {
           "item": "minecraft:ghast_tear",

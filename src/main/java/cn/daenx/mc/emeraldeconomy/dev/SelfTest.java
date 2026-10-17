@@ -288,7 +288,12 @@ public final class SelfTest {
                         && misc.getOrDefault("minecraft:blaze_rod", 0L) == 5L
                         && rowOrder("MISC").indexOf("minecraft:slime_ball")
                         < rowOrder("MISC").indexOf("minecraft:magma_cream"));
-        check("杂物表的马铠标签展开了 4 件", misc.containsKey("minecraft:diamond_horse_armor"));
+        check("马铠按品质分开收（皮革 10 / 铁 50 / 金 100 / 钻石 200），不再合并成一行",
+                misc.getOrDefault("minecraft:leather_horse_armor", 0L) == 10L
+                        && misc.getOrDefault("minecraft:iron_horse_armor", 0L) == 50L
+                        && misc.getOrDefault("minecraft:golden_horse_armor", 0L) == 100L
+                        && misc.getOrDefault("minecraft:diamond_horse_armor", 0L) == 200L
+                        && !hasTagRow("MISC", "emerald_economy:acquire/horse_armors"));
 
         // 「整类」条目在界面上只占一行：唱片 / 树苗 / 花 / 蘑菇 / 马铠都是标签行
         check("唱片是一行标签行（不再把 19 张唱片一件件列出来）",
