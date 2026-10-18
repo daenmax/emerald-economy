@@ -21,7 +21,13 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.TagKey;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.MapItem;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.saveddata.maps.MapDecoration;
+import net.minecraft.world.level.saveddata.maps.MapDecorationTypes;
+import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -86,9 +92,10 @@ public final class AcquireService {
      * @param tag    是不是「整类收购」的标签行
      * @param lang   显示名翻译键（可为空）
      * @param name   显示名原样文本（可为空）
+     * @param filter 额外的匹配规则（可为空，目前是 {@code treasure_map}）
      */
     public record Entry(String itemId, long price, boolean friday, int batch, boolean tag,
-                        String lang, String name) {
+                        String lang, String name, String filter) {
     }
 
     // ------------------------------------------------------------------
@@ -125,11 +132,12 @@ public final class AcquireService {
                 // 标签行：整类一起卖，界面上只占一行；标签当前一个物品都没有时跳过
                 if (!tagMemberIds(item.tag()).isEmpty()) {
                     out.add(new Entry(TAG_PREFIX + item.tag().trim().toLowerCase(Locale.ROOT),
-                            item.priceOr(0L), false, batch, true, item.langOrNull(), item.nameOrNull()));
+                            item.priceOr(0L), false, batch, true, item.langOrNull(), item.nameOrNull(),
+                            item.filterOrNull()));
                 }
             } else if (exists(item.raw())) {
                 out.add(new Entry(item.raw(), item.priceOr(0L), false, batch, false,
-                        item.langOrNull(), item.nameOrNull()));
+                        item.langOrNull(), item.nameOrNull(), item.filterOrNull()));
             }
         }
         return out;
@@ -151,7 +159,7 @@ public final class AcquireService {
             }
             long base = book.basePriceOf(id, basePrices.getOrDefault(id, (int) DEFAULT_FRIDAY_BASE_PRICE));
             long price = Amounts.floorAtLeastOne(base * book.multiplierOf(id));
-            out.add(new Entry(id, price, true, 1, false, null, null));
+            out.add(new Entry(id, price, true, 1, false, null, null, null));
         }
         return out;
     }
@@ -237,6 +245,59 @@ public final class AcquireService {
         return false;
     }
 
+    /**
+     * 某个物品行配置的额外过滤规则（没有配置时返回 {@code null}）。
+     * <p>
+     * 目前只有「藏宝图」用它：物品类型是 {@code minecraft:filled_map}，
+     * 但普通已探索地图不能卖，只有带结构标记（林地府邸 / 海底神殿 / 埋藏的宝藏等）的才算藏宝图。
+     */
+    public static String filterOf(EconomyData data, String itemId) {
+        if (itemId == null) {
+            return null;
+        }
+        String key = itemId.toLowerCase(Locale.ROOT);
+        for (AcquireContent.Category category : categories()) {
+            for (AcquireContent.Item item : category.itemList()) {
+                if (!item.isTag() && item.raw().equals(key) && item.filterOrNull() != null) {
+                    return item.filterOrNull();
+                }
+            }
+        }
+        return null;
+    }
+
+    /** 这一行是不是「只收藏宝图」。 */
+    public static boolean isTreasureMapRow(EconomyData data, String itemId) {
+        return AcquireContent.Item.FILTER_TREASURE_MAP.equals(filterOf(data, itemId));
+    }
+
+    /**
+     * 判断一张已填写的地图是不是藏宝图。
+     * <p>
+     * 1.21.1 里藏宝图没有独立的物品 ID，都是 {@code minecraft:filled_map}，
+     * 区别在它保存的地图数据上：藏宝图会带林地府邸 / 海底神殿 / 红色 X（埋藏的宝藏）
+     * 等结构标记。普通玩家自己合成、自己探索的地图只有玩家指针或旗帜标记，不会被收。
+     */
+    public static boolean isTreasureMap(ItemStack stack, Level level) {
+        if (stack == null || stack.isEmpty() || level == null) {
+            return false;
+        }
+        MapItemSavedData mapData = MapItem.getSavedData(stack, level);
+        if (mapData == null) {
+            return false;
+        }
+        for (MapDecoration decoration : mapData.getDecorations()) {
+            // Holder.is(Holder) 在 1.21.1 已标记过时，直接比较注册对象本体即可
+            if (decoration.type().value() == MapDecorationTypes.WOODLAND_MANSION.value()
+                    || decoration.type().value() == MapDecorationTypes.OCEAN_MONUMENT.value()
+                    || decoration.type().value() == MapDecorationTypes.RED_X.value()
+                    || decoration.type().value() == MapDecorationTypes.TRIAL_CHAMBERS.value()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // ------------------------------------------------------------------
     // 标签 / 物品解析
     // ------------------------------------------------------------------
@@ -287,21 +348,28 @@ public final class AcquireService {
      * 返回可翻译组件，客户端会按自己的语言显示；取不到物品时退回注册名。
      */
     public static Component displayName(String itemId) {
-        if (itemId != null && itemId.startsWith(TAG_PREFIX)) {
-            // 标签行：报出这一类的名字（配置里写的翻译键 / 原样文本），再退回标签 ID
-            for (AcquireContent.Category category : categories()) {
-                for (AcquireContent.Item item : category.itemList()) {
-                    if (item.isTag() && (TAG_PREFIX + item.tag().trim().toLowerCase(Locale.ROOT))
-                            .equals(itemId.toLowerCase(Locale.ROOT))) {
-                        if (item.langOrNull() != null) {
-                            return Component.translatable(EEConstants.langKey(item.langOrNull()));
-                        }
-                        if (item.nameOrNull() != null) {
-                            return Component.literal(item.nameOrNull());
-                        }
-                    }
+        if (itemId == null) {
+            return Component.literal("");
+        }
+        String key = itemId.toLowerCase(Locale.ROOT);
+        // 先看配置里这一行有没有自定义名字（标签行、藏宝图、不祥旗帜这类尤其需要）
+        for (AcquireContent.Category category : categories()) {
+            for (AcquireContent.Item item : category.itemList()) {
+                String rowId = item.isTag()
+                        ? TAG_PREFIX + item.tag().trim().toLowerCase(Locale.ROOT)
+                        : item.raw();
+                if (!rowId.equals(key)) {
+                    continue;
+                }
+                if (item.langOrNull() != null) {
+                    return Component.translatable(EEConstants.langKey(item.langOrNull()));
+                }
+                if (item.nameOrNull() != null) {
+                    return Component.literal(item.nameOrNull());
                 }
             }
+        }
+        if (itemId.startsWith(TAG_PREFIX)) {
             return Component.literal(itemId);
         }
         Item item = resolveItem(itemId);
@@ -350,7 +418,15 @@ public final class AcquireService {
         }
         long consumed = units * batch;
 
-        if (itemId != null && itemId.startsWith(TAG_PREFIX)) {
+        if (isTreasureMapRow(data, itemId)) {
+            // 藏宝图：只认带结构标记的已填写地图，普通已探索地图不算
+            if (countTreasureMaps(player) < consumed) {
+                return Result.INSUFFICIENT_ITEMS;
+            }
+            if (!removeTreasureMaps(player, consumed)) {
+                return Result.INSUFFICIENT_ITEMS;
+            }
+        } else if (itemId != null && itemId.startsWith(TAG_PREFIX)) {
             List<Item> members = tagMemberItems(itemId.substring(1));
             if (members.isEmpty()) {
                 return Result.UNKNOWN_ITEM;
@@ -382,6 +458,53 @@ public final class AcquireService {
                 player.level().getGameTime());
         data.setDirty();
         return Result.OK;
+    }
+
+    /** 背包（0~35 格）里藏宝图的总数量。 */
+    private static long countTreasureMaps(ServerPlayer player) {
+        long total = 0L;
+        var inventory = player.getInventory();
+        int slots = Math.min(net.minecraft.world.entity.player.Inventory.INVENTORY_SIZE,
+                inventory.getContainerSize());
+        for (int slot = 0; slot < slots; slot++) {
+            ItemStack stack = inventory.getItem(slot);
+            if (isTreasureMap(stack, player.level())) {
+                total += stack.getCount();
+            }
+        }
+        return total;
+    }
+
+    /**
+     * 从背包里扣除指定数量的藏宝图。
+     * <p>
+     * 只动真正带结构标记的地图，普通地图原样保留。
+     */
+    private static boolean removeTreasureMaps(ServerPlayer player, long amount) {
+        if (amount <= 0L) {
+            return true;
+        }
+        if (countTreasureMaps(player) < amount) {
+            return false;
+        }
+        var inventory = player.getInventory();
+        int slots = Math.min(net.minecraft.world.entity.player.Inventory.INVENTORY_SIZE,
+                inventory.getContainerSize());
+        long remaining = amount;
+        for (int slot = 0; slot < slots && remaining > 0L; slot++) {
+            ItemStack stack = inventory.getItem(slot);
+            if (!isTreasureMap(stack, player.level())) {
+                continue;
+            }
+            int take = (int) Math.min(remaining, stack.getCount());
+            stack.shrink(take);
+            remaining -= take;
+            if (stack.isEmpty()) {
+                inventory.setItem(slot, ItemStack.EMPTY);
+            }
+        }
+        inventory.setChanged();
+        return true;
     }
 
     // ------------------------------------------------------------------

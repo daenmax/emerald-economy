@@ -1,6 +1,7 @@
 package cn.daenx.mc.emeraldeconomy.dev;
 
 import cn.daenx.mc.emeraldeconomy.acquire.AcquireService;
+import cn.daenx.mc.emeraldeconomy.acquire.EnchantRecycleService;
 import cn.daenx.mc.emeraldeconomy.config.EEConfig;
 import cn.daenx.mc.emeraldeconomy.core.Amounts;
 import cn.daenx.mc.emeraldeconomy.core.Params;
@@ -78,6 +79,7 @@ public final class SelfTest {
             testLevelAndOnlineReward();
             testMarketRandomDrift();
             testEconomyPersistence();
+            testRankingAndRecycle(server);
         } catch (Throwable throwable) {
             failed++;
             log("自检过程中抛出异常：" + throwable);
@@ -269,6 +271,9 @@ public final class SelfTest {
                 forestry.getOrDefault("minecraft:brown_mushroom", 0L) == 1L
                         && forestry.getOrDefault("minecraft:red_mushroom", 0L) == 1L);
         check("林业表新增仙人掌（1）", forestry.getOrDefault("minecraft:cactus", 0L) == 1L);
+        check("林业表新增紫颂花（5）与紫颂果（1）",
+                forestry.getOrDefault("minecraft:chorus_flower", 0L) == 5L
+                        && forestry.getOrDefault("minecraft:chorus_fruit", 0L) == 1L);
         check("林业表不再收购木棍", !forestry.containsKey("minecraft:stick"));
         check("林业表原木统一 1 个", forestry.getOrDefault("minecraft:oak_log", 0L) == 1L);
 
@@ -282,6 +287,14 @@ public final class SelfTest {
                 misc.getOrDefault("minecraft:rotten_flesh", 0L) == 1L
                         && misc.getOrDefault("minecraft:spider_eye", 0L) == 1L);
         check("杂物表新增幽匿感测体（20）", misc.getOrDefault("minecraft:sculk_sensor", 0L) == 20L);
+        check("杂物表新增藏宝图 / 光灵箭 / 箭 / 鹦鹉螺壳 / 蜘蛛网",
+                misc.getOrDefault("minecraft:filled_map", 0L) == 20L
+                        && misc.getOrDefault("minecraft:spectral_arrow", 0L) == 10L
+                        && misc.getOrDefault("minecraft:arrow", 0L) == 1L
+                        && misc.getOrDefault("minecraft:nautilus_shell", 0L) == 50L
+                        && misc.getOrDefault("minecraft:cobweb", 0L) == 5L);
+        check("藏宝图行带 treasure_map 过滤（普通地图不收）",
+                AcquireService.isTreasureMapRow(null, "minecraft:filled_map"));
         check("岩浆膏（5）排在粘液球（2）下面，烈焰棒 5",
                 misc.getOrDefault("minecraft:magma_cream", 0L) == 5L
                         && misc.getOrDefault("minecraft:slime_ball", 0L) == 2L
@@ -319,15 +332,30 @@ public final class SelfTest {
         check("矿物表不再收购绿宝石", !mining.containsKey("minecraft:emerald"));
         check("矿物表里有下界合金碎片（10）",
                 mining.getOrDefault("minecraft:netherite_scrap", 0L) == 10L);
+        check("矿物表新增哭泣的黑曜石 / 紫水晶块 / 铁铜金锭",
+                mining.getOrDefault("minecraft:crying_obsidian", 0L) == 5L
+                        && mining.getOrDefault("minecraft:amethyst_block", 0L) == 2L
+                        && mining.getOrDefault("minecraft:iron_ingot", 0L) == 4L
+                        && mining.getOrDefault("minecraft:copper_ingot", 0L) == 4L
+                        && mining.getOrDefault("minecraft:gold_ingot", 0L) == 8L);
+        check("紫水晶碎片调价为 15", mining.getOrDefault("minecraft:amethyst_shard", 0L) == 15L);
 
         Map<String, Long> livestock = priceMap("LIVESTOCK");
         check("畜牧表有鱼肉类（fishes 标签展开出鳕鱼）", livestock.containsKey("minecraft:cod"));
+        check("河豚从鱼类里独立出来（20），鱼类标签不再包含河豚",
+                livestock.getOrDefault("minecraft:pufferfish", 0L) == 20L
+                        && !AcquireService.tagMemberIds("emerald_economy:acquire/fishes")
+                        .contains("minecraft:pufferfish"));
+        check("畜牧表新增海龟蛋（20）与犰狳鳞甲（10）",
+                livestock.getOrDefault("minecraft:turtle_egg", 0L) == 20L
+                        && livestock.getOrDefault("minecraft:armadillo_scute", 0L) == 10L);
         check("畜牧表收骨头、不收骨粉",
                 livestock.containsKey("minecraft:bone") && !livestock.containsKey("minecraft:bone_meal"));
 
         check("鸡蛋配了 8 个一份", AcquireService.batchOf(null, "minecraft:egg") == 8);
         check("羽毛配了 8 个一份", AcquireService.batchOf(null, "minecraft:feather") == 8);
-        check("竹子配了 4 个一份", AcquireService.batchOf(null, "minecraft:bamboo") == 4);
+        check("种子配了 8 个一份", AcquireService.batchOf(null, "minecraft:wheat_seeds") == 8);
+        check("竹子已从农业默认收购里移除", !farming.containsKey("minecraft:bamboo"));
         check("没配批次的物品按 1 个算", AcquireService.batchOf(null, "minecraft:wheat") == 1);
         check("甘蔗单价 2", farming.getOrDefault("minecraft:sugar_cane", 0L) == 2L);
         check("标签行也能查到价格（树苗 1）",
@@ -390,6 +418,39 @@ public final class SelfTest {
             }
         }
         return null;
+    }
+
+    /**
+     * 本轮新增的纯逻辑：排行榜排序与附魔回收价公式。
+     * <p>
+     * 排行榜用临时存档验证「净值 = 余额 - 欠款」「按净值降序」「记录更新日」；
+     * 附魔回收价直接用本地注册表验证需求里的两个例子（经验修补 1560、保护 3 级 672）。
+     */
+    private static void testRankingAndRecycle(MinecraftServer server) {
+        EconomyData data = new EconomyData();
+        UUID rich = UUID.randomUUID();
+        UUID poor = UUID.randomUUID();
+        AccountData a = data.account(rich);
+        a.setName("Rich");
+        a.addBalance(1000L);
+        AccountData b = data.account(poor);
+        b.setName("Poor");
+        b.addBalance(500L);
+        b.addDebt(200L);
+        data.ranking().update(data, 7L);
+        check("排行榜记录了更新日", data.ranking().day() == 7L);
+        check("排行榜按净值降序（1000 > 300）",
+                data.ranking().entries().size() == 2
+                        && data.ranking().entries().get(0).name().equals("Rich")
+                        && data.ranking().entries().get(0).net() == 1000L
+                        && data.ranking().entries().get(1).net() == 300L);
+        check("转账手续费率默认 0.01", EEConfig.transferFeeRate() == 0.01D);
+
+        var access = server.registryAccess();
+        check("附魔回收价：经验修补 1 级 = 1560",
+                EnchantRecycleService.priceOf(access, "minecraft:mending", 1) == 1560L);
+        check("附魔回收价：保护 3 级 = 896 / 4 * 3 = 672",
+                EnchantRecycleService.priceOf(access, "minecraft:protection", 3) == 672L);
     }
 
     /**

@@ -7,6 +7,7 @@ import cn.daenx.mc.emeraldeconomy.core.EEConstants;
 import cn.daenx.mc.emeraldeconomy.network.ScreenType;
 import cn.daenx.mc.emeraldeconomy.network.payload.ClientPayloads;
 import cn.daenx.mc.emeraldeconomy.network.payload.ServerPayloads;
+import cn.daenx.mc.emeraldeconomy.shop.EnchantCatalog;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -17,6 +18,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.ArrayList;
@@ -27,25 +29,35 @@ import java.util.Set;
 /**
  * 自动收购机界面（需求文档 6.5）。
  * <p>
- * 顶部是分类标签（分类来自 {@code config/emerald_economy/acquire.json}），
+ * 顶部是分类标签（普通分类来自 {@code config/emerald_economy/acquire.json}），
  * 主体是当前分类下的物品与收购价，底部统一下注出售数量；
  * 疯狂星期五开放时会多出一个分类与横幅提示。
  * <p>
+ * 本轮新增两个特殊分类：
+ * <ul>
+ *     <li><b>附魔回收</b>：列出背包里所有带附魔的物品（含附魔书），显示每个附魔的回收价与整叠总价；
+ *         点「回收」会先弹二次确认，确认后才真正出售；</li>
+ *     <li>普通分类里带 {@code filter=treasure_map} 的行（藏宝图）只收带结构标记的地图。</li>
+ * </ul>
  * <b>背包里没有的物品，出售按钮是灰的</b>——数量不足「一份」（例如鸡蛋要 8 个）也一并置灰，
- * 免得玩家点了才发现卖不掉。判断只在客户端做（服务端结算时仍会再校验一次），
- * 所以背包里有多少就看界面上的「拥有 N」。
+ * 免得玩家点了才发现卖不掉。判断只在客户端做（服务端结算时仍会再校验一次）。
  */
 public class AcquisitionScreen extends EEScreen {
 
     private static final int PAGE_SIZE = 8;
     private static final int ROW_H = 20;
+    /** 附魔回收每页几行、每行多高（它要显示多行附魔名）。 */
+    private static final int ENCHANT_PAGE_SIZE = 5;
+    private static final int ENCHANT_ROW_H = 32;
 
-    /** 当前选中的分类 ID（内容文件里写的 id）。 */
+    /** 当前选中的分类 ID（内容文件里写的 id，或 {@link AcquireContent#ENCHANT_ID}）。 */
     private String category = "";
     private int page;
     private NumberBox countBox;
     /** 当前这一页的「出售」按钮，按行序排列（每帧按背包刷新可用状态）。 */
     private final List<Button> sellButtons = new ArrayList<>();
+    /** 附魔回收页的「回收」按钮。 */
+    private final List<Button> enchantButtons = new ArrayList<>();
     /** 是否已经在 init 里创建了数量输入框（用于决定要不要画它的标签）。 */
     private boolean countBoxCreated;
 
@@ -59,6 +71,12 @@ public class AcquisitionScreen extends EEScreen {
         super(Component.translatable(EEConstants.langKey("screen.acquire.title")));
     }
 
+    /** 从附魔回收的确认框返回时用：保持停在「附魔回收」分类。 */
+    public AcquisitionScreen(String category) {
+        this();
+        this.category = category == null ? "" : category;
+    }
+
     @Override
     protected int maxPanelWidth() {
         return 380;
@@ -69,9 +87,22 @@ public class AcquisitionScreen extends EEScreen {
         return 262;
     }
 
+    private boolean isEnchantCategory() {
+        return AcquireContent.ENCHANT_ID.equalsIgnoreCase(category);
+    }
+
+    private static List<ServerPayloads.EnchantItemLine> enchantItems() {
+        ServerPayloads.SyncAcquire acquire = ClientEconomyCache.acquire;
+        return acquire == null ? List.of() : acquire.enchantItems();
+    }
+
     @Override
     protected void init() {
         super.init();
+        countBox = null;
+        countBoxCreated = false;
+        sellButtons.clear();
+        enchantButtons.clear();
 
         ServerPayloads.SyncAcquire acquire = ClientEconomyCache.acquire;
         int x = contentX();
@@ -91,9 +122,10 @@ public class AcquisitionScreen extends EEScreen {
             final String id = line.id();
             boolean isFriday = AcquireContent.FRIDAY_ID.equalsIgnoreCase(id);
             Component label = tabName(line);
-            addRenderableWidget(Button.builder(
-                            isFriday ? Component.literal("★ ").append(label) : label,
-                            b -> {
+            if (isFriday) {
+                label = Component.literal("★ ").append(label);
+            }
+            addRenderableWidget(Button.builder(label, b -> {
                                 category = id;
                                 page = 0;
                                 this.rebuildWidgets();
@@ -101,6 +133,15 @@ public class AcquisitionScreen extends EEScreen {
                     .bounds(x + i * tabWidth, tabsY, Math.max(24, tabWidth - 2), 18).build());
         }
 
+        if (isEnchantCategory()) {
+            initEnchantButtons(x, listTop);
+        } else {
+            initSellButtons(acquire, x, listTop);
+        }
+    }
+
+    /** 普通分类：物品行 + 出售按钮 + 数量框。 */
+    private void initSellButtons(ServerPayloads.SyncAcquire acquire, int x, int listTop) {
         List<ServerPayloads.AcquireLine> entries = entriesOf(acquire, category);
         int pages = Math.max(1, (entries.size() + PAGE_SIZE - 1) / PAGE_SIZE);
         if (page >= pages) {
@@ -113,7 +154,6 @@ public class AcquisitionScreen extends EEScreen {
         // 欠款未清时疯狂星期五不能参加：列表照常显示（看得到价格），但不摆「出售」按钮
         boolean fridayBlocked = acquire.hasDebt() && AcquireContent.FRIDAY_ID.equalsIgnoreCase(category);
 
-        sellButtons.clear();
         int from = page * PAGE_SIZE;
         int to = Math.min(entries.size(), from + PAGE_SIZE);
         for (int i = from; i < to; i++) {
@@ -146,6 +186,45 @@ public class AcquisitionScreen extends EEScreen {
         }
         countBox = addRenderableWidget(new NumberBox(this.font, x + 120, bottom, 70, 18, "1"));
         countBoxCreated = true;
+    }
+
+    /** 附魔回收：每行一个背包格子，按钮点开后先弹二次确认。 */
+    private void initEnchantButtons(int x, int listTop) {
+        List<ServerPayloads.EnchantItemLine> items = enchantItems();
+        int pages = Math.max(1, (items.size() + ENCHANT_PAGE_SIZE - 1) / ENCHANT_PAGE_SIZE);
+        if (page >= pages) {
+            page = pages - 1;
+        }
+        if (page < 0) {
+            page = 0;
+        }
+        int from = page * ENCHANT_PAGE_SIZE;
+        int to = Math.min(items.size(), from + ENCHANT_PAGE_SIZE);
+        for (int i = from; i < to; i++) {
+            ServerPayloads.EnchantItemLine item = items.get(i);
+            int rowY = listTop + (i - from) * ENCHANT_ROW_H;
+            Button button = Button.builder(
+                            Component.translatable(EEConstants.langKey("screen.acquire.recycle")),
+                            b -> Minecraft.getInstance().setScreen(
+                                    new EnchantRecycleConfirmScreen(item)))
+                    .bounds(x + contentW() - 54, rowY - 1, 54, 16).build();
+            enchantButtons.add(button);
+            addRenderableWidget(button);
+        }
+
+        int bottom = panelY + panelH - 24;
+        if (pages > 1) {
+            addRenderableWidget(Button.builder(Component.literal("◀"), b -> {
+                        page--;
+                        this.rebuildWidgets();
+                    })
+                    .bounds(x, bottom, 22, 18).build());
+            addRenderableWidget(Button.builder(Component.literal("▶"), b -> {
+                        page++;
+                        this.rebuildWidgets();
+                    })
+                    .bounds(x + 26, bottom, 22, 18).build());
+        }
     }
 
     /**
@@ -238,11 +317,18 @@ public class AcquisitionScreen extends EEScreen {
      * <p>
      * 标签行（「任意音乐唱片」「所有树苗」……）数的是该类里<b>所有</b>物品加起来的数量，
      * 因为出售时也确实允许混着卖。
+     * <p>
+     * 藏宝图行是个例外：客户端拿不到完整的地图数据，分不清哪张是藏宝图，
+     * 所以这里只能先把所有已填写地图都算上；真正的过滤在服务端做，
+     * 普通地图会被拒绝（界面上的「拥有 N」只是参考）。
      */
     private static long ownedCount(ServerPayloads.AcquireLine entry) {
         var player = Minecraft.getInstance().player;
         if (player == null) {
             return 0L;
+        }
+        if (AcquireContent.Item.FILTER_TREASURE_MAP.equals(entry.filter())) {
+            return countOwned(player, Set.of(Items.FILLED_MAP));
         }
         if (!entry.tag()) {
             return ownedCount(entry.itemId());
@@ -345,6 +431,16 @@ public class AcquisitionScreen extends EEScreen {
             }
         }
 
+        if (isEnchantCategory()) {
+            drawEnchantContents(graphics, x, listTop);
+        } else {
+            drawSellContents(graphics, acquire, x, listTop);
+        }
+    }
+
+    /** 普通分类的列表。 */
+    private void drawSellContents(GuiGraphics graphics, ServerPayloads.SyncAcquire acquire, int x,
+                                  int listTop) {
         List<ServerPayloads.AcquireLine> entries = entriesOf(acquire, category);
         int from = page * PAGE_SIZE;
         int to = Math.min(entries.size(), from + PAGE_SIZE);
@@ -381,7 +477,68 @@ public class AcquisitionScreen extends EEScreen {
         if (countBoxCreated) {
             drawText(graphics, Component.translatable(EEConstants.langKey("screen.acquire.count")).getString(),
                     x + 56, panelY + panelH - 19, COLOR_TEXT);
+            int pages = Math.max(1, (entries.size() + PAGE_SIZE - 1) / PAGE_SIZE);
+            drawRight(graphics, Component.translatable(EEConstants.langKey("screen.acquire.page"),
+                    page + 1, pages).getString(), x + contentW(), panelY + panelH - 19, COLOR_MUTED);
         }
+    }
+
+    /** 附魔回收的列表：物品名 / 数量 / 每个附魔的回收价 / 整叠总价。 */
+    private void drawEnchantContents(GuiGraphics graphics, int x, int listTop) {
+        List<ServerPayloads.EnchantItemLine> items = enchantItems();
+        int from = page * ENCHANT_PAGE_SIZE;
+        int to = Math.min(items.size(), from + ENCHANT_PAGE_SIZE);
+        for (int i = from; i < to; i++) {
+            ServerPayloads.EnchantItemLine item = items.get(i);
+            int rowY = listTop + (i - from) * ENCHANT_ROW_H;
+            graphics.fill(x, rowY - 2, x + contentW(), rowY + ENCHANT_ROW_H - 4, COLOR_PANEL_ALT);
+
+            ItemStack icon = iconOf(item.itemId());
+            if (!icon.isEmpty()) {
+                graphics.renderItem(icon, x + 2, rowY - 1);
+            }
+            String name = icon.isEmpty() ? item.itemId() : icon.getHoverName().getString();
+            drawTrimmed(graphics, name + " ×" + item.count(), x + 22, rowY + 2, COLOR_TEXT, 170);
+            drawRight(graphics, money(item.totalPrice()), x + contentW() - 58, rowY + 2, COLOR_UP);
+            drawTrimmed(graphics, enchantSummary(item), x + 22, rowY + 14, COLOR_MUTED,
+                    contentW() - 32);
+        }
+
+        if (items.isEmpty()) {
+            drawText(graphics, Component.translatable(EEConstants.langKey(
+                    "screen.acquire.enchant.empty")).getString(), x, listTop, COLOR_MUTED);
+        }
+
+        int pages = Math.max(1, (items.size() + ENCHANT_PAGE_SIZE - 1) / ENCHANT_PAGE_SIZE);
+        // 回收规则放在列表下方，避免和底部的页码 / 翻页按钮叠在一起
+        int hintY = listTop + Math.min(ENCHANT_PAGE_SIZE, Math.max(1, items.size())) * ENCHANT_ROW_H - 2;
+        drawTrimmed(graphics, Component.translatable(EEConstants.langKey(
+                "screen.acquire.enchant.hint")).getString(), x, hintY, COLOR_MUTED, contentW());
+        drawText(graphics, Component.translatable(EEConstants.langKey("screen.acquire.page"),
+                page + 1, pages).getString(), x + 56, panelY + panelH - 19, COLOR_MUTED);
+    }
+
+    /** 一行附魔的摘要：「经验修补 1 → 1560 · 保护 3 → 672」。 */
+    private static String enchantSummary(ServerPayloads.EnchantItemLine item) {
+        StringBuilder builder = new StringBuilder();
+        for (ServerPayloads.EnchantPriceLine line : item.enchants()) {
+            if (builder.length() > 0) {
+                builder.append(" · ");
+            }
+            builder.append(enchantName(line.enchantId()))
+                    .append(" ").append(line.level())
+                    .append(" → ").append(money(line.price()));
+        }
+        return builder.toString();
+    }
+
+    /** 附魔名（客户端按自己的语言渲染）。 */
+    private static String enchantName(String enchantId) {
+        var level = Minecraft.getInstance().level;
+        if (level == null) {
+            return enchantId;
+        }
+        return EnchantCatalog.displayName(level.registryAccess(), enchantId).getString();
     }
 
     /** 疯狂星期五横幅：列出当日三件重金收购物品与价格。 */

@@ -52,13 +52,28 @@
           "price": 2
         },
         {
-          "item": "minecraft:bamboo",
-          "price": 1,
-          "batch": 4
-        },
-        {
           "item": "minecraft:cocoa_beans",
           "price": 1
+        },
+        {
+          "item": "minecraft:wheat_seeds",
+          "price": 1,
+          "batch": 8
+        },
+        {
+          "item": "minecraft:beetroot_seeds",
+          "price": 1,
+          "batch": 8
+        },
+        {
+          "item": "minecraft:pumpkin_seeds",
+          "price": 1,
+          "batch": 8
+        },
+        {
+          "item": "minecraft:melon_seeds",
+          "price": 1,
+          "batch": 8
         }
       ]
     },
@@ -118,8 +133,20 @@
           "price": 1
         },
         {
+          "item": "minecraft:pufferfish",
+          "price": 20
+        },
+        {
+          "item": "minecraft:turtle_egg",
+          "price": 20
+        },
+        {
+          "item": "minecraft:armadillo_scute",
+          "price": 10
+        },
+        {
           "_comment": "tag 表示收整类物品（原版标签或本模组标签都行）；界面上只占一行，卖这一类里的任意一种都可以。\ntag means \"buy the whole class\" (vanilla or this mod's item tags); it takes a single row on screen and accepts any item of that class.",
-          "tag": "minecraft:fishes",
+          "tag": "emerald_economy:acquire/fishes",
           "price": 2,
           "lang": "acquire.tag.fishes"
         }
@@ -164,7 +191,7 @@
         },
         {
           "item": "minecraft:amethyst_shard",
-          "price": 2
+          "price": 15
         },
         {
           "item": "minecraft:flint",
@@ -173,6 +200,26 @@
         {
           "item": "minecraft:obsidian",
           "price": 3
+        },
+        {
+          "item": "minecraft:crying_obsidian",
+          "price": 5
+        },
+        {
+          "item": "minecraft:amethyst_block",
+          "price": 2
+        },
+        {
+          "item": "minecraft:iron_ingot",
+          "price": 4
+        },
+        {
+          "item": "minecraft:copper_ingot",
+          "price": 4
+        },
+        {
+          "item": "minecraft:gold_ingot",
+          "price": 8
         },
         {
           "item": "minecraft:netherite_scrap",
@@ -249,6 +296,14 @@
         },
         {
           "item": "minecraft:cactus",
+          "price": 1
+        },
+        {
+          "item": "minecraft:chorus_flower",
+          "price": 5
+        },
+        {
+          "item": "minecraft:chorus_fruit",
           "price": 1
         }
       ]
@@ -336,6 +391,28 @@
         {
           "item": "minecraft:spider_eye",
           "price": 1
+        },
+        {
+          "item": "minecraft:filled_map",
+          "price": 20,
+          "lang": "acquire.item.treasure_map",
+          "filter": "treasure_map"
+        },
+        {
+          "item": "minecraft:spectral_arrow",
+          "price": 10
+        },
+        {
+          "item": "minecraft:arrow",
+          "price": 1
+        },
+        {
+          "item": "minecraft:nautilus_shell",
+          "price": 50
+        },
+        {
+          "item": "minecraft:cobweb",
+          "price": 5
         }
       ]
     }

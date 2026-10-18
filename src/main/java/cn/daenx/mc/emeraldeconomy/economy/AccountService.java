@@ -55,7 +55,11 @@ public final class AccountService {
         /** 玩家身上/ATM 里的等级不够 */
         INSUFFICIENT_LEVELS,
         /** 今天没有可领取的在线奖励 */
-        NO_ONLINE_REWARD
+        NO_ONLINE_REWARD,
+        /** 转账目标玩家不存在 */
+        TARGET_NOT_FOUND,
+        /** 不能给自己转账 */
+        SELF_TRANSFER
     }
 
     /**
@@ -228,6 +232,84 @@ public final class AccountService {
                 player.level().getGameTime());
         data.setDirty();
         return new Outcome(Result.OK, amount, 0L, actual);
+    }
+
+    // ------------------------------------------------------------------
+    // 玩家之间的转账（排行榜界面用）
+    // ------------------------------------------------------------------
+
+    /**
+     * 一次转账的结果。
+     *
+     * @param result     结果状态
+     * @param amount     转账金额（自己账户扣掉的部分）
+     * @param fee        手续费
+     * @param received   对方实际到账（金额 - 手续费）
+     * @param targetName 收款人名字
+     */
+    public record TransferOutcome(Result result, long amount, long fee, long received, String targetName) {
+        public boolean ok() {
+            return result == Result.OK;
+        }
+
+        static TransferOutcome fail(Result result, long amount, String targetName) {
+            return new TransferOutcome(result, amount, 0L, 0L, targetName);
+        }
+    }
+
+    /**
+     * 给另一个玩家转账。
+     * <p>
+     * 需求示例：转 1000、手续费率 1% 时，自己账户扣 1000，对方实际只收到 990，
+     * 10 个绿宝石作为手续费被系统收走。
+     * <p>
+     * 所有校验都在服务端完成：金额必须为正整数、不能转给自己、目标账户必须存在、
+     * 自己的余额必须够转账金额（手续费从转账金额里扣，不再额外加钱）。
+     */
+    public static TransferOutcome transfer(EconomyData data, ServerPlayer player, UUID targetId, long amount) {
+        if (amount < 1L) {
+            return TransferOutcome.fail(Result.INVALID_AMOUNT, amount, "");
+        }
+        if (targetId == null || targetId.equals(player.getUUID())) {
+            return TransferOutcome.fail(Result.SELF_TRANSFER, amount, "");
+        }
+        AccountData target = data.accountOrNull(targetId);
+        if (target == null) {
+            return TransferOutcome.fail(Result.TARGET_NOT_FOUND, amount, "");
+        }
+        String targetName = target.name() == null || target.name().isBlank()
+                ? targetId.toString() : target.name();
+        AccountData sender = data.account(player.getUUID());
+        if (!sender.canAfford(amount)) {
+            return TransferOutcome.fail(Result.INSUFFICIENT_BALANCE, amount, targetName);
+        }
+
+        long fee = Math.min(amount, Amounts.fee(amount, EEConfig.transferFeeRate()));
+        long received = amount - fee;
+        long gameTime = player.level().getGameTime();
+
+        long senderBalanceBefore = sender.balance();
+        long senderDebtBefore = sender.debt();
+        sender.addBalance(-amount);
+        sender.pushRecord(TransactionType.TRANSFER_OUT, -amount, senderBalanceBefore, senderDebtBefore,
+                gameTime);
+
+        long targetBalanceBefore = target.balance();
+        long targetDebtBefore = target.debt();
+        target.addBalance(received);
+        target.pushRecord(TransactionType.TRANSFER_IN, received, targetBalanceBefore, targetDebtBefore,
+                gameTime);
+
+        data.setDirty();
+
+        // 收款人在线时立刻告诉他钱到账了（离线玩家下次上线看流水）
+        MinecraftServer server = player.getServer();
+        ServerPlayer onlineTarget = server == null ? null : server.getPlayerList().getPlayer(targetId);
+        if (onlineTarget != null) {
+            Notify.send(onlineTarget, "atm.transfer_received", player.getGameProfile().getName(),
+                    received, fee);
+        }
+        return new TransferOutcome(Result.OK, amount, fee, received, targetName);
     }
 
     // ------------------------------------------------------------------

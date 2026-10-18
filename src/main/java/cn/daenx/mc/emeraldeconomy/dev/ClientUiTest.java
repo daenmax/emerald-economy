@@ -3,8 +3,12 @@ package cn.daenx.mc.emeraldeconomy.dev;
 import cn.daenx.mc.emeraldeconomy.client.ClientEconomyCache;
 import cn.daenx.mc.emeraldeconomy.client.screen.AcquisitionScreen;
 import cn.daenx.mc.emeraldeconomy.client.screen.AtmScreen;
+import cn.daenx.mc.emeraldeconomy.client.screen.DepositWithdrawScreen;
 import cn.daenx.mc.emeraldeconomy.client.screen.ExchangeScreen;
+import cn.daenx.mc.emeraldeconomy.client.screen.LevelStorageScreen;
+import cn.daenx.mc.emeraldeconomy.client.screen.LoanRepayScreen;
 import cn.daenx.mc.emeraldeconomy.client.screen.LotteryScreen;
+import cn.daenx.mc.emeraldeconomy.client.screen.OnlineRewardScreen;
 import cn.daenx.mc.emeraldeconomy.client.screen.TradeScreen;
 import cn.daenx.mc.emeraldeconomy.client.screen.VendingScreen;
 import cn.daenx.mc.emeraldeconomy.core.EEConstants;
@@ -248,6 +252,8 @@ public final class ClientUiTest {
         add("打开 ATM 界面", 35, (mc, player) -> open(mc, new AtmScreen()));
         add("截图 01 ATM（存款前：余额 100,000 / 信用额度 1,000）", 0,
                 (mc, player) -> shot(mc, "01_atm_before_deposit"));
+        add("进入「存款和取款」子页面", 20,
+                (mc, player) -> click(mc, tr("screen.atm.menu.deposit_withdraw")));
         add("输入 1000 并点击「存入」按钮", 35, (mc, player) -> {
             setNumbers(mc, "1000");
             click(mc, tr("screen.atm.button.deposit"));
@@ -269,6 +275,7 @@ public final class ClientUiTest {
             check("取款后余额 = 100990 - (100 + 1 手续费) = 100889", accountBalance() == 100889L);
         });
         add("输入 1000 并点击「申请」按钮（贷款）", 35, (mc, player) -> {
+            open(mc, new LoanRepayScreen());
             setNumbers(mc, "1000");
             click(mc, tr("screen.atm.button.loan"));
         });
@@ -297,7 +304,7 @@ public final class ClientUiTest {
         // ---------- ATM：交易记录界面（点按钮打开，列出全部流水） ----------
         add("从 ATM 点开「交易记录」按钮", 30, (mc, player) -> {
             open(mc, new AtmScreen());
-            click(mc, tr("screen.atm.records.title"));
+            click(mc, tr("screen.atm.menu.records"));
         });
         add("截图 31 交易记录界面（类型 / 金额 / 余额 / 欠款）", 0,
                 (mc, player) -> shot(mc, "31_atm_transactions"));
@@ -349,6 +356,7 @@ public final class ClientUiTest {
         });
         add("点「存入全部」", 35, (mc, player) -> {
             open(mc, new AtmScreen());
+            click(mc, tr("screen.atm.menu.deposit_withdraw"));
             click(mc, tr("screen.atm.button.deposit_all"));
         });
         add("校验「存入全部」把背包清空并入账", 10, (mc, player) -> {
@@ -445,7 +453,7 @@ public final class ClientUiTest {
             check("有欠款时界面上没有「下注」按钮", betButtons == 0);
         });
         add("去 ATM 把剩余 500 欠款还清", 35, (mc, player) -> {
-            open(mc, new AtmScreen());
+            open(mc, new LoanRepayScreen());
             setNumbers(mc, "500");
             click(mc, tr("screen.atm.button.repay"));
         });
@@ -1030,7 +1038,7 @@ public final class ClientUiTest {
 
         // ---------- ATM：在线奖励（跨天结算时在线 → 有资格；领一次 +1 级） ----------
         add("打开 ATM 看在线奖励状态（刚跨天结算完，玩家在线）", 35, (mc, player) -> {
-            open(mc, new AtmScreen());
+            open(mc, new OnlineRewardScreen());
         });
         add("校验「结算时在线 → 当天有领取资格」", 10, (mc, player) -> {
             var account = ClientEconomyCache.account;
@@ -1068,7 +1076,7 @@ public final class ClientUiTest {
             command(player, "ee give @s 5000");
             command(player, "xp add @s 20 levels");
         });
-        add("打开 ATM（界面初始化会拉一次最新快照）", 35, (mc, player) -> open(mc, new AtmScreen()));
+        add("打开 ATM（界面初始化会拉一次最新快照）", 35, (mc, player) -> open(mc, new LevelStorageScreen()));
         add("记录基准：余额与当前等级", 10, (mc, player) -> {
             savedBalance = accountBalance();
             levelsBeforeReward = player.experienceLevel;
@@ -1125,7 +1133,7 @@ public final class ClientUiTest {
         });
         add("点开交易记录，确认等级类流水也列在余额明细里", 30, (mc, player) -> {
             open(mc, new AtmScreen());
-            click(mc, tr("screen.atm.records.title"));
+            click(mc, tr("screen.atm.menu.records"));
         });
         add("截图 43 交易记录·等级存取（金额列写的是「级」）", 0,
                 (mc, player) -> shot(mc, "43_atm_level_records"));
@@ -1873,7 +1881,7 @@ public final class ClientUiTest {
         });
 
         // ---------- B2. 失败路径 ----------
-        add("余额不足取款：打开 ATM", 30, (mc, player) -> open(mc, new AtmScreen()));
+        add("余额不足取款：打开 ATM", 30, (mc, player) -> open(mc, new DepositWithdrawScreen()));
         add("记下当前余额", 10, (mc, player) ->
                 savedBalance = ClientEconomyCache.account == null
                         ? Long.MIN_VALUE : ClientEconomyCache.account.balance());
@@ -2007,7 +2015,7 @@ public final class ClientUiTest {
         });
 
         add("借 100 贷款（验证欠款时不能参加疯狂星期五）", 35, (mc, player) -> {
-            open(mc, new AtmScreen());
+            open(mc, new LoanRepayScreen());
             setNumbers(mc, "100");
             click(mc, tr("screen.atm.button.loan"));
         });
@@ -2024,7 +2032,7 @@ public final class ClientUiTest {
             check("有欠款时疯狂星期五分类里没有「出售」按钮", buttons == 0);
         });
         add("还清 100 贷款", 35, (mc, player) -> {
-            open(mc, new AtmScreen());
+            open(mc, new LoanRepayScreen());
             setNumbers(mc, "100");
             click(mc, tr("screen.atm.button.repay"));
         });
@@ -2067,7 +2075,7 @@ public final class ClientUiTest {
             check("重复下注给出了提示", chatContains("已下注"));
         });
 
-        add("超额贷款：打开 ATM", 35, (mc, player) -> open(mc, new AtmScreen()));
+        add("超额贷款：打开 ATM", 35, (mc, player) -> open(mc, new LoanRepayScreen()));
         add("超额贷款：记录余额 / 欠款 / 可贷额度", 10, (mc, player) -> {
             guardBalance = ClientEconomyCache.account == null
                     ? Long.MIN_VALUE : ClientEconomyCache.account.balance();
@@ -2100,7 +2108,7 @@ public final class ClientUiTest {
         add("存款超额：尝试存入 1000", 35, (mc, player) -> {
             guardBalance = ClientEconomyCache.account == null
                     ? Long.MIN_VALUE : ClientEconomyCache.account.balance();
-            open(mc, new AtmScreen());
+            open(mc, new DepositWithdrawScreen());
             setNumbers(mc, "1000");
             click(mc, tr("screen.atm.button.deposit"));
         });

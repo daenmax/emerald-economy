@@ -101,6 +101,54 @@ public final class ClientPayloads {
         }
     }
 
+    /** 玩家之间的转账请求（ATM 排行榜界面用）。 */
+    public record AtmTransferRequest(String targetId, long amount) implements CustomPacketPayload {
+
+        public static final CustomPacketPayload.Type<AtmTransferRequest> TYPE =
+                new CustomPacketPayload.Type<>(EEConstants.id("atm_transfer"));
+
+        public static final StreamCodec<RegistryFriendlyByteBuf, AtmTransferRequest> STREAM_CODEC =
+                StreamCodec.of(
+                        (buf, payload) -> {
+                            buf.writeUtf(payload.targetId() == null ? "" : payload.targetId());
+                            buf.writeVarLong(payload.amount());
+                        },
+                        buf -> new AtmTransferRequest(buf.readUtf(), buf.readVarLong()));
+
+        @Override
+        public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    /**
+     * 附魔回收请求。
+     * <p>
+     * 客户端只发「背包第几格」以及它看到的内容；服务端会重新核对物品与数量，
+     * 计价也完全在服务端完成，避免客户端伪造价格。
+     */
+    public record AcquireEnchantSellRequest(int slot, String itemId, int count)
+            implements CustomPacketPayload {
+
+        public static final CustomPacketPayload.Type<AcquireEnchantSellRequest> TYPE =
+                new CustomPacketPayload.Type<>(EEConstants.id("acquire_enchant_sell"));
+
+        public static final StreamCodec<RegistryFriendlyByteBuf, AcquireEnchantSellRequest> STREAM_CODEC =
+                StreamCodec.of(
+                        (buf, payload) -> {
+                            buf.writeVarInt(payload.slot());
+                            buf.writeUtf(payload.itemId() == null ? "" : payload.itemId());
+                            buf.writeVarInt(payload.count());
+                        },
+                        buf -> new AcquireEnchantSellRequest(buf.readVarInt(), buf.readUtf(),
+                                buf.readVarInt()));
+
+        @Override
+        public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
     /** 基金买卖请求。 */
     public record FundTradeRequest(int fund, boolean buy, long quantity) implements CustomPacketPayload {
 

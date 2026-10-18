@@ -44,12 +44,28 @@ public record AcquireContent(List<Category> categories, Friday friday) {
      * @param batch 一份等于几个（缺省 1）
      * @param lang  显示名翻译键（可选，标签行尤其需要它）
      * @param name  显示名原样文本（可选，翻译键查不到时用它）
+     * @param filter 额外的匹配规则（可选，目前只支持 {@code treasure_map}：
+     *               只收带结构标记的藏宝图，不收普通已探索地图）
      */
-    public record Item(String item, String tag, Integer price, Integer batch, String lang, String name) {
+    public record Item(String item, String tag, Integer price, Integer batch, String lang, String name,
+                       String filter) {
+
+        /** 「只收藏宝图」的过滤规则。 */
+        public static final String FILTER_TREASURE_MAP = "treasure_map";
 
         /** 是不是标签条目。 */
         public boolean isTag() {
             return tag != null && !tag.isBlank();
+        }
+
+        /** 过滤规则（null 表示不额外过滤）。 */
+        public String filterOrNull() {
+            return filter == null || filter.isBlank() ? null : filter.trim().toLowerCase(Locale.ROOT);
+        }
+
+        /** 是否只收「藏宝图」（带结构标记的已填写地图）。 */
+        public boolean isTreasureMapFilter() {
+            return FILTER_TREASURE_MAP.equals(filterOrNull());
         }
 
         /** 用于日志/键的原始标识。 */
@@ -113,6 +129,9 @@ public record AcquireContent(List<Category> categories, Friday friday) {
 
     /** 疯狂星期五分类在界面/存档里用的固定 ID。 */
     public static final String FRIDAY_ID = "FRIDAY";
+
+    /** 「附魔回收」分类的固定 ID（它不来自 JSON，由服务端扫描背包生成）。 */
+    public static final String ENCHANT_ID = "ENCHANT";
 
     /** 空内容（文件缺失或解析失败时的兜底）。 */
     public static AcquireContent empty() {

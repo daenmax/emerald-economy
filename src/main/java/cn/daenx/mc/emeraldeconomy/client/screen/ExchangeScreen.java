@@ -153,7 +153,9 @@ public class ExchangeScreen extends EEScreen {
         int chartH = 42;
         ServerPayloads.FundSnapshot current = findFund(market, selectedFund);
         int[] history = current == null ? new int[0] : current.history();
-        int lineColor = current == null ? COLOR_FLAT : changeColor(changeRatio(current));
+        // 线条颜色跟着「这张图里」的涨跌走，而不是当日涨跌幅：
+        // 结算刚完成时当日涨跌幅是 0，但图上可能明显在下跌，再用涨跌色就会画成灰色。
+        int lineColor = current == null ? COLOR_FLAT : chartTrendColor(history);
         MiniChart.draw(graphics, x, chartY, contentW(), chartH, history, lineColor,
                 current == null ? 0 : Math.max(1, current.previousClose()));
 
@@ -169,6 +171,21 @@ public class ExchangeScreen extends EEScreen {
             return 0.0D;
         }
         return (double) (fund.price() - reference) / (double) reference;
+    }
+
+    /**
+     * 走势图线条颜色：按当前窗口内最后一个点相对第一个点的涨跌着色。
+     * <p>
+     * 这样即使当日涨跌幅刚好是 0（例如每日结算刚完成），
+     * 图上能看出来的上涨 / 下跌也会用绿 / 红画出来，而不是一律灰色。
+     */
+    private static int chartTrendColor(int[] history) {
+        if (history == null || history.length < 2 || history[0] <= 0) {
+            return COLOR_FLAT;
+        }
+        int first = history[0];
+        int last = history[history.length - 1];
+        return changeColor((double) (last - first) / (double) first);
     }
 
     /** 找到指定序号的基金快照。 */

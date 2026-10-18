@@ -1,6 +1,7 @@
 package cn.daenx.mc.emeraldeconomy.network;
 
 import cn.daenx.mc.emeraldeconomy.acquire.AcquireService;
+import cn.daenx.mc.emeraldeconomy.acquire.EnchantRecycleService;
 import cn.daenx.mc.emeraldeconomy.content.AcquireContent;
 import cn.daenx.mc.emeraldeconomy.content.EconomyContent;
 import cn.daenx.mc.emeraldeconomy.content.ShopContent;
@@ -8,6 +9,7 @@ import cn.daenx.mc.emeraldeconomy.config.EEConfig;
 import cn.daenx.mc.emeraldeconomy.core.DaySettlement;
 import cn.daenx.mc.emeraldeconomy.data.AccountData;
 import cn.daenx.mc.emeraldeconomy.data.EconomyData;
+import cn.daenx.mc.emeraldeconomy.data.RankingBook;
 import cn.daenx.mc.emeraldeconomy.data.TransactionRecord;
 import cn.daenx.mc.emeraldeconomy.lottery.BetRecord;
 import cn.daenx.mc.emeraldeconomy.lottery.LotteryBook;
@@ -96,6 +98,13 @@ public final class ServerSync {
         }
         AccountData account = data.account(player.getUUID());
         long today = currentDay(player);
+        // 排行榜每天更新一次；如果服务器在新的一天启动还没结算过，这里补算一次
+        data.ranking().updateIfStale(data, today);
+        List<ServerPayloads.RankingEntry> ranking = new ArrayList<>();
+        for (RankingBook.Entry entry : data.ranking().entries()) {
+            ranking.add(new ServerPayloads.RankingEntry(entry.playerIdString(), entry.name(),
+                    entry.balance(), entry.debt(), entry.net()));
+        }
         List<ServerPayloads.TxLine> transactions = new ArrayList<>();
         for (TransactionRecord record : account.records()) {
             transactions.add(new ServerPayloads.TxLine(record.type().name(), record.amount(),
@@ -118,6 +127,10 @@ public final class ServerSync {
                 account.hasOnlineReward(today),
                 account.onlineRewardClaimedToday(today),
                 EEConfig.onlineRewardLevels(),
+                player.getUUID().toString(),
+                EEConfig.transferFeeRate(),
+                data.ranking().day(),
+                ranking,
                 transactions));
     }
 
@@ -224,7 +237,8 @@ public final class ServerSync {
     /** 收购快照。 */
     public static void sendAcquire(ServerPlayer player) {
         EconomyData data = dataOf(player);
-        if (data == null) {
+        MinecraftServer server = player.getServer();
+        if (data == null || server == null) {
             return;
         }
         AccountData account = data.account(player.getUUID());
@@ -233,11 +247,24 @@ public final class ServerSync {
             categories.add(new ServerPayloads.AcquireCategoryLine(category.idOr(""), nullSafe(category.lang()),
                     nullSafe(category.name()), toLines(data, category.idOr(""))));
         }
+        // 「附魔回收」不来自 JSON：它扫描的是玩家此刻的背包，所以每行都是实时算出来的
+        categories.add(new ServerPayloads.AcquireCategoryLine(AcquireContent.ENCHANT_ID,
+                "acquire.category.enchant", "附魔回收", List.of()));
         if (data.acquire().isFridayActive() && AcquireService.hasFriday()) {
             AcquireContent.Friday friday = EconomyContent.acquire().friday();
             categories.add(new ServerPayloads.AcquireCategoryLine(AcquireContent.FRIDAY_ID,
                     nullSafe(friday.lang()), nullSafe(friday.name()),
                     toLines(data, AcquireContent.FRIDAY_ID)));
+        }
+        List<ServerPayloads.EnchantItemLine> enchantItems = new ArrayList<>();
+        for (EnchantRecycleService.ItemEntry item : EnchantRecycleService.scan(player, server.registryAccess())) {
+            List<ServerPayloads.EnchantPriceLine> enchantLines = new ArrayList<>();
+            for (EnchantRecycleService.EnchantLine line : item.enchants()) {
+                enchantLines.add(new ServerPayloads.EnchantPriceLine(line.enchantId(), line.level(),
+                        line.price()));
+            }
+            enchantItems.add(new ServerPayloads.EnchantItemLine(item.slot(), item.itemId(), item.count(),
+                    item.unitPrice(), item.totalPrice(), enchantLines));
         }
         PacketDistributor.sendToPlayer(player, new ServerPayloads.SyncAcquire(
                 categories,
@@ -245,14 +272,16 @@ public final class ServerSync {
                 currentDay(player),
                 EEConfig.fridayIntervalDays(),
                 account.balance(),
-                account.debt() > 0L));
+                account.debt() > 0L,
+                enchantItems));
     }
 
     private static List<ServerPayloads.AcquireLine> toLines(EconomyData data, String categoryId) {
         List<ServerPayloads.AcquireLine> lines = new ArrayList<>();
         for (AcquireService.Entry entry : AcquireService.entries(data, categoryId)) {
             lines.add(new ServerPayloads.AcquireLine(entry.itemId(), entry.price(), entry.friday(),
-                    entry.batch(), entry.tag(), nullSafe(entry.lang()), nullSafe(entry.name())));
+                    entry.batch(), entry.tag(), nullSafe(entry.lang()), nullSafe(entry.name()),
+                    nullSafe(entry.filter())));
         }
         return lines;
     }

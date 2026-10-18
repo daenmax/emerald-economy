@@ -1,6 +1,7 @@
 package cn.daenx.mc.emeraldeconomy.network;
 
 import cn.daenx.mc.emeraldeconomy.acquire.AcquireService;
+import cn.daenx.mc.emeraldeconomy.acquire.EnchantRecycleService;
 import cn.daenx.mc.emeraldeconomy.client.ClientNetworkHandler;
 import cn.daenx.mc.emeraldeconomy.core.Notify;
 import cn.daenx.mc.emeraldeconomy.data.EconomyData;
@@ -25,6 +26,8 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
+import java.util.UUID;
+
 /**
  * 网络注册与处理（需求文档 3.4.3、3.8）。
  * <p>
@@ -41,7 +44,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 public final class NetworkHandler {
 
     /** 协议版本，客户端与服务端不一致时会被拒绝连接。 */
-    private static final String PROTOCOL_VERSION = "3";
+    private static final String PROTOCOL_VERSION = "4";
 
     private NetworkHandler() {
     }
@@ -71,6 +74,8 @@ public final class NetworkHandler {
                 NetworkHandler::handleRequestScreen);
         registrar.playToServer(ClientPayloads.AtmActionRequest.TYPE, ClientPayloads.AtmActionRequest.STREAM_CODEC,
                 NetworkHandler::handleAtmAction);
+        registrar.playToServer(ClientPayloads.AtmTransferRequest.TYPE, ClientPayloads.AtmTransferRequest.STREAM_CODEC,
+                NetworkHandler::handleAtmTransfer);
         registrar.playToServer(ClientPayloads.FundTradeRequest.TYPE, ClientPayloads.FundTradeRequest.STREAM_CODEC,
                 NetworkHandler::handleFundTrade);
         registrar.playToServer(ClientPayloads.LotteryBetRequest.TYPE, ClientPayloads.LotteryBetRequest.STREAM_CODEC,
@@ -79,6 +84,9 @@ public final class NetworkHandler {
                 NetworkHandler::handleShopAction);
         registrar.playToServer(ClientPayloads.AcquireSellRequest.TYPE, ClientPayloads.AcquireSellRequest.STREAM_CODEC,
                 NetworkHandler::handleAcquireSell);
+        registrar.playToServer(ClientPayloads.AcquireEnchantSellRequest.TYPE,
+                ClientPayloads.AcquireEnchantSellRequest.STREAM_CODEC,
+                NetworkHandler::handleAcquireEnchantSell);
     }
 
     /** 服务端通知客户端打开界面。 */
@@ -230,6 +238,49 @@ public final class NetworkHandler {
         });
     }
 
+    /** 玩家之间的转账（ATM 排行榜界面）。 */
+    private static void handleAtmTransfer(ClientPayloads.AtmTransferRequest payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (!(context.player() instanceof ServerPlayer player)) {
+                return;
+            }
+            EconomyData data = EconomyData.get(player.getServer());
+            if (data == null) {
+                return;
+            }
+            UUID targetId;
+            try {
+                targetId = UUID.fromString(payload.targetId());
+            } catch (IllegalArgumentException | NullPointerException ex) {
+                feedback(player, true, "atm.transfer_fail_target");
+                ServerSync.sendAccount(player);
+                return;
+            }
+            AccountService.TransferOutcome outcome = AccountService.transfer(data, player, targetId,
+                    payload.amount());
+            if (outcome.ok()) {
+                feedbackPrefixed(player, "💰 ", false, "atm.transfer_ok",
+                        outcome.amount(), outcome.fee(), outcome.received(), outcome.targetName());
+            } else {
+                String key = switch (outcome.result()) {
+                    case INVALID_AMOUNT -> "atm.fail_invalid_amount";
+                    case INSUFFICIENT_BALANCE -> "atm.fail_no_balance";
+                    case TARGET_NOT_FOUND -> "atm.transfer_fail_target";
+                    case SELF_TRANSFER -> "atm.transfer_fail_self";
+                    default -> "atm.fail_unknown";
+                };
+                feedback(player, true, key);
+            }
+            ServerSync.sendAccount(player);
+            // 收款人在线时顺手刷新他的界面（他可能正开着 ATM 或排行榜）
+            MinecraftServer server = player.getServer();
+            ServerPlayer onlineTarget = server == null ? null : server.getPlayerList().getPlayer(targetId);
+            if (onlineTarget != null && onlineTarget != player) {
+                ServerSync.sendAccount(onlineTarget);
+            }
+        });
+    }
+
     /** 等级存取失败时的提示。 */
     private static void notifyLevelFailure(ServerPlayer player, AccountService.Result result) {
         String key = switch (result) {
@@ -255,6 +306,8 @@ public final class NetworkHandler {
             case LEVEL_ALREADY_UNLOCKED -> "atm.level_fail_unlocked";
             case INSUFFICIENT_LEVELS -> "atm.level_fail_levels";
             case NO_ONLINE_REWARD -> "atm.online_reward_unavailable";
+            case TARGET_NOT_FOUND -> "atm.transfer_fail_target";
+            case SELF_TRANSFER -> "atm.transfer_fail_self";
             case OK -> "atm.fail_unknown";
         };
         feedback(player, true, key);
@@ -406,6 +459,34 @@ public final class NetworkHandler {
                     };
                     feedback(player, true, key);
                 }
+            }
+            ServerSync.sendAcquire(player);
+        });
+    }
+
+    /** 附魔回收：整叠扣除、按附魔价格入账。 */
+    private static void handleAcquireEnchantSell(ClientPayloads.AcquireEnchantSellRequest payload,
+                                                 IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (!(context.player() instanceof ServerPlayer player)) {
+                return;
+            }
+            EconomyData data = EconomyData.get(player.getServer());
+            if (data == null) {
+                return;
+            }
+            EnchantRecycleService.Outcome outcome = EnchantRecycleService.recycle(data, player,
+                    payload.slot(), payload.itemId(), payload.count());
+            if (outcome.ok()) {
+                feedback(player, false, "acquire.enchant_sell_ok", outcome.count(), outcome.total());
+            } else {
+                String key = switch (outcome.result()) {
+                    case ITEM_CHANGED -> "acquire.enchant_fail_changed";
+                    case NO_ENCHANTS -> "acquire.enchant_fail_empty";
+                    case INVALID_SLOT -> "acquire.fail_count";
+                    case OK -> "acquire.fail_unknown";
+                };
+                feedback(player, true, key);
             }
             ServerSync.sendAcquire(player);
         });

@@ -171,11 +171,17 @@ public final class MarketEngine {
         // 步骤 5：有概率触发随机市场事件并广播
         maybeFireMarketEvent(server, data, endDay, random);
 
-        // 步骤 6：记录每支基金当天的收盘价
+        // 步骤 6：记录每支基金当天的收盘价（作为新一天涨跌幅的基准）
         for (FundType type : FundType.values()) {
             FundState state = market.fund(type);
             state.setPreviousClose(state.price());
         }
+
+        // 步骤 7：立刻按新一天的动量走一次行情，也就是「开盘价」。
+        // 如果只记录收盘价、不立刻更新价格，那么从结算完成到下一次
+        // 5 分钟价格更新之间，七支基金的涨跌幅会全部显示为 0.00% 且没有颜色，
+        // 走势图也会被画成灰色，看起来像是功能坏了。
+        updatePrices(data, random);
 
         data.setDirty();
     }

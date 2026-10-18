@@ -41,6 +41,7 @@ public class EconomyData extends SavedData {
     private static final String KEY_LOTTERY = "lottery";
     private static final String KEY_SHOP = "shop";
     private static final String KEY_ACQUIRE = "acquire";
+    private static final String KEY_RANKING = "ranking";
     private static final String KEY_LAST_SETTLED_DAY = "lastSettledDay";
     private static final String KEY_LAST_SETTLE_TIME = "lastSettleGameTime";
     private static final String KEY_LAST_PRICE_TICK = "lastPriceTick";
@@ -54,6 +55,8 @@ public class EconomyData extends SavedData {
     private final LotteryBook lottery = new LotteryBook();
     private final ShopBook shop = new ShopBook();
     private final AcquireBook acquire = new AcquireBook();
+    /** ATM 排行榜的每日快照（净值 = 余额 - 欠款）。 */
+    private final RankingBook ranking = new RankingBook();
 
     /** 上一次完成每日结算的游戏日。 */
     private long lastSettledDay = -1L;
@@ -122,6 +125,11 @@ public class EconomyData extends SavedData {
         return acquire;
     }
 
+    /** ATM 排行榜的每日快照。 */
+    public RankingBook ranking() {
+        return ranking;
+    }
+
     public long lastSettledDay() {
         return lastSettledDay;
     }
@@ -172,6 +180,7 @@ public class EconomyData extends SavedData {
         tag.put(KEY_LOTTERY, lottery.save());
         tag.put(KEY_SHOP, shop.save());
         tag.put(KEY_ACQUIRE, acquire.save());
+        tag.put(KEY_RANKING, ranking.save());
 
         tag.putLong(KEY_LAST_SETTLED_DAY, lastSettledDay);
         tag.putLong(KEY_LAST_SETTLE_TIME, lastSettleGameTime);
@@ -196,6 +205,7 @@ public class EconomyData extends SavedData {
         data.lottery.load(tag.getCompound(KEY_LOTTERY));
         data.shop.load(tag.getCompound(KEY_SHOP));
         data.acquire.load(tag.getCompound(KEY_ACQUIRE));
+        data.ranking.load(tag.getCompound(KEY_RANKING));
 
         data.lastSettledDay = tag.contains(KEY_LAST_SETTLED_DAY) ? tag.getLong(KEY_LAST_SETTLED_DAY) : -1L;
         data.lastSettleGameTime = tag.contains(KEY_LAST_SETTLE_TIME) ? tag.getLong(KEY_LAST_SETTLE_TIME) : -1L;

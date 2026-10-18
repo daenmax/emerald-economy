@@ -36,6 +36,12 @@ public enum TransactionType {
     SHOP_UPGRADE,
     /** 收购出售 */
     ACQUIRE_SELL,
+    /** 附魔回收（整叠附魔物品被回收） */
+    ENCHANT_RECYCLE,
+    /** 转账支出（自己的账户减少） */
+    TRANSFER_OUT,
+    /** 转账收入（对方转给自己，已扣掉手续费） */
+    TRANSFER_IN,
     /** 解锁 ATM 的「等级存取」功能（花绿宝石） */
     LEVEL_UNLOCK,
     /** 把玩家身上的等级存进 ATM（金额字段记的是「等级数」） */

@@ -351,12 +351,20 @@ def acquire_tags():
         'minecraft:brown_mushroom',
         'minecraft:red_mushroom',
     ]
+    # 鱼类：原版 #minecraft:fishes 含河豚，而河豚要单独按 20/个 收，
+    # 所以自己建一个不含河豚的标签（整合包可以往里补充模组鱼）。
+    fishes = [
+        'minecraft:cod',
+        'minecraft:salmon',
+        'minecraft:tropical_fish',
+    ]
     return {
         'music_discs': discs,
         'horse_armors': horse_armors,
         'heads': heads,
         'flowers': flowers,
         'mushrooms': mushrooms,
+        'fishes': fishes,
     }
 
 

@@ -43,12 +43,12 @@
 | --- | --- |
 | `core` | 常量、金额取整规则、配置表解析、聊天栏广播、**每日结算调度器** |
 | `config` | `EEConfig`：所有可配置项（服务端 config） |
-| `data` | `AccountData` / `TransactionType` / `TransactionRecord` / `EconomyData`（唯一的 SavedData 根） |
+| `data` | `AccountData` / `RankingBook`（每日净值排行榜快照）/ `TransactionType` / `TransactionRecord` / `EconomyData`（唯一的 SavedData 根） |
 | `economy` | `AccountService`：存取款、贷款、还款、每日利息、背包物品读写 |
 | `market` | 七支基金：`FundType` / `FundState` / `Holding` / `MarketBook` / `MarketEngine`（价格引擎）/ `FundTradeService` / `SupplyTracker` / `WeatherKind` / `NewsEntry` / `NewsText` |
 | `lottery` | `LotteryType` / `LotteryBook` / `BetRecord` / `LotteryService` |
 | `shop` | `ShopBook` / `ShopService` / `EnchantCatalog` |
-| `acquire` | `AcquireBook` / `AcquireCategory` / `AcquireService`（含疯狂星期五） |
+| `acquire` | `AcquireBook` / `AcquireCategory` / `AcquireService`（含疯狂星期五）/ `EnchantRecycleService`（附魔回收扫描与计价） |
 | `block` | `MachineBlock` + `MachineType`（五台机器共用一个实现） |
 | `registry` | `ModBlocks` / `ModItems` / `ModCreativeTabs` |
 | `network` | `NetworkHandler`（注册与 C2S 处理）、`ServerSync`（S2C 快照组装）、`payload` 下的包定义 |
@@ -113,7 +113,113 @@
 
 ## 四、最新变更
 
-### 第六轮：ATM 等级存取与在线奖励 + 收购机整类收购 / 周五池扩充 + 售货机经验值 + 基金随机化（本轮）
+### 第八轮：ATM 排行榜与转账 + ATM 主界面拆分 + 收购机附魔回收 / 新条目（本轮）
+
+**版本**：`1.0.2`，协议版本 `3 → 4`。
+
+### ATM
+- **主界面只留账户概况**（余额 / 信用额度 / 欠款 / 可贷额度 / ATM 库存等级）+ 六个功能按钮：
+  存款和取款、贷款和还款、交易记录、等级存取、在线奖励、排行榜。
+  费率、日息、计息起算线、贷款规则全部搬到对应子页面。
+- 新增子页面：`DepositWithdrawScreen` / `LoanRepayScreen` / `LevelStorageScreen` /
+  `OnlineRewardScreen` / `RankingScreen` / `TransferScreen`，统一继承 `AtmSubScreen`。
+- **排行榜**：`RankingBook`（新增，随 `EconomyData` 持久化）在每日结算第 2.6 步更新，
+  按净值（余额 - 欠款）降序；`ServerSync.sendAccount` 里用 `updateIfStale` 补算，
+  避免服务器在新的一天启动、还没结算时榜单为空/过期。榜单随 `SyncAccount` 下发。
+- **转账**：`AccountService.transfer`，自己扣 `amount`、对方到账 `amount - fee`，
+  手续费率 `account.transferFeeRate`（默认 0.01）。新增流水类型 `TRANSFER_OUT` / `TRANSFER_IN`；
+  不能转给自己 / 不存在的账户；收款人在线时即时提示并刷新他的 ATM 快照。
+- 新增客户端包 `AtmTransferRequest`。
+
+### 自动收购机
+- **附魔回收**（新分类，固定 ID `ENCHANT`，不写进 JSON）：
+  `EnchantRecycleService` 扫描背包 0~35 格，`EnchantmentHelper.getEnchantmentsForCrafting`
+  同时覆盖普通物品的 `ENCHANTMENTS` 与附魔书的 `STORED_ENCHANTMENTS`；
+  回收价 = 售货机最低价 ÷ 最大等级 × 当前等级（向下取整、最低 1），只看附魔不看材质。
+  界面每行显示图标 / 名字 / 数量 / 每个附魔价格 / 整叠总价；点「回收」先弹
+  `EnchantRecycleConfirmScreen` 二次确认；服务端用「格子 + 物品 ID + 数量」核对背包是否变过。
+  新增包 `AcquireEnchantSellRequest`，快照 `SyncAcquire` 新增 `enchantItems`。
+- **藏宝图**：物品类型仍是 `minecraft:filled_map`，用
+  `MapItem.getSavedData` + `MapItemSavedData.getDecorations()` 检查是否带
+  林地府邸 / 海底神殿 / 红色 X（埋藏的宝藏）/ 试炼密室标记；
+  普通已探索地图与空地图不收。配置字段 `filter: treasure_map`。
+- **新条目 / 调价**：
+  - 农业：+ 小麦 / 甜菜 / 南瓜 / 西瓜种子（8 个一份），- 竹子；
+  - 畜牧：+ 海龟蛋 20、犰狳鳞甲 10、河豚 20；鱼类改用本模组
+    `emerald_economy:acquire/fishes`（鳕鱼 / 鲑鱼 / 热带鱼，不含河豚）；
+  - 矿物：+ 哭泣的黑曜石 5、紫水晶块 2、铁锭 4、铜锭 4、金锭 8；紫水晶碎片 2 → 15；
+  - 林业：+ 紫颂花 5、紫颂果 1；
+  - 杂物：+ 藏宝图 20、光灵箭 10、箭 1、鹦鹉螺壳 50、蜘蛛网 5。
+
+### 公共
+- `tools/gen_economy_json.py` 支持第 6 个条目字段 `filter`，并同步了新默认内容；
+  `tools/gen_resources.py` 新增 `emerald_economy:acquire/fishes` 标签。
+- `tools/gen_readme_tables.py` 同步新标签 / 藏宝图名称与转账手续费行，README 两份的
+  「默认数值与价格总表」已重生成。
+- README 中英双份更新：玩法闭环、ATM 主界面 / 排行榜 / 转账、附魔回收、藏宝图、
+  新收购条目、配置说明与 `acquire.json` 的 `filter` 示例。
+- `EEConfig` 新增 `account.transferFeeRate`（中英双语注释）；语言文件补齐全部新键。
+- `SelfTest` 的收购断言同步到新价格 / 新条目，并删除「竹子 4 个一份」。
+
+### 关键决策（本轮）
+| 决策 | 为什么 |
+| --- | --- |
+| 排行榜存成每日快照（`RankingBook`）而不是每次打开实时算 | 需求明确「每个游戏日更新一次」；快照持久化后重启也不会变，玩家当天的转账不会立刻改名次 |
+| `sendAccount` 里用 `updateIfStale` 补算 | 新的一天服务器刚启动、还没跑结算时榜单不能是空的/上一天的；仍然保证一天最多更新一次 |
+| 榜单塞进 `SyncAccount` 而不是新开一个包/界面类型 | 排行榜和 ATM 都是账户数据，共用快照与 `ScreenType.ATM` 最省事；代价是协议字段变多 |
+| 转账手续费从金额里扣（收款人少收） | 需求示例就是「转 1000 对方收到 990」；自己账户只扣 1000，语义最直观 |
+| 附魔回收由服务端扫描背包、客户端只发「哪一格」 | 价格与扣除必须服务端权威；客户端只负责展示，确认框再防一次误操作 |
+| 回收价用「最低价 ÷ 最大等级 × 当前等级」 | 需求给的公式；用 `shop.json` 的 `min` 而不是随机后的实际售价，保证同附魔同等级价格稳定 |
+| 附魔回收分类不写进 `acquire.json` | 它的内容来自玩家实时背包，不是静态价格表；固定 ID `ENCHANT` 由服务端合成一个分类标签 |
+| 藏宝图按地图装饰判断而不是按物品 ID | 1.21.1 没有独立的「藏宝图」物品，都是 `filled_map`；结构标记才是区别 |
+| 鱼类改用自建标签 | 原版 `#minecraft:fishes` 含河豚，无法「从鱼类里独立出来」；自建标签还能让整合包加模组鱼 |
+
+### 踩过的坑（本轮）
+1. **协议字段一改就必须升版本**：`SyncAccount` 加了 `playerId / transferFeeRate / rankingDay / ranking`，
+   `SyncAcquire` 加了 `enchantItems`，`AcquireLine` 加了 `filter`。协议 `3 → 4`，否则旧客户端解码会错位。
+2. **`Inventory.getContainerSize()` 是 41（含盔甲 4 格 + 副手），不是 36**。需求说「背包（含快捷栏）」，
+   所以扫描附魔回收时用 `Inventory.INVENTORY_SIZE`（36）截断，不要把手上的盔甲/副手也收掉。
+3. **附魔书不是 `ENCHANTMENTS`**：附魔书用 `STORED_ENCHANTMENTS`。不要直接读 `DataComponents.ENCHANTMENTS`，
+   用 `EnchantmentHelper.getEnchantmentsForCrafting`（内部按物品类型选组件）。
+4. **藏宝图没有独立 ID**：`minecraft:filled_map` 既可能是普通地图也可能是藏宝图；
+   只能读 `MapItemSavedData#getDecorations()`，看有没有 `WOODLAND_MANSION / OCEAN_MONUMENT / RED_X / TRIAL_CHAMBERS`。
+5. **客户端拿不到地图数据**：所以藏宝图行的「拥有 N」只能先按所有已填写地图统计，
+   真正的过滤在服务端做；界面上的数字只是参考。
+6. **旧 UI 测试的 ATM 路径全部失效**：主界面不再有「存入 / 取出」按钮，`ClientUiTest` 里
+   `open(new AtmScreen())` 后直接点旧按钮的步骤需要改成「先进子页面」；本轮未重跑游戏内用例，
+   下次跑之前先更新测试脚本。
+7. **`sendAccount` 会触发排行榜补算**：它内部 `updateIfStale` 会 `setDirty()`；
+   只在跨天时发生，不要误以为每次打开 ATM 都在重算全榜。
+
+### 验证（本轮）
+- `gradlew build` 通过，产物 `build/libs/emerald_economy-1.0.2.jar`（`neoforge.mods.toml` 里 `version = "1.0.2"`）。
+- 开发服启动并跑 `SelfTest`：**157 项全过、0 失败**。新增 5 项：
+  排行榜更新日 / 净值排序（1000 > 300）/ 转账手续费默认 0.01 /
+  附魔回收价「经验修补 1 级 = 1560」/「保护 3 级 = 672」。
+  收购断言也同步到种子 8 个一份、竹子移除、新矿物 / 林业 / 杂物价格与藏宝图过滤。
+- `python tools/check_lang.py`：两种语言翻译键都完整（382 个引用键）。
+- `python tools/gen_economy_json.py` / `gen_resources.py` / `gen_readme_tables.py` 均可重跑，
+  README 的默认价表已用生成结果整节替换。
+- **未重跑 `ClientUiTest`**：ATM 导航已改到子页面，但真游戏内用例（以及新排行榜 / 转账 /
+  附魔回收的界面断言）留待下次实机验证。
+
+### 第七轮：结算后涨跌幅归零 / 走势图变灰的修复（本轮）
+
+**现象**：用 `/time add 600s` 触发每日结算后，交易所七支基金的涨跌幅全部变成灰色的 `0.00%`，
+底部走势图明明在下跌也是灰色，看起来像功能坏了。
+
+**原因**：`MarketEngine.settleDay` 把 `previousClose` 直接设成结算时的价格（收盘价），
+而价格引擎是每 6000 刻才更新一次。结算完到下一次更新之间（最长 5 分钟），
+`price == previousClose`，涨跌幅必然是 0；走势图的线条颜色又复用了这个涨跌幅，所以也是灰色。
+这不是颜色渲染坏了，而是「开盘时涨跌幅为 0」这条正常规则被 5 分钟的更新间隔放大了。
+
+**修复**：
+- `MarketEngine.settleDay` 记录完收盘价后立刻调用一次 `updatePrices`，相当于按新一天的动量
+  「开盘」。这样结算完成的瞬间涨跌幅就有真实数值，颜色立即恢复，不需要再等 5 分钟。
+- `ExchangeScreen` 的走势图线条颜色改为看「当前图里最后一点相对第一点」的涨跌，
+  不再复用当日涨跌幅。这样即使某天涨跌幅刚好是 0，图上能看出来的涨跌也会是绿 / 红。
+
+### 第六轮：ATM 等级存取与在线奖励 + 收购机整类收购 / 周五池扩充 + 售货机经验值 + 基金随机化
 
 ### ATM
 - **在线奖励**（需求 1）：每天在**结算利息的那一刻**重置领取资格，**只有那一刻在线的玩家**
@@ -451,7 +557,8 @@
 - [x] 抽奖：三种场次、每日限购一次、每日开奖广播
 - [x] 商店：附魔书格子、全服共享升级、每日限购
 - [x] 收购：四个固定分类 + 疯狂星期五（逢 5 开放，随机 3 件 5-10 倍收购）
-- [x] 9 个界面：ATM、交易记录、交易所、交易弹窗、持仓、市场新闻、抽奖、售货机、收购机
+- [x] 16 个界面：ATM 主界面、存款和取款、贷款和还款、等级存取、在线奖励、排行榜、转账、
+      交易记录、交易所、交易弹窗、持仓、市场新闻、抽奖、售货机、收购机、附魔回收确认框
 - [x] `/ee` 命令、每日结算广播、`build.bat` / `clean.bat`
 - [x] **验证·编译与逻辑**：`gradlew build` 通过；专用服务端启动无错；`SelfTest` **95 项全部通过**；`build.bat` / `clean.bat` 实测可用
 - [x] **验证·真游戏内实证**（`dev/ClientUiTest`）：在真服务端上自动化跑完整流程，四个用例全绿：
@@ -481,14 +588,21 @@
 - [x] **第五轮**：模组 logo 从程序化简笔画换成美术素材 `素材/logo.png`（`TextureGenerator`
       改成「抠白底 + 缩放」生成）；新增英文版 `README_EN.md`；两份 README 加语言切换链接、
       发布渠道链接（Modrinth / GitHub）与「合成配方」一节（详见第四节）
-- [x] **第六轮（本轮）**：ATM 在线奖励与等级存取（含交易记录的等级流水）、收购机「整类一行」收购
+- [x] **第六轮**：ATM 在线奖励与等级存取（含交易记录的等级流水）、收购机「整类一行」收购
       （唱片/树苗/花/蘑菇）与杂物/农业/林业新增条目、疯狂星期五池加入头颅与刷怪蛋并限制「各最多 1 件」
       且广播带单价、售货机「其他→杂物」卖经验值、基金每日随机情绪修正、README 新增
       「默认数值与价格总表」（用 `tools/gen_readme_tables.py` 从代码生成）（详见第四节）
+- [x] **第七轮**：结算后涨跌幅归零 / 走势图变灰的修复（结算后立即按新一天动量开盘；
+      走势图颜色改看窗口内首尾两点）
+- [x] **第八轮（本轮，1.0.2）**：ATM 主界面拆成「概况 + 六个功能页」、新增每日净值排行榜与
+      玩家转账（可配手续费）、收购机新增「附魔回收」分类（二次确认）与藏宝图过滤、
+      农业/畜牧/矿物/林业/杂物新增条目与调价（详见第四节）
 
 **进行中**：无。
 
 **未开始（后续可做）**：
+- [ ] **更新 `ClientUiTest` 到新的 ATM 导航**（主界面已经不再直接放存取款按钮，
+      旧用例点不到；下轮跑真游戏内测试前必须先改脚本）
 - [ ] 商店再扩商品（现在「其他」只有种子与树苗）
 - [ ] 交易所界面的走势图支持缩放 / 显示更长时间跨度
 - [ ] 给机器加音效与粒子（现在纯静态方块）
@@ -909,6 +1023,16 @@
   「切页成功了吗」的断言（例如数一数当前页有几个「出售」按钮）；
   纯数据断言 + 截图看起来都「对」，不代表交互路径是对的。
 
+### 42. 结算后涨跌幅全变 0.00% / 走势图变灰，不是渲染坏了
+- **现象**：`/time add 600s` 触发每日结算后，交易所七支基金的涨跌幅全部显示灰色的 `0.00%`，
+  底部走势图明显在下跌却也是灰色；过几分钟又自己恢复。
+- **原因**：`settleDay` 把 `previousClose` 设成结算时的价格，而价格引擎每 6000 刻（5 分钟）才更新一次，
+  这段时间里 `price == previousClose`，涨跌幅必然是 0；图表颜色又复用了当日涨跌幅，于是跟着变灰。
+- **解决**：结算记录完收盘价后立刻 `updatePrices` 一次（相当于开盘），让新一天的动量马上体现出来；
+  走势图颜色改成看「图内最后一点 vs 第一点」，不再依赖当日涨跌幅。
+- **教训**：凡是「每天重置」的基准值，都要考虑它和「定时更新」的间隔叠加起来会显示成什么样；
+  界面上的颜色尽量由**它正在展示的那组数据**决定，别跨组复用另一个口径的涨跌。
+
 ## 九、怎么开发 / 验证
 
 ```bash
@@ -1029,7 +1153,8 @@ rm -rf run/world                          # 主用例断言的是绝对余额，
 
 服务端配置：`<存档目录>/serverconfig/emerald_economy-server.toml`
 （**开发环境实际落在 `run/config/`**——专用服务端的 SERVER 类型配置在 `config/` 下，世界专属配置才在 `serverconfig/`）。
-分五节：`account`（费率、日息与起息线、信用额度、流水条数、**等级存取解锁费用、在线奖励等级数**）、
+分五节：`account`（费率、日息与起息线、信用额度、流水条数、**等级存取解锁费用、在线奖励等级数、
+玩家转账手续费率**）、
 `market`（价格引擎、手续费、冷却、**每日随机情绪修正**、各基金参数、天气表、新闻表）、
 `lottery`（赔率、限购）、`shop`（格子数、限购、升级费用区间、附魔价格与分类总表、价格退路与黑名单）、
 `acquire`（疯狂星期五间隔 / 件数 / 倍率；其余价格表在 JSON 里）。
@@ -1039,7 +1164,7 @@ rm -rf run/world                          # 主用例断言的是绝对余额，
 | 文件 | 内容 |
 | --- | --- |
 | `shop.json` | 售货机的「大分类 → 子分类 → 商品」：附魔书写 `enchants`（`id` + `min`/`max` 价格区间）；普通商品写 `items`（`item` + `price`）；**经验值商品**也写 `items`，用 `exp`（点数）+ `price`；名字可写翻译键 `lang` 或直接写 `name` |
-| `acquire.json` | 收购机的「分类 → 条目」：每条形如 `{"item":"minecraft:wheat","price":1}` 或 `{"tag":"minecraft:saplings","price":1}`（**标签条目在界面上只占一行**，可配 `lang` 当显示名），`"batch":8` 表示 8 个算一份；末尾 `friday` 段是疯狂星期五的池子（支持具体物品 / `#标签` / `*_spawn_egg` 通配）、`poolMaxPicks`（每个池子条目每天最多挑几件）与 `basePrices` |
+| `acquire.json` | 收购机的「分类 → 条目」：每条形如 `{"item":"minecraft:wheat","price":1}` 或 `{"tag":"minecraft:saplings","price":1}`（**标签条目在界面上只占一行**，可配 `lang` 当显示名），`"batch":8` 表示 8 个算一份；`"filter":"treasure_map"` 表示只收带结构标记的藏宝图；末尾 `friday` 段是疯狂星期五的池子（支持具体物品 / `#标签` / `*_spawn_egg` 通配）、`poolMaxPicks`（每个池子条目每天最多挑几件）与 `basePrices` |
 
 **注意**：这两份文件只在「不存在」时才从内置模板生成，升级模组后新增的默认条目不会自动出现
 （见第八节第 40 条）——要么删掉重新生成，要么照格式手补。
@@ -1074,6 +1199,18 @@ JSON 的键名与默认模板见 `tools/gen_economy_json.py`。
 | `acquire.json` MISC | 新增不祥旗帜（50，收的是白色旗帜）、恶魂之泪（2）、岩浆膏（1）、腐肉（1）、蜘蛛眼（1）、幽匿感测体（20） |
 | `acquire.json` friday | 池子新增 `#emerald_economy:acquire/heads` 与 `*_spawn_egg`；新增 `poolMaxPicks`（头颅/刷怪蛋各 1）；基准价新增两条池子条目（头颅 25、刷怪蛋 30） |
 | 新标签文件 | `emerald_economy:acquire/heads`、`.../flowers`、`.../mushrooms` |
+
+**第八轮新增 / 变更的默认值**：
+
+| 键 / 位置 | 默认值 |
+| --- | --- |
+| `account.transferFeeRate` | `0.01`（1%，从转账金额里扣） |
+| `acquire.json` 农业 | 新增 4 种种子（8 个一份），删除竹子 |
+| `acquire.json` 畜牧 | 新增河豚 20、海龟蛋 20、犰狳鳞甲 10；鱼类改用 `emerald_economy:acquire/fishes` |
+| `acquire.json` 矿物 | 新增哭泣的黑曜石 5、紫水晶块 2、铁锭 4、铜锭 4、金锭 8；紫水晶碎片 15 |
+| `acquire.json` 林业 | 新增紫颂花 5、紫颂果 1 |
+| `acquire.json` 杂物 | 新增藏宝图 20（`filter=treasure_map`）、光灵箭 10、箭 1、鹦鹉螺壳 50、蜘蛛网 5 |
+| 新标签 | `emerald_economy:acquire/fishes`（鳕鱼 / 鲑鱼 / 热带鱼） |
 
 上一轮（第三、四轮）改过的默认值一览（历史记录，保留备查）：
 

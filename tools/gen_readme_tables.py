@@ -69,7 +69,7 @@ OTHER_NAMES = {
 }
 TAG_NAMES = {
     'minecraft:saplings': ('树苗（任意）', 'Sapling (any)'),
-    'minecraft:fishes': ('鱼（任意）', 'Fish (any)'),
+    'emerald_economy:acquire/fishes': ('鱼（任意，不含河豚）', 'Fish (any, excluding pufferfish)'),
     'emerald_economy:acquire/flowers': ('花（任意）', 'Flower (any)'),
     'emerald_economy:acquire/mushrooms': ('蘑菇（任意）', 'Mushroom (any)'),
     'emerald_economy:acquire/music_discs': ('音乐唱片（任意）', 'Music disc (any)'),
@@ -80,6 +80,7 @@ TAG_NAMES = {
 }
 ENTRY_NAMES = {
     'acquire.item.ominous_banner': ('不祥旗帜（白色旗帜）', 'Ominous Banner (white banner)'),
+    'acquire.item.treasure_map': ('藏宝图（带结构标记）', 'Treasure map (with a structure marker)'),
 }
 
 
@@ -186,6 +187,7 @@ def build(lang):
         (L('在线奖励等级数', 'Online reward levels'),
          L('%s 级 / 天（结算时在线才能领）' % cfg['onlineRewardLevels'],
            '%s level(s) per day (online at settlement required)' % cfg['onlineRewardLevels'])),
+        (L('玩家转账手续费率', 'Player transfer fee'), '%.2f%%' % (cfg['transferFeeRate'] * 100)),
     ]))
 
     # ---------------- 基金 ----------------
@@ -289,7 +291,8 @@ def build(lang):
                  '**Buyout prices by category** (price per unit; batch = items per unit)'))
     rows = []
     for cat_id, lang_key, name, items in content.ACQUIRE_CATEGORIES:
-        for item, tag, price, batch, name_key in items:
+        for row in items:
+            item, tag, price, batch, name_key = row[:5]
             if tag:
                 label = TAG_NAMES.get(tag, (tag, tag))[0 if zh else 1]
             elif name_key:

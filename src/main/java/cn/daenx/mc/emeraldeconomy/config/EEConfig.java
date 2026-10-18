@@ -27,6 +27,7 @@ public final class EEConfig {
     private static final ModConfigSpec.IntValue MAX_TRANSACTION_RECORDS;
     private static final ModConfigSpec.LongValue LEVEL_UNLOCK_COST;
     private static final ModConfigSpec.IntValue ONLINE_REWARD_LEVELS;
+    private static final ModConfigSpec.DoubleValue TRANSFER_FEE_RATE;
 
     // ------------------------------------------------------------------
     // 基金市场
@@ -114,6 +115,13 @@ public final class EEConfig {
 
                 Levels granted by the daily online reward (levels, not XP: 1 means level 35 becomes 36). Eligibility is reset at each daily settlement; only players online at that moment get it, once per day.""")
                 .defineInRange("onlineRewardLevels", 1, 1, 1000);
+        TRANSFER_FEE_RATE = b.comment("""
+                玩家之间转账的手续费率，默认 0.01 表示 1%。
+                手续费从转账金额里扣：转 1000、费率 1% 时，对方实际到账 990。
+                手续费向下取整，最低 1 个绿宝石；设为 0 表示不收费。
+
+                Transfer fee rate between players; 0.01 means 1%. The fee is taken out of the transferred amount: sending 1000 with a 1% fee credits the recipient 990. The fee is rounded down with a minimum of 1 emerald; set 0 to disable it.""")
+                .defineInRange("transferFeeRate", 0.01D, 0.0D, 1.0D);
         b.pop();
 
         // ============================ 基金市场 ============================
@@ -322,6 +330,11 @@ public final class EEConfig {
     /** 每日在线奖励赠送的等级数。 */
     public static int onlineRewardLevels() {
         return ONLINE_REWARD_LEVELS.get();
+    }
+
+    /** 玩家之间转账的手续费率（0.01 表示 1%）。 */
+    public static double transferFeeRate() {
+        return TRANSFER_FEE_RATE.get();
     }
 
     public static int priceUpdateIntervalTicks() {

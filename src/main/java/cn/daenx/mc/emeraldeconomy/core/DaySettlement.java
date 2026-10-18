@@ -139,6 +139,9 @@ public final class DaySettlement {
         //     （不在线的玩家今天没有资格，也不能事后补领）
         AccountService.resetOnlineReward(server, data, newDay);
 
+        // 2.6 ATM 排行榜：每个游戏日更新一次，按净值（余额 - 欠款）排序
+        data.ranking().update(data, newDay);
+
         // 3. 抽奖开奖并广播
         LotteryService.draw(server, data, endDay, random);
 

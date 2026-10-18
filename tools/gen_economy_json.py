@@ -98,8 +98,12 @@ ACQUIRE_CATEGORIES = [
         ('minecraft:apple', None, 2, None, None),
         ('minecraft:sweet_berries', None, 1, None, None),
         ('minecraft:nether_wart', None, 2, None, None),
-        ('minecraft:bamboo', None, 1, 4, None),
         ('minecraft:cocoa_beans', None, 1, None, None),
+        # 种子：8 个一份（和鸡蛋一样），1 份 = 1 绿宝石
+        ('minecraft:wheat_seeds', None, 1, 8, None),
+        ('minecraft:beetroot_seeds', None, 1, 8, None),
+        ('minecraft:pumpkin_seeds', None, 1, 8, None),
+        ('minecraft:melon_seeds', None, 1, 8, None),
     ]),
     ('LIVESTOCK', 'acquire.category.livestock', '畜牧产物', [
         ('minecraft:beef', None, 2, None, None),
@@ -114,7 +118,12 @@ ACQUIRE_CATEGORIES = [
         ('minecraft:honey_bottle', None, 3, None, None),
         ('minecraft:feather', None, 1, 8, None),
         ('minecraft:bone', None, 1, None, None),
-        (None, 'minecraft:fishes', 2, None, 'acquire.tag.fishes'),
+        # 河豚从「鱼类」标签里独立出来，单独定价
+        ('minecraft:pufferfish', None, 20, None, None),
+        ('minecraft:turtle_egg', None, 20, None, None),
+        ('minecraft:armadillo_scute', None, 10, None, None),
+        # 鱼类标签换成本模组自己的（原版 #minecraft:fishes 含河豚）
+        (None, 'emerald_economy:acquire/fishes', 2, None, 'acquire.tag.fishes'),
     ]),
     ('MINING', 'acquire.category.mining', '矿物', [
         ('minecraft:coal', None, 1, None, None),
@@ -125,9 +134,14 @@ ACQUIRE_CATEGORIES = [
         ('minecraft:lapis_lazuli', None, 2, None, None),
         ('minecraft:diamond', None, 15, None, None),
         ('minecraft:quartz', None, 1, None, None),
-        ('minecraft:amethyst_shard', None, 2, None, None),
+        ('minecraft:amethyst_shard', None, 15, None, None),
         ('minecraft:flint', None, 1, None, None),
         ('minecraft:obsidian', None, 3, None, None),
+        ('minecraft:crying_obsidian', None, 5, None, None),
+        ('minecraft:amethyst_block', None, 2, None, None),
+        ('minecraft:iron_ingot', None, 4, None, None),
+        ('minecraft:copper_ingot', None, 4, None, None),
+        ('minecraft:gold_ingot', None, 8, None, None),
         ('minecraft:netherite_scrap', None, 10, None, None),
     ]),
     ('FORESTRY', 'acquire.category.forestry', '林业产物', [
@@ -147,6 +161,8 @@ ACQUIRE_CATEGORIES = [
         (None, 'emerald_economy:acquire/flowers', 1, None, 'acquire.tag.flowers'),
         (None, 'emerald_economy:acquire/mushrooms', 1, None, 'acquire.tag.mushrooms'),
         ('minecraft:cactus', None, 1, None, None),
+        ('minecraft:chorus_flower', None, 5, None, None),
+        ('minecraft:chorus_fruit', None, 1, None, None),
     ]),
     ('MISC', 'acquire.category.misc', '杂物', [
         (None, 'emerald_economy:acquire/music_discs', 3, None, 'acquire.tag.music_discs'),
@@ -171,6 +187,13 @@ ACQUIRE_CATEGORIES = [
         ('minecraft:phantom_membrane', None, 4, None, None),
         ('minecraft:rotten_flesh', None, 1, None, None),
         ('minecraft:spider_eye', None, 1, None, None),
+        # 藏宝图：物品类型还是 filled_map，但只收带结构标记的；
+        # 空地图（map）与普通已探索地图（没有结构标记）不算。
+        ('minecraft:filled_map', None, 20, None, 'acquire.item.treasure_map', 'treasure_map'),
+        ('minecraft:spectral_arrow', None, 10, None, None),
+        ('minecraft:arrow', None, 1, None, None),
+        ('minecraft:nautilus_shell', None, 50, None, None),
+        ('minecraft:cobweb', None, 5, None, None),
     ]),
 ]
 
@@ -256,7 +279,9 @@ def acquire_json():
     categories = []
     for cat_id, lang, name, items in ACQUIRE_CATEGORIES:
         entries = []
-        for item, tag, price, batch, name_key in items:
+        for row in items:
+            item, tag, price, batch, name_key = row[:5]
+            filter_value = row[5] if len(row) > 5 else None
             entry = {}
             if tag:
                 entry["_comment"] = ("tag 表示收整类物品（原版标签或本模组标签都行）；"
@@ -270,6 +295,8 @@ def acquire_json():
                 entry["batch"] = batch
             if name_key:
                 entry["lang"] = name_key
+            if filter_value:
+                entry["filter"] = filter_value
             entries.append(entry)
         categories.append({
             "id": cat_id,

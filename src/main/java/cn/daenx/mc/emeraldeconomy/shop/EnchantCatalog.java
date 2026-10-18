@@ -200,6 +200,20 @@ public final class EnchantCatalog {
         return (int) Math.max(1L, Math.round(price));
     }
 
+    /**
+     * 附魔在售货机里的<b>最低售价</b>。
+     * <p>
+     * 附魔回收按这个价格折算（「最低价 ÷ 最大等级 × 当前等级」）。
+     * 内容文件里没写的附魔退回配置里的兜底最低价，保证整合包新增的附魔也有回收价。
+     */
+    public static int minPriceOf(RegistryAccess access, String id) {
+        ShopContent.EnchantSpec spec = EconomyContent.shop().enchantSpec(id);
+        if (spec != null) {
+            return spec.minPrice();
+        }
+        return EEConfig.isLoaded() ? Math.max(1, EEConfig.shopPriceMin()) : 256;
+    }
+
     /** 是否宝藏附魔（1.21 用 {@code minecraft:treasure} 标签判定）。 */
     public static boolean isTreasure(Holder<Enchantment> holder) {
         return holder.is(EnchantmentTags.TREASURE);
