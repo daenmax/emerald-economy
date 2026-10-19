@@ -84,7 +84,7 @@ JOB.md 是项目的**长期记忆**。每次完成一轮需求后，必须创建
 ## clean.bat
 1. 双击可运行，UTF-8 编码，开头加 `chcp 65001 >nul`
 2. 调用 `gradlew.bat clean`。
-3. 删除项目根目录下的 `build\`、`run\`、`logs\` 目录（如果存在）。
+3. 删除项目根目录下的 `build\`、`logs\` 目录（如果存在）；**不要删除 `run\`**，那是开发用运行目录（含世界存档与配置）。
 4. 不要删除 `gradle`、`src`、`gradlew`、`gradlew.bat` 等必要文件。
 
 # 五、代码规范和质量

@@ -300,8 +300,8 @@
         },
         {
           "id": "MISC",
-          "lang": "shop.sub.misc",
-          "name": "杂物",
+          "lang": "shop.sub.exp",
+          "name": "经验",
           "icon": "🧪",
           "items": [
             {
@@ -315,6 +315,18 @@
             {
               "exp": 1000,
               "price": 6000
+            }
+          ]
+        },
+        {
+          "id": "GENERAL",
+          "lang": "shop.sub.misc",
+          "name": "杂物",
+          "icon": "🧱",
+          "items": [
+            {
+              "item": "minecraft:glass",
+              "price": 1
             }
           ]
         }

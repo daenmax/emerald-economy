@@ -14,7 +14,7 @@ import net.minecraft.network.chat.Component;
  * <p>
  * 主界面只负责「看账户状态 + 选一个功能」：
  * <ul>
- *     <li>上方显示账户余额、信用额度、贷款欠款、可贷额度、ATM 里存的等级；</li>
+ *     <li>上方显示账户余额、信用额度、贷款欠款、可贷额度、ATM 里已存的经验；</li>
  *     <li>下方是一排功能按钮：存款和取款、贷款和还款、交易记录、等级存取、在线奖励、排行榜。</li>
  * </ul>
  * 手续费、日息、计息起算线这些说明不再堆在主界面，而是放在对应的子页面里
@@ -84,19 +84,21 @@ public class AtmScreen extends EEScreen {
         }
 
         y += 18;
+        // 第一行：余额 + 信用额度；第二行：贷款欠款 + 可贷额度
         drawText(graphics, label("screen.atm.balance").getString() + " " + money(account.balance()),
                 x, y, COLOR_UP);
-        drawRight(graphics, label("screen.atm.debt").getString() + " " + money(account.debt()),
-                x + contentW(), y, account.debt() > 0 ? COLOR_DOWN : COLOR_TEXT);
+        drawRight(graphics, label("screen.atm.credit").getString() + " " + money(account.creditLimit()),
+                x + contentW(), y, COLOR_TEXT);
 
         y += 14;
-        drawText(graphics, label("screen.atm.credit").getString() + " " + money(account.creditLimit()),
-                x, y, COLOR_TEXT);
+        drawText(graphics, label("screen.atm.debt").getString() + " " + money(account.debt()),
+                x, y, account.debt() > 0 ? COLOR_DOWN : COLOR_TEXT);
         drawRight(graphics, label("screen.atm.available").getString() + " " + money(account.availableCredit()),
                 x + contentW(), y, COLOR_GOLD);
 
         y += 14;
-        drawText(graphics, label("screen.atm.stored_levels").getString() + " " + money(account.storedLevels()),
+        drawText(graphics, label("screen.atm.stored_levels").getString() + " "
+                        + money(account.storedExperience()),
                 x, y, COLOR_TEXT);
         if (!account.levelUnlocked()) {
             drawRight(graphics, label("screen.atm.level_locked_short").getString(),

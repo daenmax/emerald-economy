@@ -5,6 +5,7 @@ import cn.daenx.mc.emeraldeconomy.client.screen.AtmScreen;
 import cn.daenx.mc.emeraldeconomy.client.screen.EEScreen;
 import cn.daenx.mc.emeraldeconomy.client.screen.ExchangeScreen;
 import cn.daenx.mc.emeraldeconomy.client.screen.LotteryScreen;
+import cn.daenx.mc.emeraldeconomy.client.screen.RankingScreen;
 import cn.daenx.mc.emeraldeconomy.client.screen.VendingScreen;
 import cn.daenx.mc.emeraldeconomy.network.ScreenType;
 import cn.daenx.mc.emeraldeconomy.network.payload.ServerPayloads;
@@ -93,6 +94,7 @@ public final class ClientNetworkHandler {
             case LOTTERY -> new LotteryScreen();
             case VENDING -> new VendingScreen();
             case ACQUISITION -> new AcquisitionScreen();
+            case RANKING -> new RankingScreen();
         };
     }
 }

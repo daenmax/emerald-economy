@@ -26,7 +26,8 @@ public final class EEConfig {
     private static final ModConfigSpec.LongValue CREDIT_LIMIT;
     private static final ModConfigSpec.IntValue MAX_TRANSACTION_RECORDS;
     private static final ModConfigSpec.LongValue LEVEL_UNLOCK_COST;
-    private static final ModConfigSpec.IntValue ONLINE_REWARD_LEVELS;
+    private static final ModConfigSpec.IntValue ONLINE_REWARD_BASE_EXP;
+    private static final ModConfigSpec.IntValue ONLINE_REWARD_PER_DAY_EXP;
     private static final ModConfigSpec.DoubleValue TRANSFER_FEE_RATE;
 
     // ------------------------------------------------------------------
@@ -104,17 +105,23 @@ public final class EEConfig {
         MAX_TRANSACTION_RECORDS = b.comment("每个账户保留的最近交易记录条数（ATM 的「交易记录」界面会全部列出）\nNumber of recent transactions kept per account (the ATM history screen lists them all).")
                 .defineInRange("maxTransactionRecords", 100, 0, 1000);
         LEVEL_UNLOCK_COST = b.comment("""
-                ATM「等级存取」功能的解锁费用（绿宝石）。
+                ATM「经验存取」功能的解锁费用（绿宝石）。
                 该功能每个玩家默认关闭，付费一次后永久解锁、不再有任何限制。
 
-                Unlock cost for the ATM's level storage, in emeralds. The feature is off for every player by default; paying once unlocks it permanently with no further limits.""")
+                Unlock cost for the ATM's experience storage, in emeralds. The feature is off for every player by default; paying once unlocks it permanently with no further limits.""")
                 .defineInRange("levelUnlockCost", 1000L, 0L, Long.MAX_VALUE);
-        ONLINE_REWARD_LEVELS = b.comment("""
-                每日在线奖励赠送的等级数（注意是「等级」不是「经验值」：1 表示 35 级变 36 级）。
+        ONLINE_REWARD_BASE_EXP = b.comment("""
+                每日在线奖励的基础经验值。
+                实际奖励 = 基础经验 + 当前游戏日 × 每日增量（默认 50 + 第 N 天）。
+
+                Base experience for the daily online reward. The actual reward is base + current game day x per-day step (default 50 + day N).""")
+                .defineInRange("onlineRewardBaseExp", 50, 0, Integer.MAX_VALUE);
+        ONLINE_REWARD_PER_DAY_EXP = b.comment("""
+                每过一个游戏日，在线奖励额外增加的经验值（默认 1）。
                 奖励资格在每日结算时重置，只有那一刻在线的玩家才有当天的资格，每人每天限领一次。
 
-                Levels granted by the daily online reward (levels, not XP: 1 means level 35 becomes 36). Eligibility is reset at each daily settlement; only players online at that moment get it, once per day.""")
-                .defineInRange("onlineRewardLevels", 1, 1, 1000);
+                Extra experience added per game day (default 1). Eligibility is reset at each daily settlement; only players online at that moment get it, once per day.""")
+                .defineInRange("onlineRewardPerDayExp", 1, 0, Integer.MAX_VALUE);
         TRANSFER_FEE_RATE = b.comment("""
                 玩家之间转账的手续费率，默认 0.01 表示 1%。
                 手续费从转账金额里扣：转 1000、费率 1% 时，对方实际到账 990。
@@ -322,14 +329,31 @@ public final class EEConfig {
         return MAX_TRANSACTION_RECORDS.get();
     }
 
-    /** ATM「等级存取」的解锁费用。 */
+    /** ATM「经验存取」的解锁费用。 */
     public static long levelUnlockCost() {
         return LEVEL_UNLOCK_COST.get();
     }
 
-    /** 每日在线奖励赠送的等级数。 */
-    public static int onlineRewardLevels() {
-        return ONLINE_REWARD_LEVELS.get();
+    /** 每日在线奖励的基础经验值。 */
+    public static int onlineRewardBaseExperience() {
+        return ONLINE_REWARD_BASE_EXP.get();
+    }
+
+    /** 在线奖励每过一个游戏日增加的经验值。 */
+    public static int onlineRewardPerDayExperience() {
+        return ONLINE_REWARD_PER_DAY_EXP.get();
+    }
+
+    /**
+     * 某个游戏日的在线奖励经验值：{@code 基础值 + 游戏日 × 每日增量}。
+     * <p>
+     * 例：基础 50、每日 1，第 38 个游戏日可领 88 点经验。
+     */
+    public static int onlineRewardExperience(long day) {
+        long base = Math.max(0L, ONLINE_REWARD_BASE_EXP.get());
+        long step = Math.max(0L, ONLINE_REWARD_PER_DAY_EXP.get());
+        long value = base + step * Math.max(0L, day);
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, value));
     }
 
     /** 玩家之间转账的手续费率（0.01 表示 1%）。 */

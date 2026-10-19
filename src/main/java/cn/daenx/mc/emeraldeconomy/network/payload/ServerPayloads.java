@@ -31,13 +31,14 @@ public final class ServerPayloads {
      *
      * @param fund          基金序号（{@code FundType.ordinal()}）
      * @param price         当前价格
-     * @param previousClose 上次收盘价（用于算涨跌幅）
+     * @param previousClose 上次收盘价（用于算「日涨跌」）
+     * @param basePrice     长期基准价（用于算「累计涨跌」）
      * @param history       最近的价格点（走势图）
      * @param shares        玩家持有份额
      * @param totalCost     持有总成本（用于算平均成本与浮动盈亏）
      * @param realized      已实现收益
      */
-    public record FundSnapshot(int fund, int price, int previousClose, int[] history,
+    public record FundSnapshot(int fund, int price, int previousClose, int basePrice, int[] history,
                                long shares, long totalCost, long realized) {
     }
 
@@ -91,9 +92,10 @@ public final class ServerPayloads {
      * @param remaining 今日剩余可购次数
      * @param enchant   是不是附魔书（界面据此决定要不要显示等级与适用物品）
      * @param exp       经验值商品的点数（0 表示不是经验值商品）
+     * @param limited   是否受「每人每日限购」约束（「其他」大分类的商品不限量）
      */
     public record ShopGood(String key, String groupId, String subId, String id, int price,
-                           int remaining, boolean enchant, int exp) {
+                           int remaining, boolean enchant, int exp, boolean limited) {
     }
 
     /**
@@ -116,14 +118,15 @@ public final class ServerPayloads {
      * @param itemId 物品注册名；{@code tag} 为真时是「标签行」，形如 {@code #minecraft:saplings}
      * @param price  收购单价（每「一份」的价格）
      * @param friday 是否属于疯狂星期五
-     * @param batch  一份等于几个（1 表示按个收）
-     * @param tag    是不是「整类收购」行（卖背包里该类里的任意一种都行）
-     * @param lang   显示名翻译键（可为空）
-     * @param name   显示名原样文本（翻译键查不到时用它）
-     * @param filter 额外过滤规则（可为空，目前是 {@code treasure_map}）
+     * @param batch    一份等于几个（1 表示按个收）
+     * @param tag      是不是「整类收购」行（卖背包里该类里的任意一种都行）
+     * @param wildcard 是不是通配行（例如 {@code *_spawn_egg}：任意刷怪蛋，含模组）
+     * @param lang     显示名翻译键（可为空）
+     * @param name     显示名原样文本（翻译键查不到时用它）
+     * @param filter   额外过滤规则（可为空，目前是 {@code treasure_map}）
      */
     public record AcquireLine(String itemId, long price, boolean friday, int batch,
-                              boolean tag, String lang, String name, String filter) {
+                              boolean tag, boolean wildcard, String lang, String name, String filter) {
     }
 
     /**
@@ -139,13 +142,16 @@ public final class ServerPayloads {
     /**
      * 排行榜上的一名玩家。
      *
-     * @param playerId 玩家 UUID（转账时原样回传）
+     * @param playerId 玩家 UUID（转账 / 赠送时原样回传）
      * @param name     玩家名
-     * @param balance  更新榜单时的账户余额
-     * @param debt     更新榜单时的贷款欠款
+     * @param balance  账户余额
+     * @param debt     贷款欠款
      * @param net      净值 = 余额 - 欠款
+     * @param experience ATM 里已存的经验点
+     * @param online   玩家此刻是否在线（转账 / 赠送要求在线）
      */
-    public record RankingEntry(String playerId, String name, long balance, long debt, long net) {
+    public record RankingEntry(String playerId, String name, long balance, long debt, long net,
+                               long experience, boolean online) {
     }
 
     /**
@@ -229,28 +235,30 @@ public final class ServerPayloads {
      * @param debt                 贷款欠款
      * @param creditLimit          信用额度
      * @param availableCredit      可贷额度
-     * @param levelUnlocked        「等级存取」是否已付费解锁
-     * @param storedLevels         存在 ATM 里的等级数量
+     * @param levelUnlocked        「经验存取」是否已付费解锁
+     * @param storedExperience     存在 ATM 里的经验点数
      * @param playerLevel          玩家当前的等级（用于界面显示与「最多能存几级」）
-     * @param levelUnlockCost      解锁「等级存取」需要的绿宝石（来自服务端配置）
+     * @param levelUnlockCost      解锁「经验存取」需要的绿宝石（来自服务端配置）
      * @param onlineRewardReady    今天有没有可领的在线奖励（结算时在线且还没领）
      * @param onlineRewardClaimed  今天是否已经领过在线奖励
-     * @param onlineRewardLevels   在线奖励送几级（来自服务端配置）
+     * @param onlineRewardExperience 今天领取能拿到多少经验值（基础值 + 游戏日）
      * @param playerId             自己的 UUID（排行榜里用来标记「我」、禁止给自己转账）
      * @param transferFeeRate      玩家转账手续费率
      * @param rankingDay           排行榜对应的游戏日
-     * @param ranking              排行榜快照（按净值从高到低）
+     * @param ranking              余额排行榜（按余额从高到低）
+     * @param experienceRanking    经验排行榜（按 ATM 已存经验从高到低）
      * @param transactions         最近的全部流水（新的在前）
      */
     public record SyncAccount(long balance, long debt, long creditLimit, long availableCredit,
                               double depositFeeRate, double withdrawFeeRate,
                               double dailyInterestRate, double loanInterestRate,
                               long interestMinBalance,
-                              boolean levelUnlocked, long storedLevels, int playerLevel,
+                              boolean levelUnlocked, long storedExperience, int playerLevel,
                               long levelUnlockCost, boolean onlineRewardReady,
-                              boolean onlineRewardClaimed, int onlineRewardLevels,
+                              boolean onlineRewardClaimed, int onlineRewardExperience,
                               String playerId, double transferFeeRate, long rankingDay,
                               List<RankingEntry> ranking,
+                              List<RankingEntry> experienceRanking,
                               List<TxLine> transactions) implements CustomPacketPayload {
 
         public static final CustomPacketPayload.Type<SyncAccount> TYPE =
@@ -363,23 +371,17 @@ public final class ServerPayloads {
         buf.writeDouble(payload.loanInterestRate());
         buf.writeVarLong(payload.interestMinBalance());
         buf.writeBoolean(payload.levelUnlocked());
-        buf.writeVarLong(payload.storedLevels());
+        buf.writeVarLong(payload.storedExperience());
         buf.writeVarInt(payload.playerLevel());
         buf.writeVarLong(payload.levelUnlockCost());
         buf.writeBoolean(payload.onlineRewardReady());
         buf.writeBoolean(payload.onlineRewardClaimed());
-        buf.writeVarInt(payload.onlineRewardLevels());
+        buf.writeVarInt(payload.onlineRewardExperience());
         buf.writeUtf(payload.playerId() == null ? "" : payload.playerId());
         buf.writeDouble(payload.transferFeeRate());
         buf.writeVarLong(payload.rankingDay());
-        buf.writeVarInt(payload.ranking().size());
-        for (RankingEntry entry : payload.ranking()) {
-            buf.writeUtf(entry.playerId());
-            buf.writeUtf(entry.name());
-            buf.writeVarLong(entry.balance());
-            buf.writeVarLong(entry.debt());
-            buf.writeVarLong(entry.net());
-        }
+        writeRanking(buf, payload.ranking());
+        writeRanking(buf, payload.experienceRanking());
         buf.writeVarInt(payload.transactions().size());
         for (TxLine line : payload.transactions()) {
             buf.writeUtf(line.type());
@@ -389,6 +391,29 @@ public final class ServerPayloads {
             buf.writeVarLong(line.debtBefore());
             buf.writeVarLong(line.debtAfter());
         }
+    }
+
+    private static void writeRanking(RegistryFriendlyByteBuf buf, List<RankingEntry> ranking) {
+        buf.writeVarInt(ranking.size());
+        for (RankingEntry entry : ranking) {
+            buf.writeUtf(entry.playerId());
+            buf.writeUtf(entry.name());
+            buf.writeVarLong(entry.balance());
+            buf.writeVarLong(entry.debt());
+            buf.writeVarLong(entry.net());
+            buf.writeVarLong(entry.experience());
+            buf.writeBoolean(entry.online());
+        }
+    }
+
+    private static List<RankingEntry> readRanking(RegistryFriendlyByteBuf buf) {
+        int count = buf.readVarInt();
+        List<RankingEntry> ranking = new ArrayList<>(Math.max(0, count));
+        for (int i = 0; i < count; i++) {
+            ranking.add(new RankingEntry(buf.readUtf(), buf.readUtf(), buf.readVarLong(),
+                    buf.readVarLong(), buf.readVarLong(), buf.readVarLong(), buf.readBoolean()));
+        }
+        return ranking;
     }
 
     private static SyncAccount readAccount(RegistryFriendlyByteBuf buf) {
@@ -402,21 +427,17 @@ public final class ServerPayloads {
         double loanRate = buf.readDouble();
         long minBalance = buf.readVarLong();
         boolean levelUnlocked = buf.readBoolean();
-        long storedLevels = buf.readVarLong();
+        long storedExperience = buf.readVarLong();
         int playerLevel = buf.readVarInt();
         long levelUnlockCost = buf.readVarLong();
         boolean onlineRewardReady = buf.readBoolean();
         boolean onlineRewardClaimed = buf.readBoolean();
-        int onlineRewardLevels = buf.readVarInt();
+        int onlineRewardExperience = buf.readVarInt();
         String playerId = buf.readUtf();
         double transferFeeRate = buf.readDouble();
         long rankingDay = buf.readVarLong();
-        int rankingCount = buf.readVarInt();
-        List<RankingEntry> ranking = new ArrayList<>(Math.max(0, rankingCount));
-        for (int i = 0; i < rankingCount; i++) {
-            ranking.add(new RankingEntry(buf.readUtf(), buf.readUtf(), buf.readVarLong(),
-                    buf.readVarLong(), buf.readVarLong()));
-        }
+        List<RankingEntry> ranking = readRanking(buf);
+        List<RankingEntry> experienceRanking = readRanking(buf);
         int count = buf.readVarInt();
         List<TxLine> transactions = new ArrayList<>(Math.max(0, count));
         for (int i = 0; i < count; i++) {
@@ -425,9 +446,9 @@ public final class ServerPayloads {
         }
         return new SyncAccount(balance, debt, creditLimit, availableCredit,
                 depositFee, withdrawFee, dailyRate, loanRate, minBalance,
-                levelUnlocked, storedLevels, playerLevel, levelUnlockCost,
-                onlineRewardReady, onlineRewardClaimed, onlineRewardLevels,
-                playerId, transferFeeRate, rankingDay, ranking, transactions);
+                levelUnlocked, storedExperience, playerLevel, levelUnlockCost,
+                onlineRewardReady, onlineRewardClaimed, onlineRewardExperience,
+                playerId, transferFeeRate, rankingDay, ranking, experienceRanking, transactions);
     }
 
     private static void writeMarket(RegistryFriendlyByteBuf buf, SyncMarket payload) {
@@ -436,6 +457,7 @@ public final class ServerPayloads {
             buf.writeVarInt(fund.fund());
             buf.writeVarInt(fund.price());
             buf.writeVarInt(fund.previousClose());
+            buf.writeVarInt(fund.basePrice());
             buf.writeVarInt(fund.history().length);
             for (int value : fund.history()) {
                 buf.writeVarInt(value);
@@ -464,12 +486,13 @@ public final class ServerPayloads {
             int fund = buf.readVarInt();
             int price = buf.readVarInt();
             int previousClose = buf.readVarInt();
+            int basePrice = buf.readVarInt();
             int length = buf.readVarInt();
             int[] history = new int[Math.max(0, length)];
             for (int j = 0; j < history.length; j++) {
                 history[j] = buf.readVarInt();
             }
-            funds.add(new FundSnapshot(fund, price, previousClose, history,
+            funds.add(new FundSnapshot(fund, price, previousClose, basePrice, history,
                     buf.readVarLong(), buf.readVarLong(), buf.readVarLong()));
         }
         int newsCount = buf.readVarInt();
@@ -533,6 +556,7 @@ public final class ServerPayloads {
             buf.writeVarInt(good.remaining());
             buf.writeBoolean(good.enchant());
             buf.writeVarInt(good.exp());
+            buf.writeBoolean(good.limited());
         }
         buf.writeVarLong(payload.nextUpgradeCost());
         buf.writeVarInt(payload.unlocked());
@@ -552,7 +576,8 @@ public final class ServerPayloads {
         List<ShopGood> goods = new ArrayList<>(Math.max(0, size));
         for (int i = 0; i < size; i++) {
             goods.add(new ShopGood(buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readUtf(),
-                    buf.readVarInt(), buf.readVarInt(), buf.readBoolean(), buf.readVarInt()));
+                    buf.readVarInt(), buf.readVarInt(), buf.readBoolean(), buf.readVarInt(),
+                    buf.readBoolean()));
         }
         return new SyncShop(tabs, goods, buf.readVarLong(), buf.readVarInt(), buf.readVarInt(),
                 buf.readVarInt(), buf.readVarLong());
@@ -571,6 +596,7 @@ public final class ServerPayloads {
                 buf.writeBoolean(line.friday());
                 buf.writeVarInt(line.batch());
                 buf.writeBoolean(line.tag());
+                buf.writeBoolean(line.wildcard());
                 buf.writeUtf(line.lang() == null ? "" : line.lang());
                 buf.writeUtf(line.name() == null ? "" : line.name());
                 buf.writeUtf(line.filter() == null ? "" : line.filter());
@@ -608,7 +634,8 @@ public final class ServerPayloads {
             List<AcquireLine> entries = new ArrayList<>(Math.max(0, entryCount));
             for (int j = 0; j < entryCount; j++) {
                 entries.add(new AcquireLine(buf.readUtf(), buf.readVarLong(), buf.readBoolean(),
-                        buf.readVarInt(), buf.readBoolean(), buf.readUtf(), buf.readUtf(), buf.readUtf()));
+                        buf.readVarInt(), buf.readBoolean(), buf.readBoolean(), buf.readUtf(),
+                        buf.readUtf(), buf.readUtf()));
             }
             categories.add(new AcquireCategoryLine(id, lang, name, entries));
         }

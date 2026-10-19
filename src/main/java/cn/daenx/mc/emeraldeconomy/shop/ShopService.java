@@ -44,6 +44,14 @@ public final class ShopService {
     /** 商品键前缀：经验值商品（买一份直接加经验点，不是等级）。 */
     public static final String KEY_EXP = "X:";
 
+    /**
+     * 「不限量」商品在快照里的剩余次数。
+     * <p>
+     * 用 {@link Integer#MAX_VALUE} 而不是 -1，是为了让「剩余次数」始终是非负数
+     * （旧客户端 / 统计代码把它当成普通数字也不会出问题）；界面靠 {@code limited} 决定显示什么。
+     */
+    public static final int UNLIMITED_REMAINING = Integer.MAX_VALUE;
+
     private ShopService() {
     }
 
@@ -181,9 +189,10 @@ public final class ShopService {
      * @param remaining 今日剩余可购次数
      * @param enchant   是不是附魔书
      * @param exp       经验值商品的点数（0 表示不是经验值商品）
+     * @param limited   是否受每日限购约束（「其他」这类常驻大分类不限量）
      */
     public record Good(String key, String group, String sub, String id, int price, int remaining,
-                       boolean enchant, int exp) {
+                       boolean enchant, int exp, boolean limited) {
     }
 
     /** 商店的全部货架内容（解锁制大分类只列已解锁的，常驻大分类全部列出）。 */
@@ -200,8 +209,10 @@ public final class ShopService {
                 continue;
             }
             String key = enchantKey(id);
+            // 附魔书走解锁制，始终限购
             out.add(new Good(key, tab.group().idOr("ENCHANTED_BOOK"), tab.sub().idOr(""), id,
-                    EnchantCatalog.priceOf(access, id), remainingPurchases(data, playerId, key), true, 0));
+                    EnchantCatalog.priceOf(access, id), remainingPurchases(data, playerId, key),
+                    true, 0, true));
         }
 
         content.plainItems().forEach((itemId, price) -> {
@@ -210,8 +221,10 @@ public final class ShopService {
                 return;
             }
             String key = itemKey(itemId);
+            boolean limited = tab.unlockable();
             out.add(new Good(key, tab.group().idOr("OTHER"), tab.sub().idOr(""), itemId, price,
-                    remainingPurchases(data, playerId, key), false, 0));
+                    limited ? remainingPurchases(data, playerId, key) : UNLIMITED_REMAINING,
+                    false, 0, limited));
         });
 
         // 经验值商品：没有物品形态，买下就直接加到经验条上
@@ -221,8 +234,10 @@ public final class ShopService {
                 return;
             }
             String key = expKey(exp);
+            boolean limited = tab.unlockable();
             out.add(new Good(key, tab.group().idOr("OTHER"), tab.sub().idOr(""), String.valueOf(exp),
-                    price, remainingPurchases(data, playerId, key), false, exp));
+                    price, limited ? remainingPurchases(data, playerId, key) : UNLIMITED_REMAINING,
+                    false, exp, limited));
         });
         return out;
     }
@@ -251,9 +266,12 @@ public final class ShopService {
         String id = idOf(goodKey);
         ShopBook shop = data.shop();
 
+        ShopContent content = EconomyContent.shop();
         int price;
         ItemStack stack = ItemStack.EMPTY;
         int expAmount = 0;
+        // 只有「解锁制」大分类（附魔书）才限购；「其他」大分类不限量
+        boolean limited = true;
         if (enchant) {
             // 必须是已经解锁的格子，而且内容文件里还有它
             if (!shop.enchantments().contains(id) || shop.enchantments().indexOf(id) >= shop.unlockedSlots()
@@ -272,16 +290,20 @@ public final class ShopService {
             } catch (NumberFormatException ex) {
                 return Result.SLOT_LOCKED;
             }
-            price = EconomyContent.shop().expPrice(exp);
+            price = content.expPrice(exp);
             if (price <= 0) {
                 return Result.SLOT_LOCKED;
             }
+            ShopContent.Tab tab = content.tabOfExp(exp);
+            limited = tab != null && tab.unlockable();
             expAmount = exp;
         } else {
-            Integer configured = EconomyContent.shop().plainItems().get(id);
+            Integer configured = content.plainItems().get(id);
             if (configured == null) {
                 return Result.SLOT_LOCKED;
             }
+            ShopContent.Tab tab = content.tabOfItem(id);
+            limited = tab != null && tab.unlockable();
             price = configured;
             ResourceLocation location = ResourceLocation.tryParse(id);
             Item item = location == null ? null : BuiltInRegistries.ITEM.get(location);
@@ -292,7 +314,7 @@ public final class ShopService {
         }
 
         int limit = Math.max(1, EEConfig.shopDailyPurchaseLimit());
-        if (shop.purchasedCount(player.getUUID(), goodKey) >= limit) {
+        if (limited && shop.purchasedCount(player.getUUID(), goodKey) >= limit) {
             return Result.LIMIT_REACHED;
         }
         AccountData account = data.account(player.getUUID());
@@ -310,7 +332,10 @@ public final class ShopService {
         } else {
             AccountService.giveItem(player, stack);
         }
-        shop.addPurchase(player.getUUID(), goodKey);
+        if (limited) {
+            // 不限量商品不记购买次数，避免存档里堆积无意义的计数
+            shop.addPurchase(player.getUUID(), goodKey);
+        }
         data.setDirty();
         return Result.OK;
     }

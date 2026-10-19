@@ -12,8 +12,9 @@ import net.neoforged.neoforge.network.PacketDistributor;
 /**
  * ATM · 在线奖励子页面。
  * <p>
- * 每日结算那一刻在线的玩家才有当天的领取资格，每人每天一次，奖励是「等级」。
- * 三种状态（可领取 / 已领取 / 今天无资格）与规则说明都在这一页。
+ * 每日结算那一刻在线的玩家才有当天的领取资格，每人每天一次，奖励是「经验值」
+ * （基础 50 + 当前游戏日，可在服务端配置里调整）。三种状态（可领取 / 已领取 / 今天无资格）
+ * 与规则说明都在这一页。
  */
 public class OnlineRewardScreen extends AtmSubScreen {
 
@@ -35,7 +36,8 @@ public class OnlineRewardScreen extends AtmSubScreen {
             addRenderableWidget(Button.builder(label("screen.atm.online.claim"),
                             b -> PacketDistributor.sendToServer(new ClientPayloads.AtmActionRequest(
                                     ClientPayloads.AtmAction.CLAIM_ONLINE_REWARD.ordinal(), 0L)))
-                    .bounds(contentX() + 62, panelY + PAD + 46, 160, 18).build());
+                    // 放到两条说明文字与分隔线下面，避免和文字重叠
+                    .bounds(contentX(), panelY + PAD + 74, 160, 18).build());
         }
         addBackButton();
     }
@@ -66,7 +68,7 @@ public class OnlineRewardScreen extends AtmSubScreen {
         }
         y += 18;
         drawText(graphics, Component.translatable(EEConstants.langKey(key),
-                account.onlineRewardLevels()).getString(), x, y, color);
+                account.onlineRewardExperience()).getString(), x, y, color);
 
         y += 16;
         drawText(graphics, label("screen.atm.online.hint").getString(), x, y, COLOR_MUTED);

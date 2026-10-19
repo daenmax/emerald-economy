@@ -18,8 +18,8 @@ import java.util.Map;
  * 东西因此只占一行。想给它起个好名字就写 {@code lang}（翻译键）或 {@code name}（原样文本）。
  * <p>
  * 疯狂星期五的每日随机池与基准价也在这里（{@code friday} 段），
- * 池子里除了具体物品，还支持 {@code #标签} 与 {@code *_spawn_egg} 这种通配写法，
- * 并用 {@code poolMaxPicks} 限制「某个池子最多被挑中几件」（头颅最多 1 个、刷怪蛋最多 1 个）。
+ * 池子里除了具体物品，还支持 {@code #标签} 与 {@code *通配} 这类写法，
+ * 并用 {@code poolMaxPicks} 限制「某个池子最多被挑中几件」（默认每个条目每天最多 1 件）。
  */
 public record AcquireContent(List<Category> categories, Friday friday) {
 
@@ -93,7 +93,7 @@ public record AcquireContent(List<Category> categories, Friday friday) {
     /**
      * 疯狂星期五的配置段。
      *
-     * @param pool          随机池：具体物品 ID、{@code #标签}、或 {@code *_spawn_egg} 这类通配
+     * @param pool          随机池：具体物品 ID、{@code #标签} 或 {@code *通配}
      * @param poolMaxPicks  池子条目 → 每天最多被挑中几件（不写的条目不受限制）
      * @param basePrices    基准价：具体物品 ID 或池子条目（{@code #标签} / 通配）→ 基准价
      */

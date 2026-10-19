@@ -18,15 +18,15 @@ import java.util.List;
  * <p>
  * 需求：最近交易记录改成按钮，点开之后能看到这个账户的<b>全部</b>流水，
  * 并且每一条都要说清楚「变动前 / 变动后」各是多少。
- * 后来又要求把两类数字分开看，于是界面顶部有<b>两个分类</b>：
+ * 界面顶部有三个分类：
  * <ul>
- *     <li><b>账户余额</b>：只列真正动了余额的记录（贷款利息那种只加欠款的不算），
- *         列「变动前余额 → 变动后余额」</li>
- *     <li><b>贷款欠款</b>：只列动了欠款的记录，列「变动前欠款 → 变动后欠款」</li>
+ *     <li><b>账户余额明细</b>：只列真正动了余额的记录（贷款利息那种只加欠款的不算）；</li>
+ *     <li><b>贷款欠款明细</b>：只列动了欠款的记录；</li>
+ *     <li><b>经验存取明细</b>：只列经验类记录（存入 / 取出 / 在线奖励 / 经验赠送），
+ *         列「变动前经验 → 变动后经验」。</li>
  * </ul>
- * 数据完全来自服务端快照，客户端只负责排版。正因为数据跟着账户快照一起下发，
- * 这个界面的 {@link #screenType()} 与 ATM 相同——服务端在结算与操作后回推的快照
- * 会同时刷新这两个界面。
+ * 数据完全来自服务端快照，客户端只负责排版。经验类记录的前后值由客户端按
+ * 「当前已存经验 + 每条记录的变动额」倒推，所以不需要额外持久化经验前后值。
  */
 public class TransactionScreen extends EEScreen {
 
@@ -44,9 +44,20 @@ public class TransactionScreen extends EEScreen {
     private static final int TAB_BALANCE = 0;
     /** 分类：贷款欠款。 */
     private static final int TAB_DEBT = 1;
+    /** 分类：经验存取。 */
+    private static final int TAB_EXPERIENCE = 2;
 
     private int page;
     private int tab = TAB_BALANCE;
+
+    /**
+     * 一行展示数据：类型、金额列、变动前、变动后。
+     * <p>
+     * {@code showRange} 为 false 时（例如在线奖励，它加的是玩家身上的经验，不改变 ATM 库存），
+     * 前后两列显示「-」，避免让人误以为库存经验从 N 变成了 N。
+     */
+    private record Row(TransactionType type, long amount, long before, long after, boolean showRange) {
+    }
 
     @Override
     protected ScreenType screenType() {
@@ -57,10 +68,11 @@ public class TransactionScreen extends EEScreen {
         super(Component.translatable(EEConstants.langKey("screen.atm.records.title")));
     }
 
-    /** 构造时可以指定默认打开哪个分类（ATM 上有两个入口按钮）。 */
+    /** 构造时可以指定默认打开哪个分类（ATM 上有对应的入口按钮）。 */
     public TransactionScreen(int tab) {
         this();
-        this.tab = tab == TAB_DEBT ? TAB_DEBT : TAB_BALANCE;
+        this.tab = tab == TAB_DEBT ? TAB_DEBT
+                : tab == TAB_EXPERIENCE ? TAB_EXPERIENCE : TAB_BALANCE;
     }
 
     @Override
@@ -74,20 +86,48 @@ public class TransactionScreen extends EEScreen {
     }
 
     /** 当前分类下要显示哪些流水。 */
-    private static List<ServerPayloads.TxLine> linesOf(int tab) {
+    private static List<Row> rowsOf(int tab) {
         ServerPayloads.SyncAccount account = ClientEconomyCache.account;
-        List<ServerPayloads.TxLine> out = new ArrayList<>();
+        List<Row> out = new ArrayList<>();
         if (account == null) {
             return out;
         }
+        if (tab == TAB_EXPERIENCE) {
+            // 从最新的记录往回倒推：最新一条的「变动后」就是当前的已存经验。
+            // 在线奖励不改变 ATM 库存经验，所以它的前后值相同。
+            long running = account.storedExperience();
+            for (ServerPayloads.TxLine line : account.transactions()) {
+                TransactionType type = TransactionType.byName(line.type(), TransactionType.DEPOSIT);
+                if (!type.isExperienceRecord()) {
+                    continue;
+                }
+                boolean changesStorage = type == TransactionType.LEVEL_DEPOSIT
+                        || type == TransactionType.LEVEL_WITHDRAW
+                        || type == TransactionType.EXPERIENCE_GIFT_OUT
+                        || type == TransactionType.EXPERIENCE_GIFT_IN;
+                long after = running;
+                long before = changesStorage ? running - line.amount() : running;
+                if (changesStorage) {
+                    running = before;
+                }
+                out.add(new Row(type, line.amount(), before, after, changesStorage));
+            }
+            return out;
+        }
         for (ServerPayloads.TxLine line : account.transactions()) {
-            boolean affectsDebt = line.debtAfter() != line.debtBefore();
-            boolean affectsBalance = line.balanceAfter() != line.balanceBefore();
-            // 等级存取 / 在线奖励动的是「等级」，账户余额不变。
-            // 如果只按「余额有没有变」筛选，这些记录会一条都显示不出来。
-            boolean levelRecord = TransactionType.byName(line.type(), TransactionType.DEPOSIT).isLevelRecord();
-            if (tab == TAB_DEBT ? affectsDebt : (affectsBalance || levelRecord)) {
-                out.add(line);
+            TransactionType type = TransactionType.byName(line.type(), TransactionType.DEPOSIT);
+            if (tab == TAB_DEBT) {
+                if (line.debtAfter() == line.debtBefore()) {
+                    continue;
+                }
+                out.add(new Row(type, line.debtAfter() - line.debtBefore(),
+                        line.debtBefore(), line.debtAfter(), true));
+            } else {
+                if (line.balanceAfter() == line.balanceBefore()) {
+                    continue;
+                }
+                out.add(new Row(type, line.balanceAfter() - line.balanceBefore(),
+                        line.balanceBefore(), line.balanceAfter(), true));
             }
         }
         return out;
@@ -100,24 +140,14 @@ public class TransactionScreen extends EEScreen {
         int tabsY = panelY + PAD + 26;
         int bottom = panelY + panelH - 24;
 
-        // 两个分类标签
-        int tabWidth = Math.max(60, contentW() / 2);
-        addRenderableWidget(Button.builder(Component.translatable(EEConstants.langKey("screen.atm.records.tab.balance")),
-                        b -> {
-                            tab = TAB_BALANCE;
-                            page = 0;
-                            this.rebuildWidgets();
-                        })
-                .bounds(x, tabsY, tabWidth - 2, 18).build());
-        addRenderableWidget(Button.builder(Component.translatable(EEConstants.langKey("screen.atm.records.tab.debt")),
-                        b -> {
-                            tab = TAB_DEBT;
-                            page = 0;
-                            this.rebuildWidgets();
-                        })
-                .bounds(x + tabWidth, tabsY, tabWidth - 2, 18).build());
+        // 三个分类标签
+        int tabWidth = Math.max(60, contentW() / 3);
+        addTabButton(x, tabsY, tabWidth, "screen.atm.records.tab.balance", TAB_BALANCE);
+        addTabButton(x + tabWidth, tabsY, tabWidth, "screen.atm.records.tab.debt", TAB_DEBT);
+        addTabButton(x + tabWidth * 2, tabsY, tabWidth, "screen.atm.records.tab.experience",
+                TAB_EXPERIENCE);
 
-        int pages = Math.max(1, (linesOf(tab).size() + PAGE_SIZE - 1) / PAGE_SIZE);
+        int pages = Math.max(1, (rowsOf(tab).size() + PAGE_SIZE - 1) / PAGE_SIZE);
         if (page >= pages) {
             page = pages - 1;
         }
@@ -143,6 +173,16 @@ public class TransactionScreen extends EEScreen {
         }
     }
 
+    private void addTabButton(int x, int y, int width, String langKey, int targetTab) {
+        addRenderableWidget(Button.builder(Component.translatable(EEConstants.langKey(langKey)),
+                        b -> {
+                            tab = targetTab;
+                            page = 0;
+                            this.rebuildWidgets();
+                        })
+                .bounds(x, y, Math.max(40, width - 2), 18).build());
+    }
+
     @Override
     protected void drawContents(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         int x = contentX();
@@ -161,8 +201,8 @@ public class TransactionScreen extends EEScreen {
                 account.debt() > 0 ? COLOR_DOWN : COLOR_TEXT);
 
         int tabsY = panelY + PAD + 26;
+        int tabWidth = Math.max(60, contentW() / 3);
         // 高亮当前分类
-        int tabWidth = Math.max(60, contentW() / 2);
         graphics.fill(x + tab * tabWidth, tabsY - 1, x + tab * tabWidth + tabWidth - 2, tabsY + 19,
                 0x40FFD75E);
 
@@ -170,54 +210,58 @@ public class TransactionScreen extends EEScreen {
         drawSeparator(graphics, x, headerY - 3, contentW());
         drawText(graphics, label("screen.atm.records.type"), x + COL_TYPE, headerY, COLOR_TITLE);
         drawRight(graphics, label("screen.atm.records.amount"), x + COL_AMOUNT, headerY, COLOR_TITLE);
-        drawRight(graphics, tab == TAB_DEBT
-                        ? label("screen.atm.records.debt_before") : label("screen.atm.records.balance_before"),
-                x + COL_BEFORE, headerY, COLOR_TITLE);
-        drawRight(graphics, tab == TAB_DEBT
-                        ? label("screen.atm.records.debt_after") : label("screen.atm.records.balance_after"),
-                x + COL_AFTER, headerY, COLOR_TITLE);
+        String beforeKey;
+        String afterKey;
+        if (tab == TAB_EXPERIENCE) {
+            beforeKey = "screen.atm.records.experience_before";
+            afterKey = "screen.atm.records.experience_after";
+        } else if (tab == TAB_DEBT) {
+            beforeKey = "screen.atm.records.debt_before";
+            afterKey = "screen.atm.records.debt_after";
+        } else {
+            beforeKey = "screen.atm.records.balance_before";
+            afterKey = "screen.atm.records.balance_after";
+        }
+        drawRight(graphics, label(beforeKey), x + COL_BEFORE, headerY, COLOR_TITLE);
+        drawRight(graphics, label(afterKey), x + COL_AFTER, headerY, COLOR_TITLE);
         drawSeparator(graphics, x, headerY + 10, contentW());
 
-        List<ServerPayloads.TxLine> lines = linesOf(tab);
-        if (lines.isEmpty()) {
-            drawText(graphics, label(tab == TAB_DEBT
-                    ? "screen.atm.records.no_debt" : "screen.atm.no_records"),
-                    x, headerY + 18, COLOR_MUTED);
+        List<Row> rows = rowsOf(tab);
+        if (rows.isEmpty()) {
+            String emptyKey = tab == TAB_EXPERIENCE ? "screen.atm.records.no_experience"
+                    : tab == TAB_DEBT ? "screen.atm.records.no_debt" : "screen.atm.no_records";
+            drawText(graphics, label(emptyKey), x, headerY + 18, COLOR_MUTED);
             return;
         }
 
         int from = page * PAGE_SIZE;
-        int to = Math.min(lines.size(), from + PAGE_SIZE);
+        int to = Math.min(rows.size(), from + PAGE_SIZE);
         int lineY = headerY + 16;
         for (int i = from; i < to; i++) {
-            ServerPayloads.TxLine line = lines.get(i);
-            TransactionType type = TransactionType.byName(line.type(), TransactionType.DEPOSIT);
+            Row row = rows.get(i);
             int rowColor = i % 2 == 0 ? COLOR_TEXT : 0xFFC0C0C0;
-            long delta = tab == TAB_DEBT
-                    ? line.debtAfter() - line.debtBefore() : line.balanceAfter() - line.balanceBefore();
-            // 等级类记录：金额列显示的是「级」，前/后列仍然显示余额（它确实没变）
-            boolean levelRecord = type.isLevelRecord() && tab == TAB_BALANCE;
-            long amountValue = levelRecord ? line.amount() : delta;
-
-            drawTrimmed(graphics, Component.translatable(type.langKey()).getString(), x + COL_TYPE, lineY,
-                    rowColor, COL_AMOUNT - 8);
-            String amountText = (amountValue >= 0 ? "+" : "") + money(amountValue);
-            if (levelRecord) {
-                amountText = amountText + " " + label("screen.atm.records.unit_level");
+            drawTrimmed(graphics, Component.translatable(row.type().langKey()).getString(), x + COL_TYPE,
+                    lineY, rowColor, COL_AMOUNT - 8);
+            String amountText = (row.amount() >= 0 ? "+" : "") + money(row.amount());
+            if (tab == TAB_EXPERIENCE) {
+                amountText = amountText + " " + label("screen.atm.records.unit_xp");
             }
             drawRight(graphics, amountText, x + COL_AMOUNT, lineY,
-                    amountValue >= 0 ? COLOR_UP : COLOR_DOWN);
-            drawRight(graphics, money(tab == TAB_DEBT ? line.debtBefore() : line.balanceBefore()),
-                    x + COL_BEFORE, lineY, COLOR_MUTED);
-            drawRight(graphics, money(tab == TAB_DEBT ? line.debtAfter() : line.balanceAfter()),
-                    x + COL_AFTER, lineY, rowColor);
+                    row.amount() >= 0 ? COLOR_UP : COLOR_DOWN);
+            if (row.showRange()) {
+                drawRight(graphics, money(row.before()), x + COL_BEFORE, lineY, COLOR_MUTED);
+                drawRight(graphics, money(row.after()), x + COL_AFTER, lineY, rowColor);
+            } else {
+                drawRight(graphics, "-", x + COL_BEFORE, lineY, COLOR_MUTED);
+                drawRight(graphics, "-", x + COL_AFTER, lineY, COLOR_MUTED);
+            }
             lineY += LINE_H;
         }
 
-        int pages = Math.max(1, (lines.size() + PAGE_SIZE - 1) / PAGE_SIZE);
+        int pages = Math.max(1, (rows.size() + PAGE_SIZE - 1) / PAGE_SIZE);
         // 页码写在「返回」按钮右边，不然两者会叠在一起
         drawText(graphics, Component.translatable(EEConstants.langKey("screen.atm.records.page"),
-                page + 1, pages, lines.size()).getString(), x + 66, panelY + panelH - 19, COLOR_MUTED);
+                page + 1, pages, rows.size()).getString(), x + 66, panelY + panelH - 19, COLOR_MUTED);
     }
 
     /** 取翻译键（与其它界面保持一致的写法）。 */

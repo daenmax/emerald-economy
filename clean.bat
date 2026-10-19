@@ -4,7 +4,7 @@ setlocal
 
 rem ============================================================
 rem  绿宝石经济（Emerald Economy）清理脚本
-rem  双击即可运行：执行 gradlew clean，并删除 build / run / logs
+rem  双击即可运行：执行 gradlew clean，并删除 build / logs（保留 run，避免误删开发环境）
 rem ============================================================
 
 cd /d "%~dp0"
@@ -28,10 +28,10 @@ if errorlevel 1 (
 )
 
 echo.
-echo [2/2] 正在删除 build\ / run\ / logs\ ...
+echo [2/2] 正在删除 build\ / logs\ ...（保留 run\）
 
-rem 注意：只删除编译产物与运行目录，不动 gradle、src、gradlew 等必要文件
-for %%D in ("build" "run" "logs") do (
+rem 注意：只删除编译产物与日志，不动 gradle、src、gradlew、run 等必要文件
+for %%D in ("build" "logs") do (
     if exist "%%~D" (
         echo    删除目录: %%~D
         rmdir /s /q "%%~D"

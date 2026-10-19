@@ -1,5 +1,6 @@
 package cn.daenx.mc.emeraldeconomy.client.screen;
 
+import cn.daenx.mc.emeraldeconomy.acquire.AcquireService;
 import cn.daenx.mc.emeraldeconomy.client.ClientEconomyCache;
 import cn.daenx.mc.emeraldeconomy.client.widget.NumberBox;
 import cn.daenx.mc.emeraldeconomy.content.AcquireContent;
@@ -56,6 +57,8 @@ public class AcquisitionScreen extends EEScreen {
     private NumberBox countBox;
     /** 当前这一页的「出售」按钮，按行序排列（每帧按背包刷新可用状态）。 */
     private final List<Button> sellButtons = new ArrayList<>();
+    /** 当前这一页的「出售全部」按钮，与 {@link #sellButtons} 一一对应。 */
+    private final List<Button> sellAllButtons = new ArrayList<>();
     /** 附魔回收页的「回收」按钮。 */
     private final List<Button> enchantButtons = new ArrayList<>();
     /** 是否已经在 init 里创建了数量输入框（用于决定要不要画它的标签）。 */
@@ -102,6 +105,7 @@ public class AcquisitionScreen extends EEScreen {
         countBox = null;
         countBoxCreated = false;
         sellButtons.clear();
+        sellAllButtons.clear();
         enchantButtons.clear();
 
         ServerPayloads.SyncAcquire acquire = ClientEconomyCache.acquire;
@@ -162,12 +166,18 @@ public class AcquisitionScreen extends EEScreen {
             }
             ServerPayloads.AcquireLine entry = entries.get(i);
             int rowY = listTop + (i - from) * ROW_H;
-            Button button = Button.builder(
+            Button sell = Button.builder(
                             Component.translatable(EEConstants.langKey("screen.acquire.sell")),
                             b -> sell(entry))
-                    .bounds(x + contentW() - 48, rowY - 1, 48, 16).build();
-            sellButtons.add(button);
-            addRenderableWidget(button);
+                    .bounds(x + contentW() - 94, rowY - 1, 36, 16).build();
+            Button sellAll = Button.builder(
+                            Component.translatable(EEConstants.langKey("screen.acquire.sell_all")),
+                            b -> sellAll(entry))
+                    .bounds(x + contentW() - 54, rowY - 1, 54, 16).build();
+            sellButtons.add(sell);
+            sellAllButtons.add(sellAll);
+            addRenderableWidget(sell);
+            addRenderableWidget(sellAll);
         }
         refreshSellButtons(entries, from);
 
@@ -241,7 +251,11 @@ public class AcquisitionScreen extends EEScreen {
             }
             ServerPayloads.AcquireLine entry = entries.get(index);
             // 背包里不够一份就置灰（数量不足整份的话服务端也会拒绝）
-            sellButtons.get(i).active = ownedCount(entry) >= Math.max(1, entry.batch());
+            boolean ready = ownedCount(entry) >= Math.max(1, entry.batch());
+            sellButtons.get(i).active = ready;
+            if (i < sellAllButtons.size()) {
+                sellAllButtons.get(i).active = ready;
+            }
         }
     }
 
@@ -270,7 +284,18 @@ public class AcquisitionScreen extends EEScreen {
             return;
         }
         PacketDistributor.sendToServer(
-                new ClientPayloads.AcquireSellRequest(entry.itemId(), (int) count));
+                new ClientPayloads.AcquireSellRequest(entry.itemId(), (int) count, false));
+    }
+
+    /**
+     * 点「出售全部」：数量交给服务端按背包实际可卖数量计算。
+     * <p>
+     * 客户端不传具体数字，是因为藏宝图（只收带结构标记的）与标签行（整类合计）
+     * 在客户端统计不准；服务端本来就能准确数出来。
+     */
+    private void sellAll(ServerPayloads.AcquireLine entry) {
+        PacketDistributor.sendToServer(
+                new ClientPayloads.AcquireSellRequest(entry.itemId(), 0, true));
     }
 
     /** 分类标签的显示名：优先用翻译键，查不到就用内容文件里写的原样名字。 */
@@ -330,6 +355,11 @@ public class AcquisitionScreen extends EEScreen {
         if (AcquireContent.Item.FILTER_TREASURE_MAP.equals(entry.filter())) {
             return countOwned(player, Set.of(Items.FILLED_MAP));
         }
+        if (entry.wildcard()) {
+            // 通配行（任意刷怪蛋）：把注册表里所有匹配的物品数量加在一起
+            Set<Item> members = new LinkedHashSet<>(AcquireService.wildcardMemberItems(entry.itemId()));
+            return members.isEmpty() ? 0L : countOwned(player, members);
+        }
         if (!entry.tag()) {
             return ownedCount(entry.itemId());
         }
@@ -382,6 +412,12 @@ public class AcquisitionScreen extends EEScreen {
 
     /** 一行的图标：标签行取该类里的第一个物品当代表。 */
     private static ItemStack rowIcon(ServerPayloads.AcquireLine entry) {
+        if (entry.wildcard()) {
+            for (Item item : AcquireService.wildcardMemberItems(entry.itemId())) {
+                return new ItemStack(item);
+            }
+            return ItemStack.EMPTY;
+        }
         if (!entry.tag()) {
             return iconOf(entry.itemId());
         }
@@ -466,7 +502,7 @@ public class AcquisitionScreen extends EEScreen {
                     entry.batch(), entry.price()).getString()
                     : money(entry.price()) + " /个";
             drawRight(graphics, priceText,
-                    x + contentW() - 54, rowY + 3, entry.friday() ? COLOR_GOLD : COLOR_UP);
+                    x + contentW() - 100, rowY + 3, entry.friday() ? COLOR_GOLD : COLOR_UP);
         }
 
         if (entries.isEmpty()) {

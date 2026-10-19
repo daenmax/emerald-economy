@@ -131,8 +131,10 @@ public final class ClientUiTest {
     /** 拒绝路径测试用的基准值。 */
     /** 「存入全部」测试用的背包绿宝石基线。 */
     private static long emeraldsBefore;
-    /** 等级存取 / 在线奖励测试前的玩家等级基线。 */
+    /** 经验存取测试前的玩家等级基线。 */
     private static int levelsBeforeReward;
+    /** 在线奖励测试前的玩家经验点基线。 */
+    private static long xpBeforeReward;
     /** 买「经验值商品」之前的经验点基线。 */
     private static long xpBefore;
     /** 疯狂星期五「收购数量不限」用例：当天挑中的第一件物品与它的单价。 */
@@ -567,7 +569,7 @@ public final class ClientUiTest {
                     .anyMatch(g -> !g.enchant() && "SAPLING".equals(g.subId())
                             && "minecraft:oak_sapling".equals(g.id()) && g.price() == 16);
             log("  「其他」商品数 = " + others + "，有种子 = " + seed + "，有橡树树苗 = " + sapling);
-            check("「其他」大分类里有 6 件商品（1 种子 + 2 树苗 + 3 档经验值）", others == 6);
+            check("「其他」大分类里有 7 件商品（1 种子 + 2 树苗 + 3 档经验值 + 1 玻璃）", others == 7);
             check("小麦种子 8 绿宝石、橡树树苗 16 绿宝石", seed && sapling);
         });
         add("直接改 shop.json（把小麦种子改成 99）并 /ee reload", 45, (mc, player) -> {
@@ -619,16 +621,16 @@ public final class ClientUiTest {
             check("界面/聊天提示里写清了买到的是小麦种子", chatContains("小麦种子"));
         });
 
-        // ---------- 自动售货机：杂物子分类里的「经验值」商品（100 余额 → 1000 点经验） ----------
-        add("切到「其他 → 杂物」子分类（顺便把余额补足，卖经验值那档不便宜）", 30, (mc, player) -> {
+        // ---------- 自动售货机：「经验」子分类里的经验值商品（100 余额 → 1000 点经验） ----------
+        add("切到「其他 → 经验」子分类（顺便把余额补足，卖经验值那档不便宜）", 30, (mc, player) -> {
             command(player, "ee give @s 20000");
             // 重新打开一次界面：界面初始化会主动向服务端请求一次快照，
             // 这样下面读到的余额才是「补钱之后」的值（否则读到的还是上一次动作时的旧值）
             open(mc, new VendingScreen());
             click(mc, tr("shop.group.other"));
-            click(mc, tr("shop.sub.misc"));
+            click(mc, tr("shop.sub.exp"));
         });
-        add("截图 40c 售货机·杂物（10 / 100 / 1000 点经验值）", 0,
+        add("截图 40c 售货机·经验（10 / 100 / 1000 点经验值）", 0,
                 (mc, player) -> shot(mc, "40c_vending_misc_exp"));
         add("校验经验值商品（点数与价格）", 10, (mc, player) -> {
             var shop = ClientEconomyCache.shop;
@@ -639,7 +641,7 @@ public final class ClientUiTest {
             boolean thousand = shop != null && shop.goods().stream().anyMatch(g -> "MISC".equals(g.subId())
                     && g.exp() == 1000 && g.price() == 6000);
             log("  10/100/1000 点经验值都在货架上 = " + ten + "/" + hundred + "/" + thousand);
-            check("杂物子分类卖三档经验值（10→100、100→800、1000→6000）",
+            check("经验子分类卖三档经验值（10→100、100→800、1000→6000）",
                     ten && hundred && thousand);
             check("经验值是「经验点」不是等级（货架上写的是点数，不是等级）",
                     shop != null && shop.goods().stream().anyMatch(g -> g.exp() == 10));
@@ -657,6 +659,21 @@ public final class ClientUiTest {
             check("买 1000 点经验后经验点 +1000", xpNow == xpBefore + 1000L);
             check("买经验扣掉 6000 余额", shopBalance() == savedBalance - 6000L);
         });
+        add("切到「其他 → 杂物」子分类（新加的玻璃货架）", 25,
+                (mc, player) -> click(mc, tr("shop.sub.misc")));
+        add("截图 52 售货机·杂物（玻璃 1 余额 / 个）", 0,
+                (mc, player) -> shot(mc, "52_vending_general"));
+        add("校验杂物子分类只卖玻璃且单价 1", 10, (mc, player) -> {
+            var shop = ClientEconomyCache.shop;
+            boolean glass = shop != null && shop.goods().stream().anyMatch(g -> "GENERAL".equals(g.subId())
+                    && "minecraft:glass".equals(g.id()) && g.price() == 1 && g.exp() == 0);
+            long generalGoods = shop == null ? -1L : shop.goods().stream()
+                    .filter(g -> "GENERAL".equals(g.subId())).count();
+            log("  杂物货架商品数 = " + generalGoods + "，玻璃 1 / 个 = " + glass);
+            check("杂物子分类有且只有玻璃这一种商品", generalGoods == 1L);
+            check("玻璃单价 1 余额", glass);
+        });
+
         add("切回「附魔书」并再升级一格", 25, (mc, player) -> {
             clearChat();
             click(mc, tr("shop.group.enchanted_book"));
@@ -695,7 +712,7 @@ public final class ClientUiTest {
         add("切回「农业产物」并出售 16 个小麦", 35, (mc, player) -> {
             click(mc, tr("acquire.category.agriculture"));
             setNumbers(mc, "16");
-            click(mc, tr("screen.acquire.sell"));
+            clickExact(mc, tr("screen.acquire.sell"), 0);
         });
         add("截图 19 出售后（余额应 +16）", 0, (mc, player) -> shot(mc, "19_acquisition_after_sell"));
         add("校验出售结果", 10, (mc, player) -> {
@@ -747,7 +764,7 @@ public final class ClientUiTest {
                     ? Long.MIN_VALUE : ClientEconomyCache.acquire.balance();
             // 「出售」按钮在背包里没有这类物品时是灰的（点不动），所以要先给物品、再点按钮
             setNumbers(mc, "2");
-            clickAt(mc, tr("screen.acquire.sell"),
+            clickExact(mc, tr("screen.acquire.sell"),
                     sellButtonIndex(ClientEconomyCache.acquire, "MISC",
                             "#emerald_economy:acquire/music_discs"));
         });
@@ -785,15 +802,15 @@ public final class ClientUiTest {
             check("鸡蛋与羽毛都是 8 个一份", entryBatch(acquire, livestock, "minecraft:egg") == 8
                     && entryBatch(acquire, livestock, "minecraft:feather") == 8);
             check("畜牧里新增了鱼肉类（鳕鱼一类，占一行标签行）",
-                    hasEntry(acquire, livestock, "#minecraft:fishes"));
+                    hasEntry(acquire, livestock, "#emerald_economy:acquire/fishes"));
             check("畜牧里新增了骨头（不是骨粉）", hasEntry(acquire, livestock, "minecraft:bone")
                     && !hasEntry(acquire, livestock, "minecraft:bone_meal"));
             check("农业里新增毒马铃薯（10）",
                     entryPrice(acquire, "AGRICULTURE", "minecraft:poisonous_potato") == 10L);
-            check("农业里竹子是 4 个一份、甘蔗单价 2",
-                    entryBatch(acquire, "AGRICULTURE", "minecraft:bamboo") == 4
-                            && entryPrice(acquire, "AGRICULTURE",
-                            "minecraft:sugar_cane") == 2L);
+            check("农业里甘蔗单价 2、甜菜种子 8 个一份",
+                    entryPrice(acquire, "AGRICULTURE", "minecraft:sugar_cane") == 2L
+                            && entryBatch(acquire, "AGRICULTURE",
+                            "minecraft:beetroot_seeds") == 8);
             check("矿物里新增下界合金碎片（10）",
                     entryPrice(acquire, "MINING",
                             "minecraft:netherite_scrap") == 10L);
@@ -822,7 +839,7 @@ public final class ClientUiTest {
         });
         add("点鸡蛋那行的「出售」（数字框不动）", 30, (mc, player) -> {
             // 界面上每页 8 行、按钮按行序创建，所以要按「鸡蛋在列表里的序号」点对应那个按钮
-            clickAt(mc, tr("screen.acquire.sell"),
+            clickExact(mc, tr("screen.acquire.sell"),
                     sellButtonIndex(ClientEconomyCache.acquire, "LIVESTOCK",
                             "minecraft:egg"));
         });
@@ -1044,22 +1061,24 @@ public final class ClientUiTest {
             var account = ClientEconomyCache.account;
             log("  可领取 = " + (account != null && account.onlineRewardReady())
                     + "，已领取 = " + (account != null && account.onlineRewardClaimed())
-                    + "，奖励等级数 = " + (account == null ? -1 : account.onlineRewardLevels()));
+                    + "，奖励经验 = " + (account == null ? -1 : account.onlineRewardExperience()));
             check("跨天结算后在线玩家拿到了当日领取资格",
                     account != null && account.onlineRewardReady());
-            check("奖励是「等级」而非经验值（配置为 1 级）",
-                    account != null && account.onlineRewardLevels() == 1);
+            check("奖励是经验值（基础 50 + 游戏日）",
+                    account != null && account.onlineRewardExperience() >= 50);
         });
         add("截图 40 ATM·在线奖励（可领取状态）", 0, (mc, player) -> shot(mc, "40_atm_online_reward"));
         add("点「领取奖励」", 30, (mc, player) -> {
-            levelsBeforeReward = player.experienceLevel;
+            xpBeforeReward = player.totalExperience;
             click(mc, tr("screen.atm.online.claim"));
         });
-        add("校验在线奖励：等级 +1、当天不能再领", 15, (mc, player) -> {
+        add("校验在线奖励：经验值增加、当天不能再领", 15, (mc, player) -> {
             var account = ClientEconomyCache.account;
-            log("  领奖前等级 = " + levelsBeforeReward + " → 领奖后 = " + player.experienceLevel);
-            check("领取后等级 +1（35 级 → 36 级，不是加经验值）",
-                    player.experienceLevel == levelsBeforeReward + 1);
+            long expected = account == null ? -1L : account.onlineRewardExperience();
+            log("  领奖前经验 = " + xpBeforeReward + " → 领奖后 = " + player.totalExperience
+                    + "，应增加 = " + expected);
+            check("领取后经验值增加了配置的数量",
+                    expected > 0L && player.totalExperience == xpBeforeReward + expected);
             check("领完之后当天没有资格了",
                     account != null && !account.onlineRewardReady() && account.onlineRewardClaimed());
             check("流水里留下了「在线奖励」这一笔", account != null
@@ -1071,8 +1090,8 @@ public final class ClientUiTest {
             check("领过之后界面不再给出领取按钮", !exists);
         });
 
-        // ---------- ATM：等级存取（默认锁定 → 付费解锁 → 存 / 取等级） ----------
-        add("给 5000 余额与 20 级（准备测等级存取）", 30, (mc, player) -> {
+        // ---------- ATM：经验存取（默认锁定 → 付费解锁 → 按等级存 / 取经验） ----------
+        add("给 5000 余额与 20 级（准备测经验存取）", 30, (mc, player) -> {
             command(player, "ee give @s 5000");
             command(player, "xp add @s 20 levels");
         });
@@ -1086,13 +1105,13 @@ public final class ClientUiTest {
             var account = ClientEconomyCache.account;
             log("  已解锁 = " + (account != null && account.levelUnlocked())
                     + "，解锁费用 = " + (account == null ? -1 : account.levelUnlockCost()));
-            check("等级存取对每个玩家默认关闭", account != null && !account.levelUnlocked());
+            check("经验存取对每个玩家默认关闭", account != null && !account.levelUnlocked());
             check("解锁费用来自配置（1000）", account != null && account.levelUnlockCost() == 1000L);
             check("解锁前界面只有解锁按钮、没有存取按钮",
                     buttonExists(mc, tr("screen.atm.level.unlock", money(1000L)))
                             && !buttonExists(mc, tr("screen.atm.level.deposit")));
         });
-        add("截图 41 ATM·等级存取（未解锁）", 0, (mc, player) -> shot(mc, "41_atm_level_locked"));
+        add("截图 41 ATM·经验存取（未解锁）", 0, (mc, player) -> shot(mc, "41_atm_level_locked"));
         add("点「解锁」按钮（花 1000 余额）", 30, (mc, player) ->
                 click(mc, tr("screen.atm.level.unlock", money(1000L))));
         add("校验解锁成功：扣 1000、状态变为已解锁", 20, (mc, player) -> {
@@ -1105,29 +1124,29 @@ public final class ClientUiTest {
             levelsBeforeReward = player.experienceLevel;
             log("  存入前等级 = " + levelsBeforeReward);
         });
-        add("在等级框里填 5，点「存入等级」", 35, (mc, player) -> {
+        add("在等级框里填 5，点「存入」", 35, (mc, player) -> {
             setNumbers(mc, "5");
             click(mc, tr("screen.atm.level.deposit"));
         });
-        add("截图 42 ATM·等级存取（存了 5 级）", 0, (mc, player) -> shot(mc, "42_atm_level_stored"));
-        add("校验存入等级：玩家掉 5 级、ATM 里多 5 级", 20, (mc, player) -> {
+        add("截图 42 ATM·经验存取（存了 5 级）", 0, (mc, player) -> shot(mc, "42_atm_level_stored"));
+        add("校验存入经验：玩家掉 5 级、ATM 里多了经验点", 20, (mc, player) -> {
             var account = ClientEconomyCache.account;
             log("  玩家等级 " + levelsBeforeReward + " → " + player.experienceLevel
-                    + "，ATM 库存 = " + (account == null ? -1 : account.storedLevels()));
+                    + "，ATM 经验 = " + (account == null ? -1 : account.storedExperience()));
             check("存入 5 级后玩家等级 -5", player.experienceLevel == levelsBeforeReward - 5);
-            check("ATM 里存下了 5 级", account != null && account.storedLevels() == 5L);
+            check("ATM 里存下了正数经验点", account != null && account.storedExperience() > 0L);
         });
-        add("点「取出等级」（同样填 5）", 35, (mc, player) -> {
+        add("点「取出」（同样填 5）", 35, (mc, player) -> {
             setNumbers(mc, "5");
             click(mc, tr("screen.atm.level.withdraw"));
         });
-        add("校验取出等级：等级回到原样、ATM 清空", 20, (mc, player) -> {
+        add("校验取出经验：等级回到原样、ATM 清空", 20, (mc, player) -> {
             var account = ClientEconomyCache.account;
             log("  取出后玩家等级 = " + player.experienceLevel
-                    + "，ATM 库存 = " + (account == null ? -1 : account.storedLevels()));
+                    + "，ATM 经验 = " + (account == null ? -1 : account.storedExperience()));
             check("取出 5 级后玩家等级回来", player.experienceLevel == levelsBeforeReward);
-            check("ATM 库存清零", account != null && account.storedLevels() == 0L);
-            check("等级存取留下了流水（存入 / 取出各一笔）", account != null
+            check("ATM 经验清零", account != null && account.storedExperience() == 0L);
+            check("经验存取留下了流水（存入 / 取出各一笔）", account != null
                     && account.transactions().stream().anyMatch(t -> t.type().equals("LEVEL_DEPOSIT"))
                     && account.transactions().stream().anyMatch(t -> t.type().equals("LEVEL_WITHDRAW")));
         });
@@ -1135,11 +1154,11 @@ public final class ClientUiTest {
             open(mc, new AtmScreen());
             click(mc, tr("screen.atm.menu.records"));
         });
-        add("截图 43 交易记录·等级存取（金额列写的是「级」）", 0,
+        add("截图 43 交易记录·经验存取（金额列写的是「经验」）", 0,
                 (mc, player) -> shot(mc, "43_atm_level_records"));
-        add("校验等级流水没有因为「余额没变」被过滤掉", 10, (mc, player) -> {
+        add("校验经验流水没有因为「余额没变」被过滤掉", 10, (mc, player) -> {
             var account = ClientEconomyCache.account;
-            check("余额明细里能看到等级类流水（服务端确实推了这几笔）", account != null
+            check("余额明细里能看到经验类流水（服务端确实推了这几笔）", account != null
                     && account.transactions().stream().filter(t -> t.type().startsWith("LEVEL_"))
                     .count() >= 2);
         });
@@ -1948,19 +1967,20 @@ public final class ClientUiTest {
         add("打开自动收购机（界面初始化会拉一次最新快照）", 40,
                 (mc, player) -> open(mc, new AcquisitionScreen()));
         add("切到「疯狂星期五」分类", 30, (mc, player) -> click(mc, tr("acquire.category.friday")));
-        add("校验疯狂星期五分类已切换过去（三行都有「出售」按钮）", 10, (mc, player) -> {
-            int buttons = countButtons(mc, tr("screen.acquire.sell"));
-            log("  疯狂星期五分类里的「出售」按钮数 = " + buttons);
-            check("疯狂星期五分类真的切过去了", buttons == 3);
+        add("校验疯狂星期五分类已切换过去（三行都有「出售 / 出售全部」按钮）", 10, (mc, player) -> {
+            int sellAll = countButtons(mc, tr("screen.acquire.sell_all"));
+            log("  疯狂星期五分类里的「出售全部」按钮数 = " + sellAll);
+            check("疯狂星期五分类真的切过去了", sellAll == 3);
         });
         add("截图 26 疯狂星期五分类（重金收购横幅 + 三件重金物品）", 0,
                 (mc, player) -> shot(mc, "26_crazy_friday"));
         add("校验疯狂星期五分类已出现且价格是平时的 5-10 倍", 15, (mc, player) -> {
             var acquire = ClientEconomyCache.acquire;
             int categories = acquire == null ? -1 : acquire.categories().size();
-            log("  收购分类数 = " + categories + "（平时 5 个，开放日 6 个）");
-            check("疯狂星期五开放时多出一个分类", categories == 6);
+            log("  收购分类数 = " + categories + "（平时 6 个 = 5 个 JSON 分类 + 附魔回收，开放日 7 个）");
+            check("疯狂星期五开放时多出一个分类", categories == 7);
             long fridayCount = 0;
+            long spawnEggCount = 0;
             boolean priceOk = true;
             if (acquire != null) {
                 for (var line : acquire.categories()) {
@@ -1969,16 +1989,20 @@ public final class ClientUiTest {
                     }
                     fridayCount = line.entries().size();
                     for (var entry : line.entries()) {
-                        // 基准价是 30（刷怪蛋）~133（下界之星），×5~10 倍 ⇒ 单件价格落在 150-1330
-                        if (!entry.friday() || entry.price() < 150L || entry.price() > 1330L) {
+                        // 基准价是 40（刷怪笼 / 任意刷怪蛋）~133（下界之星），×5~10 倍 ⇒ 单件价格落在 200-1330
+                        if (!entry.friday() || entry.price() < 200L || entry.price() > 1330L) {
                             priceOk = false;
+                        }
+                        if (entry.wildcard()) {
+                            spawnEggCount++;
                         }
                     }
                 }
             }
-            log("  疯狂星期五物品数 = " + fridayCount);
+            log("  疯狂星期五物品数 = " + fridayCount + "，其中刷怪蛋整类行 = " + spawnEggCount);
             check("疯狂星期五当天随机选出了 3 件物品", fridayCount == 3L);
             check("疯狂星期五物品价格按 5-10 倍计算", priceOk);
+            check("刷怪蛋整类最多只占一行", spawnEggCount <= 1L);
         });
         // 「每天最多被随机选中 1 件」说的是随机结果，跟收购数量无关：
         // 挑中的物品想卖多少卖多少，这里给 3 个、一次卖掉，应该按 3 倍单价入账
@@ -1990,7 +2014,11 @@ public final class ClientUiTest {
                 for (var line : acquire.categories()) {
                     if (cn.daenx.mc.emeraldeconomy.content.AcquireContent.FRIDAY_ID
                             .equalsIgnoreCase(line.id()) && !line.entries().isEmpty()) {
-                        fridayItemId = line.entries().get(0).itemId();
+                        String rowId = line.entries().get(0).itemId();
+                        // 通配行（*_spawn_egg）不能用 /give，拿一个具体刷怪蛋来卖；
+                        // 服务端的通配行会把背包里任意刷怪蛋都按这一行的价格收掉
+                        fridayItemId = rowId.startsWith("*")
+                                ? "minecraft:zombie_spawn_egg" : rowId;
                         fridayItemPrice = line.entries().get(0).price();
                     }
                 }
@@ -2002,7 +2030,7 @@ public final class ClientUiTest {
             savedBalance = ClientEconomyCache.acquire == null
                     ? Long.MIN_VALUE : ClientEconomyCache.acquire.balance();
             setNumbers(mc, "3");
-            clickAt(mc, tr("screen.acquire.sell"), 0);
+            clickExact(mc, tr("screen.acquire.sell"), 0);
         });
         add("校验疯狂星期五的收购数量不限（一次卖掉 3 个）", 15, (mc, player) -> {
             long now = ClientEconomyCache.acquire == null
@@ -2025,7 +2053,7 @@ public final class ClientUiTest {
         });
         add("校验有欠款时疯狂星期五不能出售", 15, (mc, player) -> {
             var acquire = ClientEconomyCache.acquire;
-            int buttons = countButtons(mc, tr("screen.acquire.sell"));
+            int buttons = countButtonsExact(mc, tr("screen.acquire.sell"));
             log("  欠款 = " + accountDebt() + "，hasDebt = " + (acquire == null ? "?" : acquire.hasDebt())
                     + "，「出售」按钮数 = " + buttons);
             check("有欠款时收购快照标记 hasDebt", acquire != null && acquire.hasDebt());
@@ -2041,7 +2069,7 @@ public final class ClientUiTest {
             click(mc, tr("acquire.category.friday"));
         });
         add("校验还清后疯狂星期五恢复出售", 15, (mc, player) -> {
-            int buttons = countButtons(mc, tr("screen.acquire.sell"));
+            int buttons = countButtonsExact(mc, tr("screen.acquire.sell"));
             log("  还清后「出售」按钮数 = " + buttons);
             check("还清欠款后疯狂星期五重新可以出售", buttons >= 1);
         });
@@ -2223,6 +2251,178 @@ public final class ClientUiTest {
             command(player, "clear @s");
             mc.setScreen(null);
         });
+
+        // ---------- README 展示：连续跨天，拍「多日走势 + 多日流水」 ----------
+        // 前面的用例只跨了第 1 天和第 5 天，走势图与交易记录都还很空。
+        // 这一段专门把游戏日一天一天推到第 15 天（每天真实结算一次），
+        // 让每支基金累积足够多的收盘价点，也让账户里出现多天的利息流水。
+        for (int day = 6; day <= 15; day++) {
+            int targetDay = day;
+            add("README：跨天到第 " + targetDay + " 天并强制结算", 35, (mc, player) -> {
+                command(player, "time set " + (targetDay * 24000L));
+                // 服务端有「两次结算至少间隔 1200 刻」的保护，连续 /time set 会被跳过；
+                // /ee settle 是管理员命令，直接结算当前这一天，正好用来快速累积走势数据。
+                command(player, "ee settle");
+            });
+        }
+        // README 截图希望「有红有绿」：用 /ee setprice 把一半基金设到收盘价上方、一半设到下方。
+        // previousClose 是上次结算时记下的，改当前价不会动它，所以涨跌幅会立刻变成正负混合。
+        // 注意：客户端缓存可能还停留在旧的一天，必须先开一次交易所把最新 previousClose 拉回来，
+        // 否则算出来的目标价会基于过时数据，截图里就会出现「几乎全红」。
+        add("README：先打开一次交易所，拿到最新收盘价", 40, (mc, player) -> open(mc, new ExchangeScreen()));
+        add("README：构造红绿混合的行情（一半基金上调、一半下调）", 45, (mc, player) -> {
+            var market = ClientEconomyCache.market;
+            if (market == null) {
+                return;
+            }
+            int index = 0;
+            for (var fund : market.funds()) {
+                int previous = Math.max(1, fund.previousClose());
+                int target = index % 2 == 0
+                        ? Math.max(1, (int) Math.round(previous * 1.06D))
+                        : Math.max(1, (int) Math.round(previous * 0.94D));
+                var type = cn.daenx.mc.emeraldeconomy.market.FundType.values()[fund.fund()];
+                command(player, "ee setprice " + type.code() + " " + target);
+                index++;
+            }
+        });
+        add("README：打开交易所（多日基金走势）", 40, (mc, player) -> {
+            mc.setScreen(null);
+            open(mc, new ExchangeScreen());
+        });
+        add("截图 44 交易所·多日基金走势（连续 15 天，红绿混合）", 0,
+                (mc, player) -> shot(mc, "44_exchange_multiday"));
+        add("校验多日走势已累积足够的历史点", 10, (mc, player) -> {
+            var market = ClientEconomyCache.market;
+            int minPoints = market == null ? -1 : market.funds().stream()
+                    .mapToInt(fund -> fund.history().length).min().orElse(-1);
+            long up = market == null ? 0L : market.funds().stream()
+                    .filter(fund -> fund.price() > fund.previousClose()).count();
+            long down = market == null ? 0L : market.funds().stream()
+                    .filter(fund -> fund.price() < fund.previousClose()).count();
+            log("  多日走势：最短历史点数 = " + minPoints + "，上涨 " + up + " 支、下跌 " + down + " 支");
+            check("连续跨天后每支基金都累积了至少 8 个历史点", minPoints >= 8);
+            check("截图里的涨跌幅有红有绿", up > 0L && down > 0L);
+        });
+        add("README：从交易所点开持仓（多日浮动盈亏）", 30, (mc, player) -> {
+            open(mc, new ExchangeScreen());
+            click(mc, tr("screen.exchange.holdings"));
+        });
+        add("截图 45 持仓·多日浮动盈亏", 0, (mc, player) -> shot(mc, "45_holdings_multiday"));
+
+        // 再补几笔不同类型的流水：存款 / 取款 / 贷款 / 还款 / 在线奖励。
+        // 这样交易记录第一页既有当天的操作，也有跨天累积的利息，不会只剩清一色利息。
+        add("README：存 512（给背包绿宝石并点击存入）", 35, (mc, player) -> {
+            command(player, "give @s minecraft:emerald 512");
+            open(mc, new DepositWithdrawScreen());
+            setNumbers(mc, "512");
+            click(mc, tr("screen.atm.button.deposit"));
+        });
+        add("README：取 300", 35, (mc, player) -> {
+            open(mc, new DepositWithdrawScreen());
+            setNumbers(mc, "300");
+            click(mc, tr("screen.atm.button.withdraw"));
+        });
+        add("README：借 1000", 35, (mc, player) -> {
+            open(mc, new LoanRepayScreen());
+            setNumbers(mc, "1000");
+            click(mc, tr("screen.atm.button.loan"));
+        });
+        add("README：还 200", 35, (mc, player) -> {
+            open(mc, new LoanRepayScreen());
+            setNumbers(mc, "200");
+            click(mc, tr("screen.atm.button.repay"));
+        });
+        add("README：从 ATM 点开交易记录", 35, (mc, player) -> {
+            open(mc, new AtmScreen());
+            click(mc, tr("screen.atm.menu.records"));
+        });
+        add("截图 46 交易记录·多日余额流水（操作 + 每日利息）", 0,
+                (mc, player) -> shot(mc, "46_atm_transactions_multiday"));
+        add("README：切到「贷款欠款明细」", 25,
+                (mc, player) -> click(mc, tr("screen.atm.records.tab.debt")));
+        add("截图 47 交易记录·多日贷款欠款明细", 0,
+                (mc, player) -> shot(mc, "47_atm_records_debt_multiday"));
+
+        add("README：还清贷款（按当前欠款精确还款，准备拍疯狂星期五）", 35, (mc, player) -> {
+            open(mc, new LoanRepayScreen());
+            long debt = ClientEconomyCache.account == null ? 0L : ClientEconomyCache.account.debt();
+            setNumbers(mc, Long.toString(debt));
+            click(mc, tr("screen.atm.button.repay"));
+        });
+        add("README：从交易所点开市场新闻（多日记录）", 30, (mc, player) -> {
+            open(mc, new ExchangeScreen());
+            click(mc, tr("screen.exchange.news"));
+        });
+        add("截图 48 市场新闻·多日结算记录", 0, (mc, player) -> shot(mc, "48_market_news_multiday"));
+
+        add("README：打开自动收购机（等快照回来）", 40, (mc, player) -> open(mc, new AcquisitionScreen()));
+        add("README：切到「疯狂星期五」", 30,
+                (mc, player) -> click(mc, tr("acquire.category.friday")));
+        add("截图 49 疯狂星期五（第 15 天，含任意刷怪蛋整类）", 0,
+                (mc, player) -> shot(mc, "49_crazy_friday_day15"));
+        add("校验疯狂星期五仍在第 15 天正常开放", 10, (mc, player) -> {
+            var acquire = ClientEconomyCache.acquire;
+            long fridayCount = 0L;
+            long spawnEggCount = 0L;
+            if (acquire != null) {
+                for (var line : acquire.categories()) {
+                    if (cn.daenx.mc.emeraldeconomy.content.AcquireContent.FRIDAY_ID
+                            .equalsIgnoreCase(line.id())) {
+                        fridayCount = line.entries().size();
+                        for (var entry : line.entries()) {
+                            if (entry.wildcard()) {
+                                spawnEggCount++;
+                            }
+                        }
+                    }
+                }
+            }
+            log("  第 15 天疯狂星期五物品数 = " + fridayCount + "，其中刷怪蛋整类行 = " + spawnEggCount);
+            check("第 15 天疯狂星期五仍然随机选出 3 件物品", fridayCount == 3L);
+            check("第 15 天刷怪蛋整类最多也只占一行", spawnEggCount <= 1L);
+        });
+
+        // ---------- README 补充截图：可正常下注的抽奖机 + 附魔回收 ----------
+        add("README：打开抽奖机（欠款已还清，准备拍可下注状态）", 40,
+                (mc, player) -> open(mc, new LotteryScreen()));
+        add("截图 50 抽奖机·可正常下注", 0, (mc, player) -> shot(mc, "50_lottery_can_bet"));
+        add("校验抽奖机此时可以正常下注", 10, (mc, player) -> {
+            var lottery = ClientEconomyCache.lottery;
+            int buttons = countButtons(mc, tr("screen.lottery.bet"));
+            log("  欠款 = " + accountDebt() + "，下注按钮数 = " + buttons);
+            check("没有欠款时抽奖机给出下注按钮", buttons >= 3);
+            check("抽奖快照没有标记欠款", lottery != null && !lottery.hasDebt());
+        });
+
+        add("README：准备附魔回收物资（3 件装备 + 1 本多附魔书）", 45, (mc, player) -> {
+            mc.setScreen(null);
+            command(player, "give @s minecraft:diamond_sword[minecraft:enchantments={levels:{"
+                    + "\"minecraft:sharpness\":5,\"minecraft:looting\":3}}]");
+            command(player, "give @s minecraft:diamond_pickaxe[minecraft:enchantments={levels:{"
+                    + "\"minecraft:efficiency\":5,\"minecraft:fortune\":3,\"minecraft:unbreaking\":3}}]");
+            command(player, "give @s minecraft:bow[minecraft:enchantments={levels:{"
+                    + "\"minecraft:power\":5,\"minecraft:infinity\":1}}]");
+            command(player, "give @s minecraft:enchanted_book[minecraft:stored_enchantments={levels:{"
+                    + "\"minecraft:mending\":1,\"minecraft:unbreaking\":3,\"minecraft:protection\":4}}]");
+        });
+        add("README：打开自动收购机（等附魔回收扫描完背包）", 40,
+                (mc, player) -> open(mc, new AcquisitionScreen()));
+        add("README：切到「附魔回收」", 30,
+                (mc, player) -> click(mc, tr("acquire.category.enchant")));
+        add("README：等右上角的「新配方已解锁」提示消失", 100, (mc, player) -> {
+        });
+        add("截图 51 附魔回收（3 件装备 + 多附魔书）", 0,
+                (mc, player) -> shot(mc, "51_acquire_enchant"));
+        add("校验附魔回收列出了装备与多附魔书", 10, (mc, player) -> {
+            var acquire = ClientEconomyCache.acquire;
+            long items = acquire == null ? -1L : acquire.enchantItems().size();
+            long multi = acquire == null ? -1L : acquire.enchantItems().stream()
+                    .filter(item -> item.enchants().size() >= 2).count();
+            log("  附魔回收物品数 = " + items + "，多附魔物品数 = " + multi);
+            check("附魔回收至少列出 3 件可回收物品", items >= 3L);
+            check("其中至少有 1 件多条附魔的物品（多附魔书）", multi >= 1L);
+        });
     }
 
     /**
@@ -2277,7 +2477,8 @@ public final class ClientUiTest {
         List<Boolean> out = new ArrayList<>();
         String label = tr("screen.acquire.sell");
         for (AbstractWidget widget : widgets(minecraft.screen)) {
-            if (widget instanceof Button button && button.getMessage().getString().contains(label)) {
+            // 必须精确匹配：「出售全部」也包含「出售」，按 contains 会把两种按钮混在一起
+            if (widget instanceof Button button && button.getMessage().getString().equals(label)) {
                 out.add(button.active);
             }
         }
@@ -2692,6 +2893,39 @@ public final class ClientUiTest {
         log("  !! 找不到按钮：" + label + "（第 " + occurrence + " 个）");
         failed++;
         return false;
+    }
+
+    /**
+     * 点击第 N 个文字<b>完全等于</b>关键字的按钮。
+     * <p>
+     * 收购机的「出售」与「出售全部」是包含关系，用 contains 会点错，所以这里单独做一个精确匹配。
+     */
+    private static boolean clickExact(Minecraft minecraft, String label, int occurrence) {
+        int seen = 0;
+        for (AbstractWidget widget : widgets(minecraft.screen)) {
+            if (!(widget instanceof Button button)
+                    || !button.getMessage().getString().equals(label)) {
+                continue;
+            }
+            if (seen++ < occurrence) {
+                continue;
+            }
+            return press(minecraft.screen, button, label);
+        }
+        log("  !! 找不到按钮（精确匹配）：" + label + "（第 " + occurrence + " 个）");
+        failed++;
+        return false;
+    }
+
+    /** 数一数文字完全等于关键字的按钮有几个。 */
+    private static int countButtonsExact(Minecraft minecraft, String label) {
+        int count = 0;
+        for (AbstractWidget widget : widgets(minecraft.screen)) {
+            if (widget instanceof Button button && button.getMessage().getString().equals(label)) {
+                count++;
+            }
+        }
+        return count;
     }
 
     /** 商店快照里的附魔书商品（「其他」大分类的种子/树苗不算在内）。 */

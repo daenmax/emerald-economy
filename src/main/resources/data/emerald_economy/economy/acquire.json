@@ -32,16 +32,16 @@
           "price": 2
         },
         {
-          "item": "minecraft:melon_slice",
-          "price": 1
+          "item": "minecraft:melon",
+          "price": 4
         },
         {
           "item": "minecraft:pumpkin",
-          "price": 2
+          "price": 4
         },
         {
           "item": "minecraft:apple",
-          "price": 2
+          "price": 4
         },
         {
           "item": "minecraft:sweet_berries",
@@ -325,6 +325,10 @@
           "lang": "acquire.item.ominous_banner"
         },
         {
+          "item": "minecraft:ominous_bottle",
+          "price": 50
+        },
+        {
           "item": "minecraft:goat_horn",
           "price": 3
         },
@@ -418,7 +422,7 @@
     }
   ],
   "friday": {
-    "_comment": "疯狂星期五：每天从 pool 里随机挑几件按倍率收购，basePrices 是基准价。pool 支持具体物品、#标签、*通配；每个池子条目默认每天最多被挑中 1 件，poolMaxPicks 只用来把某一类调大。\nCrazy Friday: a few items are picked from pool each day and bought with a multiplier; basePrices are the base prices. pool accepts plain item ids, #tags and * wildcards; each pool entry contributes at most 1 item per day by default, and poolMaxPicks is only used to raise a specific entry's limit.",
+    "_comment": "疯狂星期五：每天从 pool 里随机挑几件按倍率收购，basePrices 是基准价。pool 支持具体物品、#标签、*通配；每个池子条目默认每天最多被挑中 1 件，poolMaxPicks 只用来把某一类调大。*_spawn_egg 表示任意刷怪蛋（含其他模组）作为一个整类条目，抽中后玩家卖任意一种刷怪蛋都按该行价格结算。\nCrazy Friday: a few items are picked from pool each day and bought with a multiplier; basePrices are the base prices. pool accepts plain item ids, #tags and * wildcards. Each pool entry contributes at most 1 item per day by default. *_spawn_egg is a whole-class entry: any spawn egg (modded included) sells at that row's price.",
     "lang": "acquire.category.friday",
     "name": "疯狂星期五",
     "pool": [
@@ -439,10 +443,10 @@
       "minecraft:trident": 75,
       "minecraft:heart_of_the_sea": 58,
       "minecraft:echo_shard": 33,
-      "minecraft:spawner": 50,
+      "minecraft:spawner": 40,
       "minecraft:ominous_bottle": 42,
       "#emerald_economy:acquire/heads": 83,
-      "*_spawn_egg": 52
+      "*_spawn_egg": 40
     }
   }
 }

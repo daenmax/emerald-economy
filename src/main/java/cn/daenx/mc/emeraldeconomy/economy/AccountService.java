@@ -2,10 +2,12 @@ package cn.daenx.mc.emeraldeconomy.economy;
 
 import cn.daenx.mc.emeraldeconomy.config.EEConfig;
 import cn.daenx.mc.emeraldeconomy.core.Amounts;
+import cn.daenx.mc.emeraldeconomy.core.Experience;
 import cn.daenx.mc.emeraldeconomy.core.Notify;
 import cn.daenx.mc.emeraldeconomy.data.AccountData;
 import cn.daenx.mc.emeraldeconomy.data.EconomyData;
 import cn.daenx.mc.emeraldeconomy.data.TransactionType;
+import net.minecraft.network.protocol.game.ClientboundSetExperiencePacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -48,16 +50,18 @@ public final class AccountService {
         NO_DEBT,
         /** 背包放不下（「取出全部」时用） */
         NO_SPACE,
-        /** 「等级存取」还没付费解锁 */
+        /** 「经验存取」还没付费解锁 */
         LEVEL_LOCKED,
-        /** 「等级存取」已经解锁过了 */
+        /** 「经验存取」已经解锁过了 */
         LEVEL_ALREADY_UNLOCKED,
-        /** 玩家身上/ATM 里的等级不够 */
-        INSUFFICIENT_LEVELS,
+        /** 玩家身上 / ATM 里的经验不够 */
+        INSUFFICIENT_EXPERIENCE,
         /** 今天没有可领取的在线奖励 */
         NO_ONLINE_REWARD,
         /** 转账目标玩家不存在 */
         TARGET_NOT_FOUND,
+        /** 目标玩家不在线（转账 / 赠送要求对方在线） */
+        TARGET_OFFLINE,
         /** 不能给自己转账 */
         SELF_TRANSFER
     }
@@ -279,6 +283,12 @@ public final class AccountService {
         }
         String targetName = target.name() == null || target.name().isBlank()
                 ? targetId.toString() : target.name();
+        // 新规则：目标玩家必须在线才能接收转账
+        MinecraftServer server = player.getServer();
+        ServerPlayer onlineTarget = server == null ? null : server.getPlayerList().getPlayer(targetId);
+        if (onlineTarget == null) {
+            return TransferOutcome.fail(Result.TARGET_OFFLINE, amount, targetName);
+        }
         AccountData sender = data.account(player.getUUID());
         if (!sender.canAfford(amount)) {
             return TransferOutcome.fail(Result.INSUFFICIENT_BALANCE, amount, targetName);
@@ -302,39 +312,100 @@ public final class AccountService {
 
         data.setDirty();
 
-        // 收款人在线时立刻告诉他钱到账了（离线玩家下次上线看流水）
-        MinecraftServer server = player.getServer();
-        ServerPlayer onlineTarget = server == null ? null : server.getPlayerList().getPlayer(targetId);
-        if (onlineTarget != null) {
-            Notify.send(onlineTarget, "atm.transfer_received", player.getGameProfile().getName(),
-                    received, fee);
-        }
+        // 目标必须在线，直接告诉他钱到账了
+        Notify.send(onlineTarget, "atm.transfer_received", player.getGameProfile().getName(),
+                received, fee);
         return new TransferOutcome(Result.OK, amount, fee, received, targetName);
     }
 
-    // ------------------------------------------------------------------
-    // ATM 等级存取（本轮新增）
-    // ------------------------------------------------------------------
-
     /**
-     * 一次等级存取的结果。
+     * 一次经验赠送的结果。
      *
-     * @param result 结果状态
-     * @param levels 本次涉及的等级数量（正整数）
-     * @param stored 操作后 ATM 里的等级库存
+     * @param result     结果状态
+     * @param amount     赠送的经验点
+     * @param targetName 接收者名字
      */
-    public record LevelOutcome(Result result, int levels, long stored) {
+    public record ExperienceGiftOutcome(Result result, long amount, String targetName) {
         public boolean ok() {
             return result == Result.OK;
         }
 
-        static LevelOutcome fail(Result result, int levels, long stored) {
-            return new LevelOutcome(result, levels, stored);
+        static ExperienceGiftOutcome fail(Result result, long amount, String targetName) {
+            return new ExperienceGiftOutcome(result, amount, targetName);
         }
     }
 
     /**
-     * 付费解锁「等级存取」（每个玩家一次）。
+     * 把 ATM 里已存的经验赠送给另一个在线玩家。
+     * <p>
+     * 不收取手续费，赠送的是<b>ATM 里已存的经验点</b>（不是余额，也不是当前等级）。
+     * 接收者必须在线，否则拒绝。
+     */
+    public static ExperienceGiftOutcome giftExperience(EconomyData data, ServerPlayer player,
+                                                       UUID targetId, long amount) {
+        if (amount < 1L) {
+            return ExperienceGiftOutcome.fail(Result.INVALID_AMOUNT, amount, "");
+        }
+        if (targetId == null || targetId.equals(player.getUUID())) {
+            return ExperienceGiftOutcome.fail(Result.SELF_TRANSFER, amount, "");
+        }
+        AccountData target = data.accountOrNull(targetId);
+        if (target == null) {
+            return ExperienceGiftOutcome.fail(Result.TARGET_NOT_FOUND, amount, "");
+        }
+        String targetName = target.name() == null || target.name().isBlank()
+                ? targetId.toString() : target.name();
+        MinecraftServer server = player.getServer();
+        ServerPlayer onlineTarget = server == null ? null : server.getPlayerList().getPlayer(targetId);
+        if (onlineTarget == null) {
+            return ExperienceGiftOutcome.fail(Result.TARGET_OFFLINE, amount, targetName);
+        }
+        AccountData sender = data.account(player.getUUID());
+        if (sender.storedExperience() < amount) {
+            return ExperienceGiftOutcome.fail(Result.INSUFFICIENT_EXPERIENCE, amount, targetName);
+        }
+
+        long gameTime = player.level().getGameTime();
+        long senderBalanceBefore = sender.balance();
+        long senderDebtBefore = sender.debt();
+        sender.addStoredExperience(-amount);
+        sender.pushRecord(TransactionType.EXPERIENCE_GIFT_OUT, -amount, senderBalanceBefore,
+                senderDebtBefore, gameTime);
+
+        long targetBalanceBefore = target.balance();
+        long targetDebtBefore = target.debt();
+        target.addStoredExperience(amount);
+        target.pushRecord(TransactionType.EXPERIENCE_GIFT_IN, amount, targetBalanceBefore,
+                targetDebtBefore, gameTime);
+
+        data.setDirty();
+        Notify.send(onlineTarget, "atm.gift_received", player.getGameProfile().getName(), amount);
+        return new ExperienceGiftOutcome(Result.OK, amount, targetName);
+    }
+
+    // ------------------------------------------------------------------
+    // ATM 经验存取
+    // ------------------------------------------------------------------
+
+    /**
+     * 一次经验存取的结果。
+     *
+     * @param result     结果状态
+     * @param experience 本次实际搬运的经验点数（失败时为 0）
+     * @param stored     操作后 ATM 里保存的经验点数
+     */
+    public record ExperienceOutcome(Result result, long experience, long stored) {
+        public boolean ok() {
+            return result == Result.OK;
+        }
+
+        static ExperienceOutcome fail(Result result, long stored) {
+            return new ExperienceOutcome(result, 0L, stored);
+        }
+    }
+
+    /**
+     * 付费解锁「经验存取」（每个玩家一次）。
      * <p>
      * 需求：这个功能默认对所有人关闭，想用的玩家先付 1000 余额解锁，解锁后不再有任何限制。
      */
@@ -358,52 +429,157 @@ public final class AccountService {
     }
 
     /**
-     * 把玩家身上的等级存进 ATM。
+     * 按「等级」把经验存进 ATM。
      * <p>
-     * 这里搬的是<b>等级</b>而不是经验值：存 5 级就是玩家掉 5 级、ATM 里多 5 级。
-     * 存入数量不能超过玩家当前等级（等级不会被压到负数，附带的经验条进度也不会被清零）。
+     * 例：当前 27 级，输入 1，就把「27 级当前经验条 + 27 级升到 28 级所需」这一整段经验存起来，
+     * 玩家变成刚好 26 级、经验条清空；ATM 里记录的是<b>经验点数</b>，不是等级。
+     * <p>
+     * 上限是玩家当前等级：存 N 级不会把等级压成负数。存入不收任何手续费。
      */
-    public static LevelOutcome depositLevels(EconomyData data, ServerPlayer player, int levels) {
+    public static ExperienceOutcome depositExperience(EconomyData data, ServerPlayer player, int levels) {
         AccountData account = data.account(player.getUUID());
         if (!account.levelUnlocked()) {
-            return LevelOutcome.fail(Result.LEVEL_LOCKED, levels, account.storedLevels());
+            return ExperienceOutcome.fail(Result.LEVEL_LOCKED, account.storedExperience());
         }
         if (levels < 1) {
-            return LevelOutcome.fail(Result.INVALID_AMOUNT, levels, account.storedLevels());
+            return ExperienceOutcome.fail(Result.INVALID_AMOUNT, account.storedExperience());
         }
         if (player.experienceLevel < levels) {
-            return LevelOutcome.fail(Result.INSUFFICIENT_LEVELS, levels, account.storedLevels());
+            return ExperienceOutcome.fail(Result.INSUFFICIENT_EXPERIENCE, account.storedExperience());
+        }
+        int targetLevel = player.experienceLevel - levels;
+        long current = Experience.totalExperience(player);
+        long target = Experience.totalXpForLevel(targetLevel);
+        long moved = current - target;
+        if (moved < 1L) {
+            return ExperienceOutcome.fail(Result.INVALID_AMOUNT, account.storedExperience());
+        }
+        if (!setExperience(player, target)) {
+            return ExperienceOutcome.fail(Result.INVALID_AMOUNT, account.storedExperience());
         }
         long balanceBefore = account.balance();
         long debtBefore = account.debt();
-        player.giveExperienceLevels(-levels);
-        account.addStoredLevels(levels);
-        account.pushRecord(TransactionType.LEVEL_DEPOSIT, levels, balanceBefore, debtBefore,
+        account.addStoredExperience(moved);
+        account.pushRecord(TransactionType.LEVEL_DEPOSIT, moved, balanceBefore, debtBefore,
                 player.level().getGameTime());
         data.setDirty();
-        return new LevelOutcome(Result.OK, levels, account.storedLevels());
+        return new ExperienceOutcome(Result.OK, moved, account.storedExperience());
     }
 
-    /** 从 ATM 取回等级：取 N 级就是玩家升 N 级、ATM 里少 N 级。 */
-    public static LevelOutcome withdrawLevels(EconomyData data, ServerPlayer player, int levels) {
+    /**
+     * 把玩家当前的全部经验存进 ATM（等级降到 0、经验条清空）。
+     */
+    public static ExperienceOutcome depositAllExperience(EconomyData data, ServerPlayer player) {
         AccountData account = data.account(player.getUUID());
         if (!account.levelUnlocked()) {
-            return LevelOutcome.fail(Result.LEVEL_LOCKED, levels, account.storedLevels());
+            return ExperienceOutcome.fail(Result.LEVEL_LOCKED, account.storedExperience());
         }
-        if (levels < 1) {
-            return LevelOutcome.fail(Result.INVALID_AMOUNT, levels, account.storedLevels());
+        long moved = Experience.totalExperience(player);
+        if (moved < 1L) {
+            return ExperienceOutcome.fail(Result.INVALID_AMOUNT, account.storedExperience());
         }
-        if (account.storedLevels() < levels) {
-            return LevelOutcome.fail(Result.INSUFFICIENT_LEVELS, levels, account.storedLevels());
+        if (!setExperience(player, 0L)) {
+            return ExperienceOutcome.fail(Result.INVALID_AMOUNT, account.storedExperience());
         }
         long balanceBefore = account.balance();
         long debtBefore = account.debt();
-        player.giveExperienceLevels(levels);
-        account.addStoredLevels(-levels);
-        account.pushRecord(TransactionType.LEVEL_WITHDRAW, -levels, balanceBefore, debtBefore,
+        account.addStoredExperience(moved);
+        account.pushRecord(TransactionType.LEVEL_DEPOSIT, moved, balanceBefore, debtBefore,
                 player.level().getGameTime());
         data.setDirty();
-        return new LevelOutcome(Result.OK, levels, account.storedLevels());
+        return new ExperienceOutcome(Result.OK, moved, account.storedExperience());
+    }
+
+    /**
+     * 按「等级」从 ATM 取回经验。
+     * <p>
+     * 输入 N 表示「把等级提升 N 级所需要的经验」一次性还给你；经验不够 N 级的份量时拒绝，
+     * 不会把 ATM 里的经验扣成负数。
+     */
+    public static ExperienceOutcome withdrawExperience(EconomyData data, ServerPlayer player, int levels) {
+        AccountData account = data.account(player.getUUID());
+        if (!account.levelUnlocked()) {
+            return ExperienceOutcome.fail(Result.LEVEL_LOCKED, account.storedExperience());
+        }
+        if (levels < 1) {
+            return ExperienceOutcome.fail(Result.INVALID_AMOUNT, account.storedExperience());
+        }
+        long current = Experience.totalExperience(player);
+        long targetLevel = (long) player.experienceLevel + levels;
+        if (targetLevel > Integer.MAX_VALUE) {
+            return ExperienceOutcome.fail(Result.INVALID_AMOUNT, account.storedExperience());
+        }
+        long target = Experience.totalXpForLevel((int) targetLevel);
+        long needed = target - current;
+        if (needed < 1L) {
+            return ExperienceOutcome.fail(Result.INVALID_AMOUNT, account.storedExperience());
+        }
+        if (account.storedExperience() < needed) {
+            return ExperienceOutcome.fail(Result.INSUFFICIENT_EXPERIENCE, account.storedExperience());
+        }
+        if (!setExperience(player, target)) {
+            return ExperienceOutcome.fail(Result.INVALID_AMOUNT, account.storedExperience());
+        }
+        long balanceBefore = account.balance();
+        long debtBefore = account.debt();
+        account.addStoredExperience(-needed);
+        account.pushRecord(TransactionType.LEVEL_WITHDRAW, -needed, balanceBefore, debtBefore,
+                player.level().getGameTime());
+        data.setDirty();
+        return new ExperienceOutcome(Result.OK, needed, account.storedExperience());
+    }
+
+    /**
+     * 把 ATM 里的经验全部取回。
+     * <p>
+     * {@code totalExperience} 是 int，超过上限的部分会留在 ATM 里（正常玩法远远到不了这个量级）。
+     */
+    public static ExperienceOutcome withdrawAllExperience(EconomyData data, ServerPlayer player) {
+        AccountData account = data.account(player.getUUID());
+        if (!account.levelUnlocked()) {
+            return ExperienceOutcome.fail(Result.LEVEL_LOCKED, account.storedExperience());
+        }
+        long current = Experience.totalExperience(player);
+        long room = Math.max(0L, (long) Integer.MAX_VALUE - current);
+        long moved = Math.min(account.storedExperience(), room);
+        if (moved < 1L) {
+            return ExperienceOutcome.fail(Result.INSUFFICIENT_EXPERIENCE, account.storedExperience());
+        }
+        if (!setExperience(player, current + moved)) {
+            return ExperienceOutcome.fail(Result.INVALID_AMOUNT, account.storedExperience());
+        }
+        long balanceBefore = account.balance();
+        long debtBefore = account.debt();
+        account.addStoredExperience(-moved);
+        account.pushRecord(TransactionType.LEVEL_WITHDRAW, -moved, balanceBefore, debtBefore,
+                player.level().getGameTime());
+        data.setDirty();
+        return new ExperienceOutcome(Result.OK, moved, account.storedExperience());
+    }
+
+    /**
+     * 把玩家经验精确设置到「累计经验 = total」的状态，并立即同步给客户端。
+     * <p>
+     * 直接改三个经验字段而不是反复调用 {@code giveExperiencePoints}，
+     * 是为了避免浮点误差导致「存 5 级后停在 4.999 级」这种问题。
+     *
+     * @return 是否成功（超出 int 表示范围时返回 {@code false}）
+     */
+    private static boolean setExperience(ServerPlayer player, long total) {
+        if (total < 0L || total > Integer.MAX_VALUE) {
+            return false;
+        }
+        int value = (int) total;
+        int level = Experience.levelForTotal(value);
+        float progress = Experience.progressForTotal(value);
+        player.experienceLevel = level;
+        player.experienceProgress = progress;
+        player.totalExperience = value;
+        if (player.connection != null) {
+            // 服务端每刻也会比对这三个字段并补发，这里主动发一次让界面立刻刷新
+            player.connection.send(new ClientboundSetExperiencePacket(progress, level, value));
+        }
+        return true;
     }
 
     // ------------------------------------------------------------------
@@ -432,7 +608,7 @@ public final class AccountService {
     }
 
     /**
-     * 领取当日的在线奖励（奖励是<b>等级</b>，不是经验值）。
+     * 领取当日的在线奖励（奖励是<b>经验值</b>，公式为「基础值 + 当前游戏日」）。
      *
      * @return 是否领取成功（没有资格或已经领过都返回 {@code false}）
      */
@@ -441,15 +617,15 @@ public final class AccountService {
         if (!account.hasOnlineReward(day)) {
             return false;
         }
-        int levels = Math.max(1, EEConfig.onlineRewardLevels());
+        int experience = EEConfig.onlineRewardExperience(day);
         long balanceBefore = account.balance();
         long debtBefore = account.debt();
-        player.giveExperienceLevels(levels);
+        player.giveExperiencePoints(experience);
         account.markOnlineRewardClaimed();
-        account.pushRecord(TransactionType.ONLINE_REWARD, levels, balanceBefore, debtBefore,
+        account.pushRecord(TransactionType.ONLINE_REWARD, experience, balanceBefore, debtBefore,
                 player.level().getGameTime());
         data.setDirty();
-        Notify.send(player, "atm.online_reward_ok", levels, player.experienceLevel);
+        Notify.send(player, "atm.online_reward_ok", experience, player.experienceLevel);
         return true;
     }
 

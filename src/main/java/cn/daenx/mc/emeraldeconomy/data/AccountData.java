@@ -1,6 +1,7 @@
 package cn.daenx.mc.emeraldeconomy.data;
 
 import cn.daenx.mc.emeraldeconomy.config.EEConfig;
+import cn.daenx.mc.emeraldeconomy.core.Experience;
 import cn.daenx.mc.emeraldeconomy.market.FundType;
 import cn.daenx.mc.emeraldeconomy.market.Holding;
 import net.minecraft.nbt.CompoundTag;
@@ -33,7 +34,10 @@ public class AccountData {
     private static final String KEY_RECORDS = "records";
     private static final String KEY_HOLDINGS = "holdings";
     private static final String KEY_LEVEL_UNLOCKED = "levelUnlocked";
-    private static final String KEY_STORED_LEVELS = "storedLevels";
+    /** ATM 里存的经验点数（新字段）。 */
+    private static final String KEY_STORED_EXPERIENCE = "storedXp";
+    /** 旧版本字段：ATM 里存的「等级数」，只在读旧存档时用来换算。 */
+    private static final String KEY_LEGACY_STORED_LEVELS = "storedLevels";
     private static final String KEY_ONLINE_REWARD_DAY = "onlineRewardDay";
     private static final String KEY_ONLINE_REWARD_CLAIMED = "onlineRewardClaimed";
 
@@ -47,10 +51,10 @@ public class AccountData {
     private long debtInterest;
     /** 该玩家的信用额度，可被单独调整，默认取配置值。 */
     private long creditLimit;
-    /** 是否已经付费解锁 ATM 的「等级存取」功能（每个玩家独立，默认未解锁）。 */
+    /** 是否已经付费解锁 ATM 的「经验存取」功能（每个玩家独立，默认未解锁）。 */
     private boolean levelUnlocked;
-    /** 存在 ATM 里的等级数量（不是经验值）。 */
-    private long storedLevels;
+    /** 存在 ATM 里的经验点数（不是等级；界面按等级输入，内部按经验结算）。 */
+    private long storedExperience;
     /** 最近一次被发放「在线奖励领取资格」的游戏日（-1 表示从没拿到过）。 */
     private long onlineRewardDay = NO_REWARD_DAY;
     /** 当日资格是否已经被领走。 */
@@ -150,24 +154,24 @@ public class AccountData {
     // ATM 等级存取与在线奖励（本轮新增）
     // ------------------------------------------------------------------
 
-    /** 是否已解锁「等级存取」。 */
+    /** 是否已解锁「经验存取」。 */
     public boolean levelUnlocked() {
         return levelUnlocked;
     }
 
-    /** 解锁「等级存取」（调用方负责扣费）。 */
+    /** 解锁「经验存取」（调用方负责扣费）。 */
     public void setLevelUnlocked(boolean levelUnlocked) {
         this.levelUnlocked = levelUnlocked;
     }
 
-    /** ATM 里存着的等级数量（不是经验值）。 */
-    public long storedLevels() {
-        return storedLevels;
+    /** ATM 里存着的经验点数（不是等级）。 */
+    public long storedExperience() {
+        return storedExperience;
     }
 
-    /** 直接增减库存等级（调用方负责与玩家身上的等级同步）。 */
-    public void addStoredLevels(long delta) {
-        storedLevels = Math.max(0L, storedLevels + delta);
+    /** 直接增减库存经验（调用方负责与玩家身上的经验同步）。 */
+    public void addStoredExperience(long delta) {
+        storedExperience = Math.max(0L, storedExperience + delta);
     }
 
     /** 最近一次获得「在线奖励领取资格」的游戏日。 */
@@ -283,7 +287,7 @@ public class AccountData {
         tag.putLong(KEY_DEBT_INTEREST, debtInterest);
         tag.putLong(KEY_CREDIT_LIMIT, creditLimit);
         tag.putBoolean(KEY_LEVEL_UNLOCKED, levelUnlocked);
-        tag.putLong(KEY_STORED_LEVELS, storedLevels);
+        tag.putLong(KEY_STORED_EXPERIENCE, storedExperience);
         tag.putLong(KEY_ONLINE_REWARD_DAY, onlineRewardDay);
         tag.putBoolean(KEY_ONLINE_REWARD_CLAIMED, onlineRewardClaimed);
         ListTag list = new ListTag();
@@ -308,7 +312,14 @@ public class AccountData {
         data.creditLimit = Math.max(0L, tag.getLong(KEY_CREDIT_LIMIT));
         // 旧存档没有这几个字段：按「未解锁 / 没有库存 / 没有资格」读取，不会读出乱数字
         data.levelUnlocked = tag.getBoolean(KEY_LEVEL_UNLOCKED);
-        data.storedLevels = Math.max(0L, tag.getLong(KEY_STORED_LEVELS));
+        if (tag.contains(KEY_STORED_EXPERIENCE)) {
+            data.storedExperience = Math.max(0L, tag.getLong(KEY_STORED_EXPERIENCE));
+        } else if (tag.contains(KEY_LEGACY_STORED_LEVELS)) {
+            // 旧版本存的是「等级数」：按「升到该等级所需的累计经验」折算，保证老存档不丢数据
+            long legacyLevels = Math.max(0L, tag.getLong(KEY_LEGACY_STORED_LEVELS));
+            data.storedExperience = Experience.totalXpForLevel(
+                    (int) Math.min(Integer.MAX_VALUE, legacyLevels));
+        }
         data.onlineRewardDay = tag.contains(KEY_ONLINE_REWARD_DAY)
                 ? tag.getLong(KEY_ONLINE_REWARD_DAY) : NO_REWARD_DAY;
         data.onlineRewardClaimed = tag.getBoolean(KEY_ONLINE_REWARD_CLAIMED);

@@ -25,6 +25,14 @@ public class ExchangeScreen extends EEScreen {
 
     /** 列表区域起点（相对于面板）。 */
     private static final int LIST_OFFSET_Y = 42;
+    /** 列表各列的右边界（相对内容区左边缘）。 */
+    private static final int COL_PRICE = 150;
+    private static final int COL_DAY_CHANGE = 205;
+    private static final int COL_TOTAL_CHANGE = 258;
+    /** 行内「买入 / 卖出」按钮的位置与宽度。 */
+    private static final int COL_BUY_BUTTON = 264;
+    private static final int COL_SELL_BUTTON = 320;
+    private static final int TRADE_BUTTON_WIDTH = 52;
 
     /** 该界面对应的服务端快照类型。 */
     @Override
@@ -57,10 +65,10 @@ public class ExchangeScreen extends EEScreen {
             int y = rowY + index * 18;
             addRenderableWidget(Button.builder(Component.translatable(EEConstants.langKey("screen.common.buy")),
                             b -> openTrade(index, true))
-                    .bounds(x + 226, y, 30, 16).build());
+                    .bounds(x + COL_BUY_BUTTON, y, TRADE_BUTTON_WIDTH, 16).build());
             addRenderableWidget(Button.builder(Component.translatable(EEConstants.langKey("screen.common.sell")),
                             b -> openTrade(index, false))
-                    .bounds(x + 260, y, 30, 16).build());
+                    .bounds(x + COL_SELL_BUTTON, y, TRADE_BUTTON_WIDTH, 16).build());
         }
 
         int bottom = panelY + panelH - 24;
@@ -87,7 +95,7 @@ public class ExchangeScreen extends EEScreen {
         // 点击列表左侧区域选中基金，用于底部走势图
         int x = contentX();
         int rowY = panelY + LIST_OFFSET_Y;
-        if (mouseX >= x && mouseX < x + 220) {
+        if (mouseX >= x && mouseX < x + COL_TOTAL_CHANGE) {
             int index = (int) ((mouseY - rowY) / 18);
             if (index >= 0 && index < FundType.values().length && mouseY >= rowY) {
                 selectedFund = index;
@@ -123,9 +131,11 @@ public class ExchangeScreen extends EEScreen {
         drawText(graphics, Component.translatable(EEConstants.langKey("screen.exchange.col.fund")).getString(),
                 x + 10, rowY - 11, COLOR_TITLE);
         drawRight(graphics, Component.translatable(EEConstants.langKey("screen.exchange.col.price")).getString(),
-                x + 168, rowY - 11, COLOR_TITLE);
+                x + COL_PRICE, rowY - 11, COLOR_TITLE);
         drawRight(graphics, Component.translatable(EEConstants.langKey("screen.exchange.col.change")).getString(),
-                x + 220, rowY - 11, COLOR_TITLE);
+                x + COL_DAY_CHANGE, rowY - 11, COLOR_TITLE);
+        drawRight(graphics, Component.translatable(EEConstants.langKey("screen.exchange.col.total")).getString(),
+                x + COL_TOTAL_CHANGE, rowY - 11, COLOR_TITLE);
 
         for (ServerPayloads.FundSnapshot fund : market.funds()) {
             int index = fund.fund();
@@ -138,14 +148,17 @@ public class ExchangeScreen extends EEScreen {
             }
             drawText(graphics, (selected ? "§e▸ §f" : "  ") + type.displayName().getString(),
                     x, rowTop + 4, COLOR_TEXT);
-            drawText(graphics, "§7" + type.code(), x + 96, rowTop + 4, COLOR_MUTED);
+            drawText(graphics, "§7" + type.code(), x + 78, rowTop + 4, COLOR_MUTED);
 
             int price = fund.price();
-            drawRight(graphics, String.valueOf(price), x + 168, rowTop + 4, COLOR_GOLD);
+            drawRight(graphics, String.valueOf(price), x + COL_PRICE, rowTop + 4, COLOR_GOLD);
 
-            double change = changeRatio(fund);
-            drawRight(graphics, String.format(Locale.ROOT, "%s%.2f%%", change > 0 ? "+" : "", change * 100.0D),
-                    x + 220, rowTop + 4, changeColor(change));
+            double dayChange = dayChangeRatio(fund);
+            drawRight(graphics, percent(dayChange), x + COL_DAY_CHANGE, rowTop + 4, changeColor(dayChange));
+
+            double totalChange = totalChangeRatio(fund);
+            drawRight(graphics, percent(totalChange), x + COL_TOTAL_CHANGE, rowTop + 4,
+                    changeColor(totalChange));
         }
 
         // 走势图
@@ -165,12 +178,31 @@ public class ExchangeScreen extends EEScreen {
                 x + 2, chartY + chartH + 2, COLOR_MUTED);
     }
 
-    private static double changeRatio(ServerPayloads.FundSnapshot fund) {
+    /** 日涨跌：当前价相对「上次每日结算的收盘价」。 */
+    private static double dayChangeRatio(ServerPayloads.FundSnapshot fund) {
         int reference = fund.previousClose() > 0 ? fund.previousClose() : fund.price();
         if (reference <= 0) {
             return 0.0D;
         }
         return (double) (fund.price() - reference) / (double) reference;
+    }
+
+    /**
+     * 累计涨跌：当前价相对基金长期基准价（配置里的「每份基准价」）。
+     * <p>
+     * 这能回答「这支基金从开盘到现在一共涨了多少」，不会像日涨跌那样每天归零。
+     */
+    private static double totalChangeRatio(ServerPayloads.FundSnapshot fund) {
+        int basePrice = fund.basePrice() > 0 ? fund.basePrice() : fund.price();
+        if (basePrice <= 0) {
+            return 0.0D;
+        }
+        return (double) (fund.price() - basePrice) / (double) basePrice;
+    }
+
+    /** 百分比文本，例如 {@code +1.23%}。 */
+    private static String percent(double ratio) {
+        return String.format(Locale.ROOT, "%s%.2f%%", ratio > 0 ? "+" : "", ratio * 100.0D);
     }
 
     /**

@@ -20,6 +20,7 @@ import java.util.Locale;
  * 交易弹窗（需求文档 3.5.2）。
  * <p>
  * 显示基金名称、当前价格、数量输入框、预计花费 / 获得与手续费。
+ * 卖出页还会显示自己当前持有的份额，并提供「全部卖出」按钮。
  * 这里的金额只是「预估」，真正的结算与校验都在服务端。
  */
 public class TradeScreen extends EEScreen {
@@ -44,30 +45,37 @@ public class TradeScreen extends EEScreen {
 
     @Override
     protected int maxPanelWidth() {
-        return 280;
+        return 320;
     }
 
     @Override
     protected int maxPanelHeight() {
-        return 150;
+        return 168;
     }
 
     @Override
     protected void init() {
         super.init();
         int x = contentX();
-        int boxY = panelY + PAD + 66;
+        int boxY = panelY + PAD + 74;
         quantityBox = addRenderableWidget(new NumberBox(this.font, x, boxY, 90, 18, "1"));
 
-        int buttonY = boxY + 30;
+        int buttonY = boxY + 26;
         addRenderableWidget(Button.builder(
                         Component.translatable(EEConstants.langKey("screen.common.confirm")),
                         b -> confirm())
-                .bounds(x, buttonY, 80, 18).build());
+                .bounds(x, buttonY, 84, 18).build());
+        if (!buy) {
+            // 卖出页多一个「全部卖出」：一键把当前持有的份额全部卖掉
+            addRenderableWidget(Button.builder(
+                            Component.translatable(EEConstants.langKey("screen.trade.sell_all")),
+                            b -> sellAll())
+                    .bounds(x + 90, buttonY, 84, 18).build());
+        }
         addRenderableWidget(Button.builder(
                         Component.translatable(EEConstants.langKey("screen.common.cancel")),
                         b -> this.minecraft.setScreen(parent))
-                .bounds(x + contentW() - 80, buttonY, 80, 18).build());
+                .bounds(x + contentW() - 84, buttonY, 84, 18).build());
     }
 
     private void confirm() {
@@ -75,6 +83,20 @@ public class TradeScreen extends EEScreen {
         if (quantity <= 0L) {
             return;
         }
+        send(quantity);
+    }
+
+    /** 全部卖出：份额从服务端快照里读，客户端只负责发起请求。 */
+    private void sellAll() {
+        ServerPayloads.FundSnapshot snapshot = snapshot();
+        long shares = snapshot == null ? 0L : snapshot.shares();
+        if (shares <= 0L) {
+            return;
+        }
+        send(shares);
+    }
+
+    private void send(long quantity) {
         PacketDistributor.sendToServer(new ClientPayloads.FundTradeRequest(fund.ordinal(), buy, quantity));
         this.minecraft.setScreen(parent);
     }
@@ -82,6 +104,10 @@ public class TradeScreen extends EEScreen {
     @Override
     public void onClose() {
         this.minecraft.setScreen(parent);
+    }
+
+    private ServerPayloads.FundSnapshot snapshot() {
+        return ExchangeScreen.findFund(ClientEconomyCache.market, fund.ordinal());
     }
 
     @Override
@@ -96,7 +122,7 @@ public class TradeScreen extends EEScreen {
                 x, y, COLOR_TEXT);
 
         ServerPayloads.SyncMarket market = ClientEconomyCache.market;
-        ServerPayloads.FundSnapshot snapshot = ExchangeScreen.findFund(market, fund.ordinal());
+        ServerPayloads.FundSnapshot snapshot = snapshot();
         int price = snapshot == null ? 0 : snapshot.price();
         double feeRate = market == null ? 0.0D : market.tradeFeeRate();
 
@@ -105,23 +131,30 @@ public class TradeScreen extends EEScreen {
                 + " " + price, x, y, COLOR_GOLD);
 
         y += 14;
+        if (!buy) {
+            long shares = snapshot == null ? 0L : snapshot.shares();
+            drawText(graphics, Component.translatable(EEConstants.langKey("screen.trade.holding"),
+                    money(shares)).getString(), x, y, shares > 0L ? COLOR_TEXT : COLOR_MUTED);
+        }
+
+        y += 14;
         drawText(graphics, Component.translatable(EEConstants.langKey("screen.trade.quantity")).getString(),
                 x, y, COLOR_TEXT);
 
-        // 实时预估
+        // 右侧实时预估
         long quantity = quantityBox == null ? 0L : quantityBox.longValue();
         long gross = (long) price * quantity;
         long fee = Math.min(gross, Amounts.fee(gross, feeRate));
         long amount = buy ? gross + fee : Math.max(0L, gross - fee);
 
-        int infoY = panelY + PAD + 66 - 30;
+        int infoY = panelY + PAD + 18;
         drawText(graphics, Component.translatable(EEConstants.langKey("screen.trade.gross")).getString()
-                + " " + money(gross), x + 96, infoY, COLOR_TEXT);
+                + " " + money(gross), x + 120, infoY, COLOR_TEXT);
         drawText(graphics, Component.translatable(EEConstants.langKey("screen.trade.fee")).getString()
-                + " " + money(fee), x + 96, infoY + 12, COLOR_MUTED);
+                + " " + money(fee), x + 120, infoY + 12, COLOR_MUTED);
         drawText(graphics, Component.translatable(EEConstants.langKey(
                         buy ? "screen.trade.cost" : "screen.trade.gain")).getString()
-                + " " + money(amount), x + 96, infoY + 24, buy ? COLOR_DOWN : COLOR_UP);
+                + " " + money(amount), x + 120, infoY + 24, buy ? COLOR_DOWN : COLOR_UP);
 
         if (market != null && market.balance() < (buy ? amount : 0L)) {
             drawText(graphics, String.format(Locale.ROOT,

@@ -30,14 +30,18 @@ public final class ClientPayloads {
         DEPOSIT_ALL,
         /** 把账户余额全部取出（背包放不下就失败） */
         WITHDRAW_ALL,
-        /** 付费解锁「等级存取」 */
+        /** 付费解锁「经验存取」 */
         LEVEL_UNLOCK,
-        /** 把玩家身上的等级存进 ATM */
+        /** 按等级把玩家身上的经验存进 ATM */
         LEVEL_DEPOSIT,
-        /** 从 ATM 取回等级 */
+        /** 按等级从 ATM 取回经验 */
         LEVEL_WITHDRAW,
-        /** 领取当天的在线奖励（奖励是等级） */
-        CLAIM_ONLINE_REWARD;
+        /** 领取当天的在线奖励（奖励是经验值） */
+        CLAIM_ONLINE_REWARD,
+        /** 把玩家当前的全部经验存进 ATM */
+        LEVEL_DEPOSIT_ALL,
+        /** 把 ATM 里的经验全部取回 */
+        LEVEL_WITHDRAW_ALL;
 
         public static AtmAction byIndex(int index) {
             AtmAction[] values = values();
@@ -101,8 +105,18 @@ public final class ClientPayloads {
         }
     }
 
-    /** 玩家之间的转账请求（ATM 排行榜界面用）。 */
-    public record AtmTransferRequest(String targetId, long amount) implements CustomPacketPayload {
+    /**
+     * 玩家之间的转账 / 经验赠送请求（ATM 排行榜界面用）。
+     *
+     * @param mode 0 = 余额转账，1 = 经验赠送
+     */
+    public record AtmTransferRequest(String targetId, long amount, int mode)
+            implements CustomPacketPayload {
+
+        /** 余额转账。 */
+        public static final int MODE_BALANCE = 0;
+        /** 赠送经验。 */
+        public static final int MODE_EXPERIENCE = 1;
 
         public static final CustomPacketPayload.Type<AtmTransferRequest> TYPE =
                 new CustomPacketPayload.Type<>(EEConstants.id("atm_transfer"));
@@ -112,8 +126,10 @@ public final class ClientPayloads {
                         (buf, payload) -> {
                             buf.writeUtf(payload.targetId() == null ? "" : payload.targetId());
                             buf.writeVarLong(payload.amount());
+                            buf.writeVarInt(payload.mode());
                         },
-                        buf -> new AtmTransferRequest(buf.readUtf(), buf.readVarLong()));
+                        buf -> new AtmTransferRequest(buf.readUtf(), buf.readVarLong(),
+                                buf.readVarInt()));
 
         @Override
         public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
@@ -211,8 +227,15 @@ public final class ClientPayloads {
         }
     }
 
-    /** 收购出售请求。 */
-    public record AcquireSellRequest(String itemId, int count) implements CustomPacketPayload {
+    /**
+     * 收购出售请求。
+     *
+     * @param itemId 物品注册名或 {@code #标签}
+     * @param count  出售数量（{@code all = true} 时忽略）
+     * @param all    true 表示「出售全部」：由服务端按背包里的实际数量结算，
+     *               避免客户端对藏宝图 / 标签行统计不准
+     */
+    public record AcquireSellRequest(String itemId, int count, boolean all) implements CustomPacketPayload {
 
         public static final CustomPacketPayload.Type<AcquireSellRequest> TYPE =
                 new CustomPacketPayload.Type<>(EEConstants.id("acquire_sell"));
@@ -222,8 +245,9 @@ public final class ClientPayloads {
                         (buf, payload) -> {
                             buf.writeUtf(payload.itemId());
                             buf.writeVarInt(payload.count());
+                            buf.writeBoolean(payload.all());
                         },
-                        buf -> new AcquireSellRequest(buf.readUtf(), buf.readVarInt()));
+                        buf -> new AcquireSellRequest(buf.readUtf(), buf.readVarInt(), buf.readBoolean()));
 
         @Override
         public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {

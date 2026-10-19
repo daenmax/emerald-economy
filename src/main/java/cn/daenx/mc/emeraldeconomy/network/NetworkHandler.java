@@ -44,7 +44,7 @@ import java.util.UUID;
 public final class NetworkHandler {
 
     /** 协议版本，客户端与服务端不一致时会被拒绝连接。 */
-    private static final String PROTOCOL_VERSION = "4";
+    private static final String PROTOCOL_VERSION = "6";
 
     private NetworkHandler() {
     }
@@ -203,21 +203,39 @@ public final class NetworkHandler {
                     }
                 }
                 case LEVEL_DEPOSIT -> {
-                    AccountService.LevelOutcome outcome = AccountService.depositLevels(
+                    AccountService.ExperienceOutcome outcome = AccountService.depositExperience(
                             data, player, (int) Math.min(Integer.MAX_VALUE, amount));
                     if (outcome.ok()) {
                         feedbackPrefixed(player, "💰 ", false, "atm.level_deposit_ok",
-                                outcome.levels(), outcome.stored(), player.experienceLevel);
+                                outcome.experience(), outcome.stored(), player.experienceLevel);
                     } else {
                         notifyLevelFailure(player, outcome.result());
                     }
                 }
                 case LEVEL_WITHDRAW -> {
-                    AccountService.LevelOutcome outcome = AccountService.withdrawLevels(
+                    AccountService.ExperienceOutcome outcome = AccountService.withdrawExperience(
                             data, player, (int) Math.min(Integer.MAX_VALUE, amount));
                     if (outcome.ok()) {
                         feedbackPrefixed(player, "💰 ", false, "atm.level_withdraw_ok",
-                                outcome.levels(), outcome.stored(), player.experienceLevel);
+                                outcome.experience(), outcome.stored(), player.experienceLevel);
+                    } else {
+                        notifyLevelFailure(player, outcome.result());
+                    }
+                }
+                case LEVEL_DEPOSIT_ALL -> {
+                    AccountService.ExperienceOutcome outcome = AccountService.depositAllExperience(data, player);
+                    if (outcome.ok()) {
+                        feedbackPrefixed(player, "💰 ", false, "atm.level_deposit_ok",
+                                outcome.experience(), outcome.stored(), player.experienceLevel);
+                    } else {
+                        notifyLevelFailure(player, outcome.result());
+                    }
+                }
+                case LEVEL_WITHDRAW_ALL -> {
+                    AccountService.ExperienceOutcome outcome = AccountService.withdrawAllExperience(data, player);
+                    if (outcome.ok()) {
+                        feedbackPrefixed(player, "💰 ", false, "atm.level_withdraw_ok",
+                                outcome.experience(), outcome.stored(), player.experienceLevel);
                     } else {
                         notifyLevelFailure(player, outcome.result());
                     }
@@ -256,23 +274,43 @@ public final class NetworkHandler {
                 ServerSync.sendAccount(player);
                 return;
             }
-            AccountService.TransferOutcome outcome = AccountService.transfer(data, player, targetId,
-                    payload.amount());
-            if (outcome.ok()) {
-                feedbackPrefixed(player, "💰 ", false, "atm.transfer_ok",
-                        outcome.amount(), outcome.fee(), outcome.received(), outcome.targetName());
+            if (payload.mode() == ClientPayloads.AtmTransferRequest.MODE_EXPERIENCE) {
+                AccountService.ExperienceGiftOutcome outcome = AccountService.giftExperience(
+                        data, player, targetId, payload.amount());
+                if (outcome.ok()) {
+                    feedbackPrefixed(player, "✨ ", false, "atm.gift_ok",
+                            outcome.amount(), outcome.targetName());
+                } else {
+                    String key = switch (outcome.result()) {
+                        case INVALID_AMOUNT -> "atm.fail_invalid_amount";
+                        case INSUFFICIENT_EXPERIENCE -> "atm.fail_no_experience";
+                        case TARGET_NOT_FOUND -> "atm.transfer_fail_target";
+                        case TARGET_OFFLINE -> "atm.transfer_fail_offline";
+                        case SELF_TRANSFER -> "atm.transfer_fail_self";
+                        default -> "atm.fail_unknown";
+                    };
+                    feedback(player, true, key);
+                }
             } else {
-                String key = switch (outcome.result()) {
-                    case INVALID_AMOUNT -> "atm.fail_invalid_amount";
-                    case INSUFFICIENT_BALANCE -> "atm.fail_no_balance";
-                    case TARGET_NOT_FOUND -> "atm.transfer_fail_target";
-                    case SELF_TRANSFER -> "atm.transfer_fail_self";
-                    default -> "atm.fail_unknown";
-                };
-                feedback(player, true, key);
+                AccountService.TransferOutcome outcome = AccountService.transfer(data, player, targetId,
+                        payload.amount());
+                if (outcome.ok()) {
+                    feedbackPrefixed(player, "💰 ", false, "atm.transfer_ok",
+                            outcome.amount(), outcome.fee(), outcome.received(), outcome.targetName());
+                } else {
+                    String key = switch (outcome.result()) {
+                        case INVALID_AMOUNT -> "atm.fail_invalid_amount";
+                        case INSUFFICIENT_BALANCE -> "atm.fail_no_balance";
+                        case TARGET_NOT_FOUND -> "atm.transfer_fail_target";
+                        case TARGET_OFFLINE -> "atm.transfer_fail_offline";
+                        case SELF_TRANSFER -> "atm.transfer_fail_self";
+                        default -> "atm.fail_unknown";
+                    };
+                    feedback(player, true, key);
+                }
             }
             ServerSync.sendAccount(player);
-            // 收款人在线时顺手刷新他的界面（他可能正开着 ATM 或排行榜）
+            // 目标玩家必须在线（服务端已校验），顺手刷新他的界面
             MinecraftServer server = player.getServer();
             ServerPlayer onlineTarget = server == null ? null : server.getPlayerList().getPlayer(targetId);
             if (onlineTarget != null && onlineTarget != player) {
@@ -281,12 +319,12 @@ public final class NetworkHandler {
         });
     }
 
-    /** 等级存取失败时的提示。 */
+    /** 经验存取失败时的提示。 */
     private static void notifyLevelFailure(ServerPlayer player, AccountService.Result result) {
         String key = switch (result) {
             case LEVEL_LOCKED -> "atm.level_fail_locked";
             case LEVEL_ALREADY_UNLOCKED -> "atm.level_fail_unlocked";
-            case INSUFFICIENT_LEVELS -> "atm.level_fail_levels";
+            case INSUFFICIENT_EXPERIENCE -> "atm.level_fail_experience";
             case INVALID_AMOUNT -> "atm.fail_invalid_amount";
             case INSUFFICIENT_BALANCE -> "atm.fail_no_balance";
             default -> "atm.fail_unknown";
@@ -304,9 +342,10 @@ public final class NetworkHandler {
             case NO_SPACE -> "atm.fail_no_space";
             case LEVEL_LOCKED -> "atm.level_fail_locked";
             case LEVEL_ALREADY_UNLOCKED -> "atm.level_fail_unlocked";
-            case INSUFFICIENT_LEVELS -> "atm.level_fail_levels";
+            case INSUFFICIENT_EXPERIENCE -> "atm.level_fail_experience";
             case NO_ONLINE_REWARD -> "atm.online_reward_unavailable";
             case TARGET_NOT_FOUND -> "atm.transfer_fail_target";
+            case TARGET_OFFLINE -> "atm.transfer_fail_offline";
             case SELF_TRANSFER -> "atm.transfer_fail_self";
             case OK -> "atm.fail_unknown";
         };
@@ -433,23 +472,21 @@ public final class NetworkHandler {
             if (data == null) {
                 return;
             }
-            AcquireService.Result result = AcquireService.sell(data, player, payload.itemId(), payload.count());
-            if (result == AcquireService.Result.OK) {
-                long price = AcquireService.priceOf(data, payload.itemId());
-                // 有批次的物品（例如鸡蛋 8 个一份）实际只吃「整份」的那部分数量
-                int batch = AcquireService.isFridayItem(data, payload.itemId())
-                        ? 1 : AcquireService.batchOf(data, payload.itemId());
-                long units = payload.count() / batch;
+            AcquireService.SellOutcome outcome = AcquireService.sell(data, player, payload.itemId(),
+                    payload.count(), payload.all());
+            if (outcome.ok()) {
+                // 数量与金额都用服务端算好的结果（批次只会吃「整份」，不会把零头算进去）
                 feedback(player, false, "acquire.sell_ok", AcquireService.displayName(payload.itemId()),
-                        units * batch, price * units);
+                        outcome.consumed(), outcome.total());
             } else {
-                if (result == AcquireService.Result.TOO_FEW_FOR_BATCH) {
+                if (outcome.result() == AcquireService.Result.TOO_FEW_FOR_BATCH) {
                     // 说清「几个算一份」，不然玩家看到「我明明有 16 个」会很困惑
                     int batch = AcquireService.batchOf(data, payload.itemId());
                     feedback(player, true, "acquire.fail_batch",
-                            AcquireService.displayName(payload.itemId()), batch, batch, payload.count());
+                            AcquireService.displayName(payload.itemId()), batch, batch,
+                            outcome.available());
                 } else {
-                    String key = switch (result) {
+                    String key = switch (outcome.result()) {
                         case UNKNOWN_ITEM -> "acquire.fail_item";
                         case INVALID_COUNT -> "acquire.fail_count";
                         case INSUFFICIENT_ITEMS -> "acquire.fail_no_items";

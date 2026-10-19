@@ -11,16 +11,21 @@ import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
- * ATM · 等级存取子页面。
+ * ATM · 经验存取子页面。
  * <p>
- * 搬的是「等级」不是经验值；每个玩家默认关闭，付费解锁一次后永久可用。
- * 解锁费用、当前等级、ATM 库存与规则说明都在这一页。
+ * 输入的是「等级」，搬的是「经验值」：输入 1 级，就把「从当前等级掉到下一级」所需的经验
+ * 全部存进 ATM，玩家等级正好 -1、经验条清空；ATM 里显示的是累计经验点数，不再显示等级。
+ * <p>
+ * 每个玩家默认关闭，付费解锁一次后永久可用。「全部存入」会把当前经验清空，
+ * 「全部取出」则把 ATM 里的经验一次性还给你。
  */
 public class LevelStorageScreen extends AtmSubScreen {
 
-    private static final int BOX_WIDTH = 100;
+    private static final int BOX_WIDTH = 80;
     private static final int BUTTON_WIDTH = 64;
-    private static final int ALL_BUTTON_WIDTH = 72;
+    private static final int ALL_BUTTON_WIDTH = 104;
+    /** 两排按钮之间的距离。 */
+    private static final int ROW_GAP = 24;
 
     private NumberBox levelBox;
 
@@ -48,28 +53,45 @@ public class LevelStorageScreen extends AtmSubScreen {
         if (account != null && account.levelUnlocked()) {
             levelBox = addRenderableWidget(new NumberBox(this.font, x + 62, y, BOX_WIDTH, 18, "1"));
             addRenderableWidget(Button.builder(label("screen.atm.level.deposit"),
-                            b -> send(ClientPayloads.AtmAction.LEVEL_DEPOSIT, levelBox))
+                            b -> sendAmount(ClientPayloads.AtmAction.LEVEL_DEPOSIT, levelBox))
                     .bounds(x + 62 + BOX_WIDTH + 6, y, BUTTON_WIDTH, 18).build());
             addRenderableWidget(Button.builder(label("screen.atm.level.withdraw"),
-                            b -> send(ClientPayloads.AtmAction.LEVEL_WITHDRAW, levelBox))
-                    .bounds(x + 62 + BOX_WIDTH + 6 + BUTTON_WIDTH + 4, y, ALL_BUTTON_WIDTH, 18).build());
+                            b -> sendAmount(ClientPayloads.AtmAction.LEVEL_WITHDRAW, levelBox))
+                    .bounds(x + 62 + BOX_WIDTH + 6 + BUTTON_WIDTH + 4, y, BUTTON_WIDTH, 18).build());
+
+            // 第二排：全部存入 / 全部取出
+            int row2 = y + ROW_GAP;
+            addRenderableWidget(Button.builder(label("screen.atm.level.deposit_all"),
+                            b -> send(ClientPayloads.AtmAction.LEVEL_DEPOSIT_ALL))
+                    .bounds(x + 62, row2, ALL_BUTTON_WIDTH, 18).build());
+            addRenderableWidget(Button.builder(label("screen.atm.level.withdraw_all"),
+                            b -> send(ClientPayloads.AtmAction.LEVEL_WITHDRAW_ALL))
+                    .bounds(x + 62 + ALL_BUTTON_WIDTH + 4, row2, ALL_BUTTON_WIDTH, 18).build());
         } else {
             long cost = account == null ? 0L : account.levelUnlockCost();
             addRenderableWidget(Button.builder(
                             Component.translatable(EEConstants.langKey("screen.atm.level.unlock"), money(cost)),
-                            b -> PacketDistributor.sendToServer(new ClientPayloads.AtmActionRequest(
-                                    ClientPayloads.AtmAction.LEVEL_UNLOCK.ordinal(), 0L)))
+                            b -> send(ClientPayloads.AtmAction.LEVEL_UNLOCK))
                     .bounds(x + 62, y, 160, 18).build());
         }
 
         addBackButton();
     }
 
-    private void send(ClientPayloads.AtmAction action, NumberBox box) {
-        long amount = box.longValue();
+    /** 读取输入框里的等级数并发送请求。 */
+    private void sendAmount(ClientPayloads.AtmAction action, NumberBox box) {
+        long amount = box == null ? 0L : box.longValue();
         if (amount <= 0L) {
             return;
         }
+        send(action, amount);
+    }
+
+    private void send(ClientPayloads.AtmAction action) {
+        send(action, 0L);
+    }
+
+    private void send(ClientPayloads.AtmAction action, long amount) {
         PacketDistributor.sendToServer(new ClientPayloads.AtmActionRequest(action.ordinal(), amount));
     }
 
@@ -88,7 +110,7 @@ public class LevelStorageScreen extends AtmSubScreen {
         y += 18;
         if (account.levelUnlocked()) {
             drawText(graphics, Component.translatable(EEConstants.langKey("screen.atm.level.status"),
-                    account.playerLevel(), account.storedLevels()).getString(), x, y, COLOR_TEXT);
+                    account.playerLevel(), money(account.storedExperience())).getString(), x, y, COLOR_TEXT);
         } else {
             drawText(graphics, Component.translatable(EEConstants.langKey("screen.atm.level.locked"),
                     money(account.levelUnlockCost())).getString(), x, y, COLOR_DOWN);

@@ -42,13 +42,17 @@ public enum TransactionType {
     TRANSFER_OUT,
     /** 转账收入（对方转给自己，已扣掉手续费） */
     TRANSFER_IN,
-    /** 解锁 ATM 的「等级存取」功能（花绿宝石） */
+    /** 赠送经验（自己的 ATM 经验减少） */
+    EXPERIENCE_GIFT_OUT,
+    /** 收到经验赠送（自己的 ATM 经验增加） */
+    EXPERIENCE_GIFT_IN,
+    /** 解锁 ATM 的「经验存取」功能（花绿宝石） */
     LEVEL_UNLOCK,
-    /** 把玩家身上的等级存进 ATM（金额字段记的是「等级数」） */
+    /** 把玩家身上的经验存进 ATM（金额字段记的是「经验点数」） */
     LEVEL_DEPOSIT,
-    /** 从 ATM 取回等级（金额字段记的是「等级数」） */
+    /** 从 ATM 取回经验（金额字段记的是「经验点数」） */
     LEVEL_WITHDRAW,
-    /** 每日在线奖励（金额字段记的是「赠送的等级数」） */
+    /** 每日在线奖励（金额字段记的是「赠送的经验点数」） */
     ONLINE_REWARD;
 
     private final String langKey = EEConstants.langKey("tx." + name().toLowerCase(Locale.ROOT));
@@ -59,13 +63,14 @@ public enum TransactionType {
     }
 
     /**
-     * 这笔记录动的是「等级」而不是「绿宝石余额」。
+     * 这笔记录动的是「经验值」而不是「绿宝石余额」。
      * <p>
-     * 等级存取不会改变账户余额，所以交易记录界面不能只按「余额有没有变」来筛选，
-     * 否则这些记录会被静默丢掉；金额列也要按「级」而不是「绿宝石」来展示。
+     * 经验存取不会改变账户余额，所以交易记录界面不能只按「余额有没有变」来筛选，
+     * 否则这些记录会被静默丢掉；金额列也要按「经验」而不是「绿宝石」来展示。
      */
-    public boolean isLevelRecord() {
-        return this == LEVEL_DEPOSIT || this == LEVEL_WITHDRAW || this == ONLINE_REWARD;
+    public boolean isExperienceRecord() {
+        return this == LEVEL_DEPOSIT || this == LEVEL_WITHDRAW || this == ONLINE_REWARD
+                || this == EXPERIENCE_GIFT_OUT || this == EXPERIENCE_GIFT_IN;
     }
 
     /** 按名字解析，失败时返回默认值（用于 NBT 反序列化）。 */

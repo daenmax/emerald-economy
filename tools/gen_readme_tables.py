@@ -65,7 +65,8 @@ CATEGORY_NAMES = {
 OTHER_NAMES = {
     'SEED': ('种子', 'Seeds'),
     'SAPLING': ('树苗', 'Saplings'),
-    'MISC': ('杂物', 'Misc'),
+    'MISC': ('经验', 'Experience'),
+    'GENERAL': ('杂物', 'Misc'),
 }
 TAG_NAMES = {
     'minecraft:saplings': ('树苗（任意）', 'Sapling (any)'),
@@ -184,9 +185,11 @@ def build(lang):
         (L('保留流水条数', 'Records kept'), cfg['maxTransactionRecords']),
         (L('等级存取解锁费用（每人一次）', 'Level storage unlock (once per player)'),
          cfg['levelUnlockCost']),
-        (L('在线奖励等级数', 'Online reward levels'),
-         L('%s 级 / 天（结算时在线才能领）' % cfg['onlineRewardLevels'],
-           '%s level(s) per day (online at settlement required)' % cfg['onlineRewardLevels'])),
+        (L('在线奖励经验值', 'Online reward XP'),
+         L('%s + 游戏日 × %s（结算时在线才能领）'
+           % (cfg['onlineRewardBaseExp'], cfg['onlineRewardPerDayExp']),
+           '%s + game day x %s (online at settlement required)'
+           % (cfg['onlineRewardBaseExp'], cfg['onlineRewardPerDayExp']))),
         (L('玩家转账手续费率', 'Player transfer fee'), '%.2f%%' % (cfg['transferFeeRate'] * 100)),
     ]))
 
@@ -244,7 +247,8 @@ def build(lang):
     out.append(L('### 自动售货机', '### Vending machine'))
     out.append(table([L('项目', 'Item'), L('默认值', 'Default')], [
         (L('初始解锁格子数', 'Initial unlocked slots'), cfg['initialSlots']),
-        (L('每个商品每日限购次数', 'Daily purchase limit per good'), cfg['dailyPurchaseLimit']),
+        (L('每个附魔书格子每日限购次数（「其他」不限量）',
+           'Daily purchase limit per book slot (Other is unlimited)'), cfg['dailyPurchaseLimit']),
         (L('升级费用（同一级价格固定）', 'Upgrade cost (stable per level)'),
          '%s - %s' % (cfg['upgradeCostMin'], cfg['upgradeCostMax'])),
         (L('未列表附魔的兜底价格', 'Fallback price for unlisted enchants'),
@@ -314,8 +318,10 @@ def build(lang):
         key = entry.lower()
         if entry.startswith('#'):
             label = TAG_NAMES.get(entry[1:], (entry, entry))[0 if zh else 1]
+        elif entry == '*_spawn_egg':
+            label = L('刷怪蛋（任意）', 'Spawn egg (any)')
         elif '*' in entry:
-            label = L('所有刷怪蛋', 'All spawn eggs')
+            label = L('通配匹配的物品', 'Wildcard-matched items')
         else:
             label = item_name(entry, lang)
         rows.append((label, content.FRIDAY_BASE_PRICES.get(key, 100)))

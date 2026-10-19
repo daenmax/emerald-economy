@@ -9,7 +9,6 @@ import cn.daenx.mc.emeraldeconomy.config.EEConfig;
 import cn.daenx.mc.emeraldeconomy.core.DaySettlement;
 import cn.daenx.mc.emeraldeconomy.data.AccountData;
 import cn.daenx.mc.emeraldeconomy.data.EconomyData;
-import cn.daenx.mc.emeraldeconomy.data.RankingBook;
 import cn.daenx.mc.emeraldeconomy.data.TransactionRecord;
 import cn.daenx.mc.emeraldeconomy.lottery.BetRecord;
 import cn.daenx.mc.emeraldeconomy.lottery.LotteryBook;
@@ -26,6 +25,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -83,6 +83,7 @@ public final class ServerSync {
     public static void sendFor(ServerPlayer player, ScreenType type) {
         switch (type) {
             case ATM -> sendAccount(player);
+            case RANKING -> sendRanking(player);
             case EXCHANGE -> sendMarket(player);
             case LOTTERY -> sendLottery(player);
             case VENDING -> sendShop(player);
@@ -90,21 +91,33 @@ public final class ServerSync {
         }
     }
 
-    /** 账户快照。 */
+    /**
+     * 账户快照。
+     * <p>
+     * 排行榜数据默认不带（ATM 的存取款页用不到），只有玩家正开着排行榜时才计算并下发，
+     * 避免每次存取款都把所有账户排序一遍。
+     */
     public static void sendAccount(ServerPlayer player) {
+        boolean withRanking = OPEN_SCREENS.get(player.getUUID()) == ScreenType.RANKING;
+        sendAccount(player, withRanking);
+    }
+
+    /** 排行榜快照：每次打开排行榜页面都会实时重算一次。 */
+    public static void sendRanking(ServerPlayer player) {
+        sendAccount(player, true);
+    }
+
+    private static void sendAccount(ServerPlayer player, boolean withRanking) {
         EconomyData data = dataOf(player);
         if (data == null) {
             return;
         }
         AccountData account = data.account(player.getUUID());
         long today = currentDay(player);
-        // 排行榜每天更新一次；如果服务器在新的一天启动还没结算过，这里补算一次
-        data.ranking().updateIfStale(data, today);
-        List<ServerPayloads.RankingEntry> ranking = new ArrayList<>();
-        for (RankingBook.Entry entry : data.ranking().entries()) {
-            ranking.add(new ServerPayloads.RankingEntry(entry.playerIdString(), entry.name(),
-                    entry.balance(), entry.debt(), entry.net()));
-        }
+        List<ServerPayloads.RankingEntry> ranking = withRanking
+                ? buildRanking(player.getServer(), data, false) : List.of();
+        List<ServerPayloads.RankingEntry> experienceRanking = withRanking
+                ? buildRanking(player.getServer(), data, true) : List.of();
         List<ServerPayloads.TxLine> transactions = new ArrayList<>();
         for (TransactionRecord record : account.records()) {
             transactions.add(new ServerPayloads.TxLine(record.type().name(), record.amount(),
@@ -121,17 +134,55 @@ public final class ServerSync {
                 EEConfig.loanInterestRate(),
                 EEConfig.interestMinBalance(),
                 account.levelUnlocked(),
-                account.storedLevels(),
+                account.storedExperience(),
                 player.experienceLevel,
                 EEConfig.levelUnlockCost(),
                 account.hasOnlineReward(today),
                 account.onlineRewardClaimedToday(today),
-                EEConfig.onlineRewardLevels(),
+                EEConfig.onlineRewardExperience(today),
                 player.getUUID().toString(),
                 EEConfig.transferFeeRate(),
-                data.ranking().day(),
+                today,
                 ranking,
+                experienceRanking,
                 transactions));
+    }
+
+    /**
+     * 实时生成一个排行榜：按余额或按 ATM 已存经验从高到低排序。
+     * <p>
+     * 复杂度是 {@code O(n log n)}（n = 有名字的账户数）。只会在玩家打开排行榜页面时调用，
+     * 几十到几百人的服务器几乎没有感觉；上千账户也只是毫秒级。
+     *
+     * @param byExperience true 表示经验榜，false 表示余额榜
+     */
+    private static List<ServerPayloads.RankingEntry> buildRanking(MinecraftServer server, EconomyData data,
+                                                                  boolean byExperience) {
+        List<AccountData> accounts = new ArrayList<>();
+        for (AccountData account : data.accounts().values()) {
+            if (account.name() != null && !account.name().isBlank()) {
+                accounts.add(account);
+            }
+        }
+        Comparator<AccountData> order = byExperience
+                ? Comparator.comparingLong(AccountData::storedExperience)
+                : Comparator.comparingLong(AccountData::balance);
+        accounts.sort(order.reversed().thenComparing(AccountData::name, String.CASE_INSENSITIVE_ORDER));
+
+        List<ServerPayloads.RankingEntry> out = new ArrayList<>(accounts.size());
+        for (AccountData account : accounts) {
+            boolean online = server != null
+                    && server.getPlayerList().getPlayer(account.playerId()) != null;
+            out.add(new ServerPayloads.RankingEntry(
+                    account.playerId().toString(),
+                    account.name(),
+                    account.balance(),
+                    account.debt(),
+                    account.balance() - account.debt(),
+                    account.storedExperience(),
+                    online));
+        }
+        return out;
     }
 
     /**
@@ -159,6 +210,7 @@ public final class ServerSync {
                     type.ordinal(),
                     state.price(),
                     state.previousClose(),
+                    state.basePrice(),
                     state.history(),
                     holding == null ? 0L : holding.shares(),
                     holding == null ? 0L : holding.totalCost(),
@@ -218,7 +270,7 @@ public final class ServerSync {
         List<ServerPayloads.ShopGood> goods = new ArrayList<>();
         for (ShopService.Good good : ShopService.goods(data, access, player.getUUID())) {
             goods.add(new ServerPayloads.ShopGood(good.key(), good.group(), good.sub(), good.id(),
-                    good.price(), good.remaining(), good.enchant(), good.exp()));
+                    good.price(), good.remaining(), good.enchant(), good.exp(), good.limited()));
         }
         PacketDistributor.sendToPlayer(player, new ServerPayloads.SyncShop(
                 tabs,
@@ -280,8 +332,8 @@ public final class ServerSync {
         List<ServerPayloads.AcquireLine> lines = new ArrayList<>();
         for (AcquireService.Entry entry : AcquireService.entries(data, categoryId)) {
             lines.add(new ServerPayloads.AcquireLine(entry.itemId(), entry.price(), entry.friday(),
-                    entry.batch(), entry.tag(), nullSafe(entry.lang()), nullSafe(entry.name()),
-                    nullSafe(entry.filter())));
+                    entry.batch(), entry.tag(), entry.wildcard(), nullSafe(entry.lang()),
+                    nullSafe(entry.name()), nullSafe(entry.filter())));
         }
         return lines;
     }

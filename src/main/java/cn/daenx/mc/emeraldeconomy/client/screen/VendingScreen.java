@@ -350,9 +350,16 @@ public class VendingScreen extends EEScreen {
                     x + 22, rowY + 14, COLOR_MUTED, 190);
 
             drawRight(graphics, money(good.price()), x + contentW() - 106, rowY + 3, COLOR_GOLD);
-            drawRight(graphics, Component.translatable(EEConstants.langKey("screen.vending.remaining"),
-                            good.remaining()).getString(),
-                    x + contentW() - 62, rowY + 14, good.remaining() > 0 ? COLOR_MUTED : COLOR_DOWN);
+            if (good.limited()) {
+                drawRight(graphics, Component.translatable(EEConstants.langKey("screen.vending.remaining"),
+                                good.remaining()).getString(),
+                        x + contentW() - 62, rowY + 14, good.remaining() > 0 ? COLOR_MUTED : COLOR_DOWN);
+            } else {
+                // 「其他」大分类不限量：不显示剩余次数，直接写「不限量」
+                drawRight(graphics, Component.translatable(
+                                EEConstants.langKey("screen.vending.unlimited")).getString(),
+                        x + contentW() - 62, rowY + 14, COLOR_MUTED);
+            }
         }
 
         if (goods.isEmpty()) {

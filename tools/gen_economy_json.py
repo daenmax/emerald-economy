@@ -75,10 +75,13 @@ OTHER_GROUPS = [
         {'item': 'minecraft:oak_sapling', 'price': 16},
         {'item': 'minecraft:birch_sapling', 'price': 16},
     ]),
-    ('MISC', 'shop.sub.misc', '杂物', '🧪', [
+    ('MISC', 'shop.sub.exp', '经验', '🧪', [
         {'exp': 10, 'price': 100},
         {'exp': 100, 'price': 800},
         {'exp': 1000, 'price': 6000},
+    ]),
+    ('GENERAL', 'shop.sub.misc', '杂物', '🧱', [
+        {'item': 'minecraft:glass', 'price': 1},
     ]),
 ]
 
@@ -93,9 +96,9 @@ ACQUIRE_CATEGORIES = [
         ('minecraft:poisonous_potato', None, 10, None, None),
         ('minecraft:beetroot', None, 1, None, None),
         ('minecraft:sugar_cane', None, 2, None, None),
-        ('minecraft:melon_slice', None, 1, None, None),
-        ('minecraft:pumpkin', None, 2, None, None),
-        ('minecraft:apple', None, 2, None, None),
+        ('minecraft:melon', None, 4, None, None),
+        ('minecraft:pumpkin', None, 4, None, None),
+        ('minecraft:apple', None, 4, None, None),
         ('minecraft:sweet_berries', None, 1, None, None),
         ('minecraft:nether_wart', None, 2, None, None),
         ('minecraft:cocoa_beans', None, 1, None, None),
@@ -169,6 +172,8 @@ ACQUIRE_CATEGORIES = [
         # 「不祥旗帜」在游戏里就是「白色旗帜」这一件物品（名字与花纹写在物品数据里），
         # 本模组按物品类型收，所以这里收的是白色旗帜；不想要它就把这一行删掉。
         ('minecraft:white_banner', None, 50, None, 'acquire.item.ominous_banner'),
+        # 不祥之瓶：放在不祥旗帜下面，价格与旗帜一致
+        ('minecraft:ominous_bottle', None, 50, None, None),
         ('minecraft:goat_horn', None, 3, None, None),
         ('minecraft:shulker_shell', None, 20, None, None),
         ('minecraft:sculk_sensor', None, 20, None, None),
@@ -197,10 +202,12 @@ ACQUIRE_CATEGORIES = [
     ]),
 ]
 
-# 疯狂星期五的随机池。三种写法混用：
+# 疯狂星期五的随机池。支持的写法：
 #   'minecraft:spawner'                        具体物品
 #   '#emerald_economy:acquire/heads'           整个物品标签（所有怪物的头颅，含龙首）
-#   '*_spawn_egg'                              通配（所有刷怪蛋；原版加了新怪物也不用改）
+#   '*_spawn_egg'                              通配整类：任意刷怪蛋（含其他模组）都收
+# 每个池子条目默认每天最多被挑中 1 件。通配条目被挑中时，界面上是一行
+# 「刷怪蛋（任意）」，玩家卖背包里任意一种刷怪蛋都按这一行的价格结算。
 FRIDAY_POOL = [
     'minecraft:nether_star', 'minecraft:elytra', 'minecraft:trident',
     'minecraft:heart_of_the_sea', 'minecraft:echo_shard', 'minecraft:spawner',
@@ -210,9 +217,7 @@ FRIDAY_POOL = [
 ]
 # 池子条目的挑选上限：**默认就是每天最多 1 件**（同一个具体物品、以及同一个「整类」条目
 # 都不会在一天里出现两次，例如不会同时出两个下界之星、两种头颅）。
-# 这个表只用来「把某一类调大」——例如想让刷怪蛋一天能出 2 件，就写
-#   '*_spawn_egg': 2
-# 不改就留空，代码里的默认值 1 会接管。
+# 这个表只用来「把某一类调大」。
 FRIDAY_POOL_MAX_PICKS = {}
 FRIDAY_BASE_PRICES = {
     'minecraft:nether_star': 133,
@@ -220,12 +225,12 @@ FRIDAY_BASE_PRICES = {
     'minecraft:trident': 75,
     'minecraft:heart_of_the_sea': 58,
     'minecraft:echo_shard': 33,
-    'minecraft:spawner': 50,
+    'minecraft:spawner': 40,
     'minecraft:ominous_bottle': 42,
-    # 池子条目也可以直接配基准价：整个标签 / 整个通配下的物品都用它
-    # （头颅这一类里含龙首，六种头颅的价格一样）
+    # 池子条目也可以直接配基准价（头颅这一类里含龙首，六种头颅的价格一样）
     '#emerald_economy:acquire/heads': 83,
-    '*_spawn_egg': 52,
+    # 通配整类：任意刷怪蛋（含其他模组）统一基准价 40
+    '*_spawn_egg': 40,
 }
 
 
@@ -315,10 +320,12 @@ def acquire_json():
         "friday": {
             "_comment": "疯狂星期五：每天从 pool 里随机挑几件按倍率收购，basePrices 是基准价。"
                         "pool 支持具体物品、#标签、*通配；每个池子条目默认每天最多被挑中 1 件，"
-                        "poolMaxPicks 只用来把某一类调大。\nCrazy Friday: a few items are picked from pool each day and bought with a multiplier; "
-                        "basePrices are the base prices. pool accepts plain item ids, #tags and * wildcards; "
-                        "each pool entry contributes at most 1 item per day by default, and poolMaxPicks is only "
-                        "used to raise a specific entry's limit.",
+                        "poolMaxPicks 只用来把某一类调大。*_spawn_egg 表示任意刷怪蛋（含其他模组）"
+                        "作为一个整类条目，抽中后玩家卖任意一种刷怪蛋都按该行价格结算。\n"
+                        "Crazy Friday: a few items are picked from pool each day and bought with a multiplier; "
+                        "basePrices are the base prices. pool accepts plain item ids, #tags and * wildcards. "
+                        "Each pool entry contributes at most 1 item per day by default. *_spawn_egg is a "
+                        "whole-class entry: any spawn egg (modded included) sells at that row's price.",
             "lang": "acquire.category.friday",
             "name": "疯狂星期五",
             "pool": FRIDAY_POOL,

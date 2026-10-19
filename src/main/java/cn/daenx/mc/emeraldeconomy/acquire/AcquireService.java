@@ -50,9 +50,9 @@ import java.util.Set;
  *         （唱片、树苗、花、蘑菇这种「种类多、价格又一样」的东西因此不再刷屏）</li>
  *     <li>{@code batch} 表示「多少个算一份」：鸡蛋 8 个一份，一次出售里每满一份才按 1 个计价，
  *         不足一份的数量不会被吃掉</li>
- *     <li>疯狂星期五逢 N 天开放，随机挑几件按倍率收购；池子支持 {@code #标签} 与
- *         {@code *_spawn_egg} 通配，并能用 {@code poolMaxPicks} 限制「最多挑几件」
- *         （默认就是：头颅最多 1 个、刷怪蛋最多 1 个）；<b>欠款没还清不能参加</b></li>
+ *     <li>疯狂星期五逢 N 天开放，随机挑几件按倍率收购；池子支持具体物品、{@code #标签}
+ *         与 {@code *通配}，并能用 {@code poolMaxPicks} 限制「每个池子条目最多挑几件」
+ *         （默认每个条目每天最多贡献 1 件，所以同类物品一天最多出现 1 件）；<b>欠款没还清不能参加</b></li>
  * </ul>
  * 收购所得直接进入 ATM 账户，不经过背包，也不收手续费。
  */
@@ -60,6 +60,14 @@ public final class AcquireService {
 
     /** 标签行的标识前缀（界面上与网络包里用它表示「卖这一类里的任意一种」）。 */
     public static final String TAG_PREFIX = "#";
+
+    /** 通配行的标识前缀（例如 {@code *_spawn_egg} 表示「任意刷怪蛋，含模组」）。 */
+    public static final String WILDCARD_PREFIX = "*";
+
+    /** 疯狂星期五「任意刷怪蛋」这一行的显示名翻译键。 */
+    private static final String SPAWN_EGG_LANG = "acquire.tag.spawn_eggs";
+    /** 疯狂星期五「任意刷怪蛋」这一行的兜底显示名。 */
+    private static final String SPAWN_EGG_NAME = "刷怪蛋（任意）";
 
     /** 疯狂星期五池子里没有被单独配价的物品使用的兜底基准价。 */
     private static final long DEFAULT_FRIDAY_BASE_PRICE = 100L;
@@ -88,14 +96,15 @@ public final class AcquireService {
      * @param itemId 物品注册名；标签行是 {@code #标签名}
      * @param price  单价（每「一份」的价格）
      * @param friday 是否来自疯狂星期五
-     * @param batch  一份等于几个（1 表示按个收）
-     * @param tag    是不是「整类收购」的标签行
-     * @param lang   显示名翻译键（可为空）
-     * @param name   显示名原样文本（可为空）
-     * @param filter 额外的匹配规则（可为空，目前是 {@code treasure_map}）
+     * @param batch    一份等于几个（1 表示按个收）
+     * @param tag      是不是「整类收购」的标签行
+     * @param wildcard 是不是通配行（例如 {@code *_spawn_egg}：任意刷怪蛋都收）
+     * @param lang     显示名翻译键（可为空）
+     * @param name     显示名原样文本（可为空）
+     * @param filter   额外的匹配规则（可为空，目前是 {@code treasure_map}）
      */
     public record Entry(String itemId, long price, boolean friday, int batch, boolean tag,
-                        String lang, String name, String filter) {
+                        boolean wildcard, String lang, String name, String filter) {
     }
 
     // ------------------------------------------------------------------
@@ -132,11 +141,11 @@ public final class AcquireService {
                 // 标签行：整类一起卖，界面上只占一行；标签当前一个物品都没有时跳过
                 if (!tagMemberIds(item.tag()).isEmpty()) {
                     out.add(new Entry(TAG_PREFIX + item.tag().trim().toLowerCase(Locale.ROOT),
-                            item.priceOr(0L), false, batch, true, item.langOrNull(), item.nameOrNull(),
-                            item.filterOrNull()));
+                            item.priceOr(0L), false, batch, true, false, item.langOrNull(),
+                            item.nameOrNull(), item.filterOrNull()));
                 }
             } else if (exists(item.raw())) {
-                out.add(new Entry(item.raw(), item.priceOr(0L), false, batch, false,
+                out.add(new Entry(item.raw(), item.priceOr(0L), false, batch, false, false,
                         item.langOrNull(), item.nameOrNull(), item.filterOrNull()));
             }
         }
@@ -154,14 +163,30 @@ public final class AcquireService {
         AcquireBook book = data.acquire();
         Map<String, Integer> basePrices = friday.basePriceMap();
         for (String id : book.fridayItems()) {
-            if (!exists(id)) {
+            boolean wildcard = isWildcardRow(id);
+            if (wildcard) {
+                // 通配行（任意刷怪蛋）：只要注册表里还能匹配到物品就保留
+                if (wildcardMemberIds(id).isEmpty()) {
+                    continue;
+                }
+            } else if (!exists(id)) {
                 continue;
             }
             long base = book.basePriceOf(id, basePrices.getOrDefault(id, (int) DEFAULT_FRIDAY_BASE_PRICE));
             long price = Amounts.floorAtLeastOne(base * book.multiplierOf(id));
-            out.add(new Entry(id, price, true, 1, false, null, null, null));
+            if (wildcard) {
+                out.add(new Entry(id, price, true, 1, false, true,
+                        SPAWN_EGG_LANG, SPAWN_EGG_NAME, null));
+            } else {
+                out.add(new Entry(id, price, true, 1, false, false, null, null, null));
+            }
         }
         return out;
+    }
+
+    /** 这一行是不是通配行（例如 {@code *_spawn_egg}）。 */
+    public static boolean isWildcardRow(String itemId) {
+        return itemId != null && itemId.startsWith(WILDCARD_PREFIX);
     }
 
     /**
@@ -207,7 +232,8 @@ public final class AcquireService {
         }
         String key = itemId.toLowerCase(Locale.ROOT);
         for (Entry entry : fridayEntries(data)) {
-            if (entry.itemId().equals(key)) {
+            if (entry.itemId().equals(key)
+                    || (entry.wildcard() && matchesWildcard(entry.itemId(), key))) {
                 return entry.price();
             }
         }
@@ -238,11 +264,37 @@ public final class AcquireService {
         }
         String key = itemId.toLowerCase(Locale.ROOT);
         for (Entry entry : fridayEntries(data)) {
-            if (entry.itemId().equals(key)) {
+            if (entry.itemId().equals(key)
+                    || (entry.wildcard() && matchesWildcard(entry.itemId(), key))) {
                 return true;
             }
         }
         return false;
+    }
+
+    /** 单个物品 ID 是否匹配通配模式（{@code *_spawn_egg}、{@code minecraft:*_egg} 等）。 */
+    public static boolean matchesWildcard(String pattern, String itemId) {
+        if (pattern == null || itemId == null) {
+            return false;
+        }
+        String value = itemId.toLowerCase(Locale.ROOT);
+        String key = pattern.trim().toLowerCase(Locale.ROOT);
+        boolean prefixWildcard = key.startsWith(WILDCARD_PREFIX);
+        boolean suffixWildcard = key.endsWith(WILDCARD_PREFIX);
+        String core = key.replace(WILDCARD_PREFIX, "");
+        if (core.isEmpty()) {
+            return false;
+        }
+        if (prefixWildcard && suffixWildcard) {
+            return value.contains(core);
+        }
+        if (prefixWildcard) {
+            return value.endsWith(core);
+        }
+        if (suffixWildcard) {
+            return value.startsWith(core);
+        }
+        return value.equals(core);
     }
 
     /**
@@ -328,6 +380,18 @@ public final class AcquireService {
         return out;
     }
 
+    /** 通配模式匹配到的全部物品对象（客户端统计背包数量与显示图标时也用）。 */
+    public static List<Item> wildcardMemberItems(String pattern) {
+        List<Item> out = new ArrayList<>();
+        for (String id : wildcardMemberIds(pattern)) {
+            Item item = resolveItem(id);
+            if (item != null && item != Items.AIR) {
+                out.add(item);
+            }
+        }
+        return out;
+    }
+
     /** 物品 ID 在游戏里是否存在。 */
     private static boolean exists(String itemId) {
         Item item = resolveItem(itemId);
@@ -352,6 +416,10 @@ public final class AcquireService {
             return Component.literal("");
         }
         String key = itemId.toLowerCase(Locale.ROOT);
+        // 通配行不在配置的 categories 里（它是疯狂星期五的池子行），单独给名字
+        if (isWildcardRow(key)) {
+            return Component.translatable(EEConstants.langKey(SPAWN_EGG_LANG));
+        }
         // 先看配置里这一行有没有自定义名字（标签行、藏宝图、不祥旗帜这类尤其需要）
         for (AcquireContent.Category category : categories()) {
             for (AcquireContent.Item item : category.itemList()) {
@@ -386,6 +454,25 @@ public final class AcquireService {
     // ------------------------------------------------------------------
 
     /**
+     * 一次出售的结算明细。
+     *
+     * @param result    结果
+     * @param consumed  实际从背包扣除的数量（批次会向下取整到整份）
+     * @param units     实际结算的份数
+     * @param total     本次获得的绿宝石
+     * @param available 出售前背包里这一行的可用数量（失败时用于提示）
+     */
+    public record SellOutcome(Result result, long consumed, long units, long total, long available) {
+        public boolean ok() {
+            return result == Result.OK;
+        }
+
+        static SellOutcome fail(Result result, long available) {
+            return new SellOutcome(result, 0L, 0L, 0L, available);
+        }
+    }
+
+    /**
      * 出售物品：从背包扣除物品，把绿宝石直接存入账户。
      * <p>
      * 配了批次的物品（例如鸡蛋 8 个一份）按「满一份才算 1 个」计价：
@@ -393,61 +480,78 @@ public final class AcquireService {
      * <p>
      * {@code itemId} 写成 {@code #标签名} 时表示「卖这一类里的任意一种」：
      * 数量按背包里该类的总数算，扣除时从背包里逐格拿（不要求是同一种物品）。
+     * 写成 {@code *通配}（例如 {@code *_spawn_egg}）时按注册表里所有匹配的物品统计，
+     * 所以「任意刷怪蛋，含其他模组」也能一行卖完。
      *
-     * @param itemId 物品注册名，或 {@code #标签名}
-     * @param count  出售数量（实际扣除的是「份数 × 每份个数」）
+     * @param itemId 物品注册名、{@code #标签名} 或 {@code *通配}
+     * @param count  出售数量（{@code all = true} 时忽略）
+     * @param all    true 表示「出售全部」：由服务端按背包实际数量结算，
+     *               客户端不需要（也无法）准确统计藏宝图 / 标签行
      */
-    public static Result sell(EconomyData data, ServerPlayer player, String itemId, long count) {
-        if (count < 1L) {
-            return Result.INVALID_COUNT;
-        }
+    public static SellOutcome sell(EconomyData data, ServerPlayer player, String itemId, long count,
+                                   boolean all) {
         long price = priceOf(data, itemId);
         if (price <= 0L) {
-            return Result.UNKNOWN_ITEM;
+            return SellOutcome.fail(Result.UNKNOWN_ITEM, 0L);
         }
         AccountData account = data.account(player.getUUID());
         boolean friday = isFridayItem(data, itemId);
         // 欠债不许赌，也不许参加疯狂星期五
         if (account.debt() > 0L && friday) {
-            return Result.HAS_DEBT;
+            return SellOutcome.fail(Result.HAS_DEBT, 0L);
+        }
+
+        boolean treasure = isTreasureMapRow(data, itemId);
+        List<Item> tagMembers = null;
+        Item single = null;
+        long available;
+        if (treasure) {
+            // 藏宝图：只认带结构标记的已填写地图，普通已探索地图不算
+            available = countTreasureMaps(player);
+        } else if (itemId != null && itemId.startsWith(TAG_PREFIX)) {
+            tagMembers = tagMemberItems(itemId.substring(1));
+            if (tagMembers.isEmpty()) {
+                return SellOutcome.fail(Result.UNKNOWN_ITEM, 0L);
+            }
+            available = AccountService.countItems(player, tagMembers);
+        } else if (isWildcardRow(itemId)) {
+            tagMembers = wildcardMemberItems(itemId);
+            if (tagMembers.isEmpty()) {
+                return SellOutcome.fail(Result.UNKNOWN_ITEM, 0L);
+            }
+            available = AccountService.countItems(player, tagMembers);
+        } else {
+            single = resolveItem(itemId);
+            if (single == null || single == Items.AIR) {
+                return SellOutcome.fail(Result.UNKNOWN_ITEM, 0L);
+            }
+            available = AccountService.countItems(player, single);
+        }
+
+        long requested = all ? available : count;
+        if (requested < 1L) {
+            return SellOutcome.fail(all ? Result.INSUFFICIENT_ITEMS : Result.INVALID_COUNT, available);
         }
         int batch = friday ? 1 : batchOf(data, itemId);
-        long units = count / batch;
+        long units = requested / batch;
         if (units < 1L) {
-            return Result.TOO_FEW_FOR_BATCH;
+            return SellOutcome.fail(Result.TOO_FEW_FOR_BATCH, available);
         }
         long consumed = units * batch;
+        if (consumed > available) {
+            return SellOutcome.fail(Result.INSUFFICIENT_ITEMS, available);
+        }
 
-        if (isTreasureMapRow(data, itemId)) {
-            // 藏宝图：只认带结构标记的已填写地图，普通已探索地图不算
-            if (countTreasureMaps(player) < consumed) {
-                return Result.INSUFFICIENT_ITEMS;
-            }
+        if (treasure) {
             if (!removeTreasureMaps(player, consumed)) {
-                return Result.INSUFFICIENT_ITEMS;
+                return SellOutcome.fail(Result.INSUFFICIENT_ITEMS, available);
             }
-        } else if (itemId != null && itemId.startsWith(TAG_PREFIX)) {
-            List<Item> members = tagMemberItems(itemId.substring(1));
-            if (members.isEmpty()) {
-                return Result.UNKNOWN_ITEM;
+        } else if (tagMembers != null) {
+            if (!AccountService.removeItems(player, tagMembers, consumed)) {
+                return SellOutcome.fail(Result.INSUFFICIENT_ITEMS, available);
             }
-            if (AccountService.countItems(player, members) < consumed) {
-                return Result.INSUFFICIENT_ITEMS;
-            }
-            if (!AccountService.removeItems(player, members, consumed)) {
-                return Result.INSUFFICIENT_ITEMS;
-            }
-        } else {
-            Item item = resolveItem(itemId);
-            if (item == null || item == Items.AIR) {
-                return Result.UNKNOWN_ITEM;
-            }
-            if (AccountService.countItems(player, item) < consumed) {
-                return Result.INSUFFICIENT_ITEMS;
-            }
-            if (!AccountService.removeItems(player, item, consumed)) {
-                return Result.INSUFFICIENT_ITEMS;
-            }
+        } else if (!AccountService.removeItems(player, single, consumed)) {
+            return SellOutcome.fail(Result.INSUFFICIENT_ITEMS, available);
         }
 
         long total = price * units;
@@ -457,7 +561,7 @@ public final class AcquireService {
         account.pushRecord(TransactionType.ACQUIRE_SELL, total, balanceBefore, debtBefore,
                 player.level().getGameTime());
         data.setDirty();
-        return Result.OK;
+        return new SellOutcome(Result.OK, consumed, units, total, available);
     }
 
     /** 背包（0~35 格）里藏宝图的总数量。 */
@@ -519,7 +623,7 @@ public final class AcquireService {
      * 池子条目默认的挑选上限：<b>每天最多 1 件</b>。
      * <p>
      * 也就是说，一天挑 3 件时：同一个具体物品不会出现两次（候选本来就做了去重），
-     * 同一个「整类」条目（例如所有头颅、所有刷怪蛋）也只会贡献 1 件。
+     * 同一个「整类」条目（例如所有头颅）也只会贡献 1 件。
      * 如果以后真想让某一类一天出现多件，在 {@code friday.poolMaxPicks} 里把它显式调大即可。
      */
     private static final int DEFAULT_POOL_MAX_PICK = 1;
@@ -556,8 +660,8 @@ public final class AcquireService {
     /**
      * 随机挑选当日的重金收购物品并决定倍率。
      * <p>
-     * 池子里可以有具体物品、{@code #标签}（例如「所有怪物的头颅」）与通配（例如
-     * {@code *_spawn_egg} 表示所有刷怪蛋）。每个池子条目<b>默认每天最多贡献 1 件</b>：
+     * 池子里可以有具体物品、{@code #标签}（例如「所有怪物的头颅」）以及通配（例如
+     * {@code *_spawn_egg}）。每个池子条目<b>默认每天最多贡献 1 件</b>：
      * 同一件物品不会出现两次，同一个「整类」条目也不会一次挑出两件（例如不会同时出现两个下界之星、
      * 两种头颅），具体挑中类里的哪一个仍然是随机的。
      * <p>
@@ -603,7 +707,19 @@ public final class AcquireService {
             if (!withinLimits(itemOwners, pickedPerEntry)) {
                 continue;
             }
-            book.fridayItems().add(id);
+            // 通配条目（例如 *_spawn_egg）不把随机到的某一种蛋写进存档，
+            // 而是把「整个通配行」写进去：之后玩家卖任意刷怪蛋都按这一行的价格收。
+            String storedId = id;
+            for (PoolEntry owner : itemOwners) {
+                if (isWildcardRow(owner.key())) {
+                    storedId = owner.key();
+                    break;
+                }
+            }
+            if (book.fridayItems().contains(storedId)) {
+                continue;
+            }
+            book.fridayItems().add(storedId);
             for (PoolEntry entry : itemOwners) {
                 pickedPerEntry.merge(entry.key(), 1, Integer::sum);
             }
@@ -664,7 +780,7 @@ public final class AcquireService {
      * <p>
      * 用通配而不是把几十个刷怪蛋一个个写出来，是为了以后原版加了新怪物也不用改配置。
      */
-    private static List<String> wildcardMemberIds(String pattern) {
+    public static List<String> wildcardMemberIds(String pattern) {
         List<String> out = new ArrayList<>();
         boolean prefixWildcard = pattern.startsWith("*");
         boolean suffixWildcard = pattern.endsWith("*");
@@ -718,10 +834,8 @@ public final class AcquireService {
             if (i > 0) {
                 list = list.copy().append(Component.literal("、"));
             }
-            Item item = resolveItem(entry.itemId());
-            Component name = item == null
-                    ? Component.literal(entry.itemId())
-                    : Component.translatable(item.getDescriptionId());
+            // 通配行也能拿到一个好名字（例如「刷怪蛋（任意）」）
+            Component name = displayName(entry.itemId());
             // 「物品 ×倍率 = 单价」都写出来，玩家一眼就能看到今天哪件最值钱
             list = list.copy().append(name)
                     .append(Component.literal(" " + entry.price() + "/个"));

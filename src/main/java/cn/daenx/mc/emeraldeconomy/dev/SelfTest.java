@@ -456,9 +456,9 @@ public final class SelfTest {
     /**
      * 疯狂星期五的物品池：池子写法（具体物品 / 标签 / 通配）与「同类最多占几件」。
      * <p>
-     * 需求：一天挑 3 件时，<b>头颅最多占 1 件、刷怪蛋最多占 1 件</b>；具体是哪一种头颅
-     * （6 种）与哪一种刷怪蛋（80 多种）是随机挑的。这里的「最多 1 件」说的是
-     * <b>随机结果里这类物品出现几次</b>，跟「收购数量」无关（挑中的物品想卖多少卖多少）。
+     * 需求：一天挑 3 件时，<b>头颅最多占 1 件、刷怪蛋整类最多占 1 行</b>。
+     * 通配条目 {@code *_spawn_egg} 被抽中时，存档里记的是整行而不是某一种蛋，
+     * 因此玩家卖背包里任意一种刷怪蛋（含其他模组）都按这一行的价格结算。
      */
     private static void testFridayPool() {
         var friday = cn.daenx.mc.emeraldeconomy.content.EconomyContent.acquire().friday();
@@ -473,8 +473,9 @@ public final class SelfTest {
         check("池子里有刷怪笼", friday.poolList().contains("minecraft:spawner"));
         check("池子里有「所有怪物的头颅」标签",
                 friday.poolList().contains("#emerald_economy:acquire/heads"));
-        check("池子里有「所有怪物的刷怪蛋」通配",
+        check("池子里有「任意刷怪蛋」通配行",
                 friday.poolList().contains("*_spawn_egg"));
+        check("池子里有不祥之瓶", friday.poolList().contains("minecraft:ominous_bottle"));
         // 龙首并进了头颅标签（不再单独列、不再单独配价），不死图腾从池子里删掉
         check("头颅标签里含龙首（6 种头颅同一个池子条目）",
                 AcquireService.tagMemberIds("emerald_economy:acquire/heads")
@@ -486,24 +487,26 @@ public final class SelfTest {
                         .noneMatch(id -> id.contains("totem_of_undying")));
         check("池子条目没有把挑选上限调大（默认就是每天最多 1 件）",
                 friday.poolMaxPickMap().values().stream().allMatch(value -> value <= 1));
-        check("池子条目的基准价（头颅 83 / 刷怪蛋 52）",
+        check("池子条目的基准价（头颅 83 / 不祥之瓶 42 / 刷怪蛋 40 / 刷怪笼 40）",
                 friday.basePriceMap().getOrDefault("#emerald_economy:acquire/heads", 0) == 83
-                        && friday.basePriceMap().getOrDefault("*_spawn_egg", 0) == 52);
+                        && friday.basePriceMap().getOrDefault("minecraft:ominous_bottle", 0) == 42
+                        && friday.basePriceMap().getOrDefault("*_spawn_egg", 0) == 40
+                        && friday.basePriceMap().getOrDefault("minecraft:spawner", 0) == 40);
 
         // 200 次抽样：每天挑满 3 件、三件互不相同、同类不超 1 件，
-        // 并且「具体是哪一种头颅 / 刷怪蛋」确实是随机的（出现过不止一种）
+        // 并且「具体是哪一种头颅」确实是随机的（出现过不止一种）
         boolean countOk = true;
         boolean distinctOk = true;
         boolean headLimitOk = true;
-        boolean eggLimitOk = true;
         boolean priceOk = true;
+        boolean eggRowOk = true;
+        int eggRowDays = 0;
         long headPriceMin = -1L;
         long headPriceMax = -1L;
         java.util.Set<String> heads = new java.util.HashSet<>(List.of(
                 "minecraft:zombie_head", "minecraft:skeleton_skull", "minecraft:wither_skeleton_skull",
                 "minecraft:creeper_head", "minecraft:dragon_head", "minecraft:piglin_head"));
         java.util.Set<String> pickedHeads = new java.util.HashSet<>();
-        java.util.Set<String> pickedEggs = new java.util.HashSet<>();
         for (int day = 1; day <= 200; day++) {
             EconomyData data = new EconomyData();
             AcquireService.ensureFridayState(data, EEConfig.fridayIntervalDays(), RandomSource.create(day));
@@ -517,11 +520,11 @@ public final class SelfTest {
             if (picked.stream().filter(heads::contains).count() > 1) {
                 headLimitOk = false;
             }
-            if (picked.stream().filter(id -> id.endsWith("_spawn_egg")).count() > 1) {
-                eggLimitOk = false;
+            boolean hasEggRow = picked.contains("*_spawn_egg");
+            if (hasEggRow) {
+                eggRowDays++;
             }
             picked.stream().filter(heads::contains).forEach(pickedHeads::add);
-            picked.stream().filter(id -> id.endsWith("_spawn_egg")).forEach(pickedEggs::add);
             for (var entry : AcquireService.fridayEntries(data)) {
                 if (entry.price() < 1) {
                     priceOk = false;
@@ -530,16 +533,25 @@ public final class SelfTest {
                     headPriceMin = headPriceMin < 0 ? entry.price() : Math.min(headPriceMin, entry.price());
                     headPriceMax = Math.max(headPriceMax, entry.price());
                 }
+                if (entry.wildcard()) {
+                    // 通配行必须按 40 的基准价计算，而且任意刷怪蛋都能查到同一个价格
+                    long expected = AcquireService.priceOf(data, "minecraft:zombie_spawn_egg");
+                    if (!entry.itemId().equals("*_spawn_egg")
+                            || entry.price() != expected
+                            || entry.price() < 40 * EEConfig.fridayMultiplierMin() - 1
+                            || entry.price() > 40 * EEConfig.fridayMultiplierMax() + 1) {
+                        eggRowOk = false;
+                    }
+                }
             }
         }
         check("每天都能挑满配置数量的物品（200 次抽样）", countOk);
         check("同一天不会重复挑中同一件物品（200 次抽样）", distinctOk);
         check("头颅每天最多占 1 件（200 次抽样）", headLimitOk);
-        check("刷怪蛋每天最多占 1 件（200 次抽样）", eggLimitOk);
+        check("200 次抽样里至少出现过一次「任意刷怪蛋」行（" + eggRowDays + " 天）", eggRowDays > 0);
+        check("刷怪蛋整类行价格按基准价 40 计算，且任意蛋都能查到同一价格", eggRowOk);
         check("「是哪种头颅」是随机挑的（200 次里出现过 " + pickedHeads.size() + " 种）",
                 pickedHeads.size() >= 2);
-        check("「是哪种刷怪蛋」是随机挑的（200 次里出现过 " + pickedEggs.size() + " 种）",
-                pickedEggs.size() >= 2);
         check("疯狂星期五价格为正", priceOk);
         check("挑中头颅时按基准价 83 算（含龙首）：" + headPriceMin + "~" + headPriceMax,
                 headPriceMin >= 0 && headPriceMin >= 83 * EEConfig.fridayMultiplierMin() - 1
@@ -557,12 +569,16 @@ public final class SelfTest {
                 content.plainItems().getOrDefault("minecraft:wheat_seeds", -1) == 8);
         check("「其他」商品表里有橡树树苗（16）",
                 content.plainItems().getOrDefault("minecraft:oak_sapling", -1) == 16);
-        check("「其他」新增杂物子分类（排在树苗后面）", subOrder("OTHER").indexOf("SAPLING")
+        check("「其他」新增经验子分类（排在树苗后面）", subOrder("OTHER").indexOf("SAPLING")
                 < subOrder("OTHER").indexOf("MISC"));
-        check("杂物子分类卖三档经验值（10/100/1000 点）",
+        check("经验子分类卖三档经验值（10/100/1000 点）",
                 content.expItems().getOrDefault(10, -1) == 100
                         && content.expItems().getOrDefault(100, -1) == 800
                         && content.expItems().getOrDefault(1000, -1) == 6000);
+        check("「其他」新增杂物子分类（排在经验后面）", subOrder("OTHER").indexOf("MISC")
+                < subOrder("OTHER").indexOf("GENERAL"));
+        check("杂物子分类卖玻璃（1）",
+                content.plainItems().getOrDefault("minecraft:glass", -1) == 1);
         check("经验值商品算得进「其他」货架（不是附魔书）",
                 content.tabOfExp(1000) != null && !content.tabOfExp(1000).unlockable());
         check("锋利的价格区间是 896-1280", content.enchantSpec("minecraft:sharpness") != null
@@ -679,20 +695,37 @@ public final class SelfTest {
     }
 
     /**
-     * ATM 的「等级存取」与「在线奖励」（本轮新增）。
+     * ATM 的「经验存取」与「在线奖励」。
      * <p>
      * 这两块的核心规则都是纯数据判断，很适合放在这里验：
-     * 资格只发给「结算那一刻在线」的玩家、每天只能领一次、等级库存不会被扣成负数。
+     * 资格只发给「结算那一刻在线」的玩家、每天只能领一次、经验库存不会被扣成负数，
+     * 以及新旧存档字段的换算不会丢数据。
      */
     private static void testLevelAndOnlineReward() {
-        check("等级存取解锁费用默认 1000", EEConfig.levelUnlockCost() == 1000L);
-        check("在线奖励默认送 1 级", EEConfig.onlineRewardLevels() == 1);
+        check("经验存取解锁费用默认 1000", EEConfig.levelUnlockCost() == 1000L);
+        check("在线奖励基础经验默认 50",
+                EEConfig.onlineRewardBaseExperience() == 50);
+        check("在线奖励每日递增默认 1",
+                EEConfig.onlineRewardPerDayExperience() == 1);
+        check("在线奖励按「基础 + 游戏日」计算（第 38 天 = 88）",
+                EEConfig.onlineRewardExperience(38L) == 88);
         check("每日随机情绪修正默认开启", EEConfig.dailyRandomDrift() > 0.0D);
+
+        check("1.21.1 升级曲线：0 级升 1 级需要 7 点", cn.daenx.mc.emeraldeconomy.core.Experience
+                .xpToNextLevel(0) == 7);
+        check("1.21.1 升级曲线：15 级升 16 级需要 37 点", cn.daenx.mc.emeraldeconomy.core.Experience
+                .xpToNextLevel(15) == 37);
+        check("1.21.1 升级曲线：30 级升 31 级需要 112 点", cn.daenx.mc.emeraldeconomy.core.Experience
+                .xpToNextLevel(30) == 112);
+        check("累计经验：30 级 = 1395 点", cn.daenx.mc.emeraldeconomy.core.Experience
+                .totalXpForLevel(30) == 1395L);
+        check("累计经验反查等级", cn.daenx.mc.emeraldeconomy.core.Experience
+                .levelForTotal(1395L) == 30);
 
         UUID uuid = UUID.fromString("00000000-0000-0000-0000-0000000000ef");
         AccountData account = new AccountData(uuid);
-        check("等级存取默认未解锁", !account.levelUnlocked());
-        check("等级库存默认 0", account.storedLevels() == 0L);
+        check("经验存取默认未解锁", !account.levelUnlocked());
+        check("经验库存默认 0", account.storedExperience() == 0L);
         check("默认没有在线奖励资格", !account.hasOnlineReward(5L));
 
         account.grantOnlineReward(5L);
@@ -708,29 +741,38 @@ public final class SelfTest {
                 !account.hasOnlineReward(6L) && !account.onlineRewardClaimedToday(6L));
 
         account.setLevelUnlocked(true);
-        account.addStoredLevels(12);
-        check("存入等级会增加库存", account.storedLevels() == 12L);
-        account.addStoredLevels(-20);
-        check("等级库存不会变成负数", account.storedLevels() == 0L);
-        account.addStoredLevels(3);
+        account.addStoredExperience(1200);
+        check("存入经验会增加库存", account.storedExperience() == 1200L);
+        account.addStoredExperience(-2000);
+        check("经验库存不会变成负数", account.storedExperience() == 0L);
+        account.addStoredExperience(315);
 
         AccountData loaded = AccountData.load(account.save());
-        check("等级解锁 / 等级库存随存档持久化",
-                loaded.levelUnlocked() && loaded.storedLevels() == 3L);
+        check("经验解锁 / 经验库存随存档持久化",
+                loaded.levelUnlocked() && loaded.storedExperience() == 315L);
         check("在线奖励资格随存档持久化（不会重启就白送一次）",
                 !loaded.hasOnlineReward(6L));
 
-        // 旧存档没有这几个字段：必须按「未解锁 / 库存 0 / 没有资格」读，不能读出乱数字
+        // 旧存档没有新字段：必须按「未解锁 / 库存 0 / 没有资格」读，不能读出乱数字
         AccountData legacy = AccountData.load(new CompoundTag());
         check("旧存档读出来是未解锁、库存 0、没有资格",
-                !legacy.levelUnlocked() && legacy.storedLevels() == 0L && !legacy.hasOnlineReward(0L));
+                !legacy.levelUnlocked() && legacy.storedExperience() == 0L
+                        && !legacy.hasOnlineReward(0L));
 
-        check("等级类流水会被交易记录界面认出来（不按余额变动过滤）",
-                TransactionType.LEVEL_DEPOSIT.isLevelRecord()
-                        && TransactionType.LEVEL_WITHDRAW.isLevelRecord()
-                        && TransactionType.ONLINE_REWARD.isLevelRecord()
-                        && !TransactionType.LEVEL_UNLOCK.isLevelRecord()
-                        && !TransactionType.DEPOSIT.isLevelRecord());
+        // 旧版本存的是「等级数」：升级后要折算成经验，不能把老数据丢掉
+        CompoundTag oldTag = new CompoundTag();
+        oldTag.putBoolean("levelUnlocked", true);
+        oldTag.putLong("storedLevels", 5L);
+        AccountData migrated = AccountData.load(oldTag);
+        check("旧存档的「5 级」折算成 55 点经验",
+                migrated.storedExperience() == 55L);
+
+        check("经验类流水会被交易记录界面认出来（不按余额变动过滤）",
+                TransactionType.LEVEL_DEPOSIT.isExperienceRecord()
+                        && TransactionType.LEVEL_WITHDRAW.isExperienceRecord()
+                        && TransactionType.ONLINE_REWARD.isExperienceRecord()
+                        && !TransactionType.LEVEL_UNLOCK.isExperienceRecord()
+                        && !TransactionType.DEPOSIT.isExperienceRecord());
     }
 
     /**

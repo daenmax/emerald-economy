@@ -17,8 +17,8 @@ On most servers an emerald is just "a material you can trade with". This mod mak
 every feature ultimately spends from and earns into the same account, forming a closed loop.
 
 1. Deposit the emeralds in your inventory into your account at the **ATM** (1% fee). The ATM also lets
-   you **store/withdraw experience levels**, claim a daily **online reward**, and check the daily
-   **net worth leaderboard**, where you can **transfer money** to other players.
+   you **store/withdraw experience**, claim a daily **online reward**, and check the live
+   **balance / experience leaderboards**, where you can **transfer money** or **gift XP** to other players.
 2. Trade seven funds on the **Fund Exchange** to profit from price swings — prices are pushed by mining,
    logging, harvesting, mob kills, villager trades and the day's weather, plus a
    **random ±5% mood correction every day**, so no fund is a guaranteed riser.
@@ -107,31 +107,31 @@ Each recipe yields one machine. Picking up redstone for the first time unlocks a
 
 <table>
 <tr>
-<td align="center"><img src="素材/README截图/01_atm_before_deposit.png" width="330"><br><b>ATM</b>: account overview + function menu (deposit / loans / history / levels / reward / leaderboard)</td>
-<td align="center"><img src="素材/README截图/31_atm_transactions.png" width="330"><br><b>Transactions</b>: balance details, with before &rarr; after</td>
+<td align="center"><img src="素材/README截图/01_atm_before_deposit.png" width="330"><br><b>ATM</b>: account overview + function menu (deposit / loans / history / experience / reward / leaderboard &amp; transfer)</td>
+<td align="center"><img src="素材/README截图/46_atm_transactions_multiday.png" width="330"><br><b>Transactions</b>: deposits, loans and daily interest across many days, with before &rarr; after</td>
 </tr>
 <tr>
-<td align="center"><img src="素材/README截图/40_atm_online_reward.png" width="330"><br><b>ATM &middot; Online reward</b>: online at settlement, claim +1 level per day</td>
-<td align="center"><img src="素材/README截图/42_atm_level_stored.png" width="330"><br><b>ATM &middot; Level storage</b>: pay once, then store/withdraw levels freely</td>
+<td align="center"><img src="素材/README截图/40_atm_online_reward.png" width="330"><br><b>ATM &middot; Online reward</b>: online at settlement, grants XP</td>
+<td align="center"><img src="素材/README截图/42_atm_level_stored.png" width="330"><br><b>ATM &middot; Experience storage</b>: enter levels, the ATM shows stored XP</td>
 </tr>
 <tr>
-<td align="center"><img src="素材/README截图/33_atm_records_debt.png" width="330"><br><b>Transactions &middot; Debt details</b> (the two categories are kept apart)</td>
-<td align="center"><img src="素材/README截图/06_exchange.png" width="330"><br><b>Fund Exchange</b>: seven funds with price, change and chart</td>
+<td align="center"><img src="素材/README截图/47_atm_records_debt_multiday.png" width="330"><br><b>Transactions &middot; Debt details</b> (the two categories are kept apart)</td>
+<td align="center"><img src="素材/README截图/44_exchange_multiday.png" width="330"><br><b>Fund Exchange</b>: seven funds with price, green/red change and a 15-day chart</td>
 </tr>
 <tr>
-<td align="center"><img src="素材/README截图/09_holdings.png" width="330"><br><b>My holdings</b>: shares / average cost / market value / unrealized P&L</td>
-<td align="center"><img src="素材/README截图/10_market_news.png" width="330"><br><b>Market news</b>: weather and random events</td>
+<td align="center"><img src="素材/README截图/45_holdings_multiday.png" width="330"><br><b>My holdings</b>: shares / average cost / market value / unrealized P&L after several days</td>
+<td align="center"><img src="素材/README截图/48_market_news_multiday.png" width="330"><br><b>Market news</b>: weather, random events and settlement records across many days</td>
 </tr>
 <tr>
 <td align="center"><img src="素材/README截图/11_lottery.png" width="330"><br><b>Lottery Machine</b>: three games; betting is blocked while you owe money</td>
 <td align="center"><img src="素材/README截图/14_vending.png" width="330"><br><b>Vending Machine</b>: enchanted books by category, with level and applicable items</td>
 </tr>
 <tr>
-<td align="center"><img src="素材/README截图/36_vending_other.png" width="330"><br><b>Vending Machine &middot; Other</b>: seeds / saplings / misc (no unlock progression)</td>
+<td align="center"><img src="素材/README截图/36_vending_other.png" width="330"><br><b>Vending Machine &middot; Other</b>: seeds / saplings / experience / misc (no unlock progression)</td>
 <td align="center"><img src="素材/README截图/17_acquisition.png" width="330"><br><b>Acquisition Machine</b>: five permanent categories + enchantment recycle + Crazy Friday</td>
 </tr>
 <tr>
-<td align="center"><img src="素材/README截图/40c_vending_misc_exp.png" width="330"><br><b>Vending Machine &middot; Misc</b>: 10 / 100 / 1000 XP points</td>
+<td align="center"><img src="素材/README截图/40c_vending_misc_exp.png" width="330"><br><b>Vending Machine &middot; Experience</b>: 10 / 100 / 1000 XP points</td>
 <td align="center"><img src="素材/README截图/40b_acquire_disc_sold.png" width="330"><br><b>Acquisition &middot; whole-tag row</b>: music discs take one row, any disc sells</td>
 </tr>
 <tr>
@@ -139,8 +139,16 @@ Each recipe yields one machine. Picking up redstone for the first time unlocks a
 <td align="center"><img src="素材/README截图/38_acquire_livestock.png" width="330"><br><b>Livestock</b>: fish and meat, bone, eggs in batches of 8</td>
 </tr>
 <tr>
-<td align="center"><img src="素材/README截图/26_crazy_friday.png" width="330"><br><b>Crazy Friday</b>: every 5th game day, three random items at 5–10×</td>
+<td align="center"><img src="素材/README截图/49_crazy_friday_day15.png" width="330"><br><b>Crazy Friday</b>: 3 of 9 pool entries at 5–10×</td>
 <td align="center"><img src="素材/README截图/20_atm_opened_by_click.png" width="330"><br><b>Real interaction</b>: right-click a machine (needs redstone power) to open it</td>
+</tr>
+<tr>
+<td align="center"><img src="素材/README截图/50_lottery_can_bet.png" width="330"><br><b>Lottery &middot; ready to bet</b>: all three rounds accept bets once the loan is repaid</td>
+<td align="center"><img src="素材/README截图/51_acquire_enchant.png" width="330"><br><b>Enchantment recycle</b>: 3 pieces of gear + 1 multi-enchant book, each price itemised</td>
+</tr>
+<tr>
+<td align="center"><img src="素材/README截图/52_vending_general.png" width="330"><br><b>Vending Machine &middot; Misc</b>: the new subcategory, currently glass at 1 balance each</td>
+<td></td>
 </tr>
 </table>
 
@@ -156,29 +164,35 @@ Each recipe yields one machine. Picking up redstone for the first time unlocks a
 - Loans charge 2% daily interest (compounded); the default credit limit is 1000.
 
 ### ATM
-- The main screen shows only **balance / credit limit / debt / available credit / stored levels**, followed
-  by six buttons: **Deposit & withdraw, Loans & repayment, Transactions, Level storage, Online reward,
-  Leaderboard**. Fees, interest and thresholds live on the relevant sub-screen instead of the main page.
+- The main screen shows only **balance / credit limit / debt / available credit / stored XP**, followed
+  by six buttons: **Deposit & withdraw, Loans & repayment, Transactions, Experience storage, Online reward,
+  Leaderboard & transfer**. Fees, interest and thresholds live on the relevant sub-screen instead of the
+  main page.
 - **Deposit all** moves every emerald in your inventory into the account in one go; **Withdraw all** turns
   your whole balance back into emeralds and **fails as a whole if your inventory cannot hold them**
   (nothing is dropped on the ground).
-- The **Transactions** button opens the history screen, split into **Balance details** and
-  **Debt details**; every entry shows **before &rarr; after**. Level-storage entries appear here too
-  (their amount column is in **levels**).
-- **Level storage** (off by default): it moves **levels**, not XP. Storing 5 levels drops you 5 levels and
-  puts 5 levels into the ATM; withdrawing 5 levels adds 5 levels to you (35 &rarr; 36). Every player must
-  **unlock it for 1000** first, after which there are no limits: you cannot store more than your current
-  level, nor withdraw more than the ATM holds.
+- The **Transactions** button opens the history screen, split into **Balance details / Debt details /
+  XP details**; every entry shows **before &rarr; after**. The XP tab uses **XP** as its amount unit.
+- **Experience storage** (off by default): you enter **levels**, but the ATM stores **XP points**.
+  For example, at level 27 entering 1 moves the XP from your current bar plus everything needed to reach
+  level 28 into the ATM, leaving you at exactly level 26 with an empty bar. **Store all / Withdraw all**
+  move everything at once. Every player must **unlock it for 1000** first, after which there are no limits:
+  you cannot store more than your current level, nor withdraw more than the ATM holds.
 - **Online reward**: eligibility is reset at the moment interest is settled each day, and **only players
   online at that moment** get it for that day (offline means no eligibility, and no claiming it later);
-  the reward is **+1 level**, claimable once per day. The screen states whether it is claimable, already
-  claimed, or unavailable today.
-- **Leaderboard**: updated once per game day (at the daily settlement) and sorted by
-  **net worth = balance - debt**; each row shows rank, player, net worth, balance and debt, and your own
+  the reward is **50 base + current game day** XP (day 38 gives 88), claimable once per day. The screen
+  states whether it is claimable, already claimed, or unavailable today.
+- **Leaderboard**: two tabs — **balance ranking** (sorted by balance, showing net / balance / debt) and
+  **experience ranking** (sorted by stored ATM XP and showing only the XP column). The list is
+  **recomputed live every time the page is opened** instead of waiting for the daily settlement; your own
   row is highlighted.
-- **Player transfers**: every leaderboard row has a **Send** button, so you can transfer any amount to any
-  player. The fee is taken out of the amount: **sending 1000 with a 1% fee credits the recipient 990**.
+- **Player transfers**: every balance-ranking row has a **Send** button, so you can transfer any amount to
+  any player. The fee is taken out of the amount: **sending 1000 with a 1% fee credits the recipient 990**.
   The fee rate is configurable.
+- **XP gifts**: every experience-ranking row has a **Gift** button; it sends stored ATM XP to the recipient
+  with **no fee**.
+- **Transfers and gifts require the recipient to be online**: offline players have a greyed-out button and
+  an "(offline)" marker, and the server validates it again.
 
 ### Fund Exchange
 - Seven funds: Mining / Agriculture / Livestock / Building / Hydro Power / Hunting, plus a Composite
@@ -190,6 +204,10 @@ Each recipe yields one machine. Picking up redstone for the first time unlocks a
 - **Every settlement also rolls a ±5% random mood correction per fund** (`dailyRandomDrift`): even if
   nobody does anything, prices still move, and no fund can trend in one direction forever — so
   "buy whatever is rising and do nothing" cannot work.
+- The list has **two change columns**: **Day** = current price vs the last daily close; **Total** = current
+  price vs the fund's base price. Day change resets at every settlement, while Total shows the fund's
+  performance since launch.
+- Opening the sell screen shows **your current shares** and offers a **Sell all** button.
 - Trades cost a 2% fee (minimum 1), with a 5-second cooldown per fund.
 
 ### Lottery Machine
@@ -205,23 +223,27 @@ Each recipe yields one machine. Picking up redstone for the first time unlocks a
   Wind Burst 1560-2560).
 - Book slots must be **unlocked by pooling money server-wide** (512-1280 per level, fixed for a given
   level); unlocking broadcasts which enchantment was unlocked.
-- **Other** has three subcategories: **Seeds** (wheat seeds 8 each), **Saplings** (oak / birch 16 each) and
-  **Misc**, which sells **XP points**: 10 points for 100, 100 for 800, 1000 for 6000. They ignore the unlock
-  progression and are always available.
+- **Other** has four subcategories: **Seeds** (wheat seeds 8 each), **Saplings** (oak / birch 16 each),
+  **Experience** (sells **XP points**: 10 for 100, 100 for 800, 1000 for 6000) and
+  **Misc** (currently glass at 1 balance each). They ignore the unlock progression, are always available,
+  and have **no purchase limit**.
 - XP goods give **experience points, not levels**: 1000 points is roughly what it takes to go from level 0
   to level 26 (for reference, level 0 to 30 needs 1395 points). The points go straight onto your XP bar.
-- Each slot is limited to 2 purchases per player per day.
+- Only **enchanted book slots** are limited to 2 purchases per player per day; the **Other** group is unlimited.
 
 ### Acquisition Machine
 - Five permanent categories: **Farm Produce / Livestock Produce (fish and meat, plus bone) /
   Minerals (including netherite scrap) / Forestry Produce (logs plus saplings, flowers, mushrooms,
-  cactus) / Miscellaneous**, plus a sixth special category, **Enchantment recycle**. Categories, items
+  cactus) / Miscellaneous (including ominous banners and ominous bottles)**, plus a sixth special category,
+  **Enchantment recycle**. Categories, items
   and prices can be added or removed freely in `acquire.json`; the full default price list is in
   **Default values and price lists** below.
 - **Whole-tag rows take a single line**: music discs (any disc, 3 each), saplings, flowers, mushrooms and
   fish each occupy one row instead of listing dozens of individual items. Selling accepts any item
   from that class, and you can even mix several kinds in one sale. Horse armors are **not** merged: they
   are four separate entries by quality — leather 10, iron 50, golden 100, diamond 200.
+- Each row has **Sell** and **Sell all**: the first uses the amount box, while the second asks the server
+  to sell everything actually available (accurate even for treasure maps and whole-tag rows).
 - **Items you do not have are greyed out** (each row also shows "Owned N"), and quantities below one full
   batch cannot be sold either — no more clicking just to be told no.
 - **Batch buyout**: eggs, feathers and wheat / beetroot / pumpkin / melon seeds need **8** for one batch
@@ -238,14 +260,16 @@ Each recipe yields one machine. Picking up redstone for the first time unlocks a
 - **Treasure maps** are only accepted when they carry a structure marker (woodland mansion / ocean
   monument / buried treasure); ordinary explored maps and empty maps are rejected.
 - **Crazy Friday**: on every 5th game day, three rare items are picked at random and bought at 5–10×,
-  and the broadcast **includes the price of every item**. Besides single items (nether star, elytra,
-  trident, heart of the sea, echo shard, monster spawner, ominous bottle) the pool holds two
-  "whole class" entries (one random pick from the whole class):
+  and the broadcast **includes the price of every item**. The pool has **9 entries**: nether star,
+  elytra, trident, heart of the sea, echo shard, monster spawner, ominous bottle,
+  **all mob heads** and **any spawn egg**. Three entries are rolled first; whole-class entries occupy
+  a single row, so **a Friday contains at most one head row and one spawn-egg row**.
   - **All mob heads**: skeleton skull, wither skeleton skull, zombie head, creeper head, piglin head and
-    **dragon head** — six kinds (the dragon head lives inside this entry now: no separate line, no
-    separate roll), base price **83**;
-  - **All spawn eggs**: matched by wildcard (`*_spawn_egg`), so a mob added by a future update is picked
-    up automatically, base price **52**.
+    **dragon head** — six kinds (the dragon head lives inside this entry: no separate line, no separate
+    roll), base price **83**.
+  - **Any spawn egg**: the `*_spawn_egg` wildcard matches vanilla and **modded** spawn eggs alike,
+    base price **40**. When picked, the screen shows one row and any spawn egg in your inventory sells at
+    that row's price. The monster spawner base price is now **40** as well.
   **You cannot take part while a loan is unpaid** (the list still shows, but Sell is not clickable).
 - Buyout earnings go straight into your account, with no fee.
 
@@ -277,8 +301,8 @@ Values inside an existing save / config file are not updated automatically — s
 | Loan interest (compound) | 2.00% |
 | Credit limit | 1000 |
 | Records kept | 100 |
-| Level storage unlock (once per player) | 1000 |
-| Online reward levels | 1 level(s) per day (online at settlement required) |
+| Experience storage unlock (once per player) | 1000 |
+| Online reward XP | 50 + game day × 1 (online at settlement required) |
 | Player transfer fee | 1.00% |
 
 ### Fund exchange
@@ -316,7 +340,7 @@ Values inside an existing save / config file are not updated automatically — s
 | Item | Default |
 | --- | --- |
 | Initial unlocked slots | 1 |
-| Daily purchase limit per good | 2 |
+| Daily purchase limit per book slot (Other is unlimited) | 2 |
 | Upgrade cost (stable per level) | 512 - 1280 |
 | Fallback price for unlisted enchants | 256 - 1280 |
 | Fallback treasure multiplier | ×3 - ×5 |
@@ -373,9 +397,10 @@ Values inside an existing save / config file are not updated automatically — s
 | Seeds | Wheat Seeds | 8 |
 | Saplings | Oak Sapling | 16 |
 | Saplings | Birch Sapling | 16 |
-| Misc | 10 XP points | 100 |
-| Misc | 100 XP points | 800 |
-| Misc | 1000 XP points | 6000 |
+| Experience | 10 XP points | 100 |
+| Experience | 100 XP points | 800 |
+| Experience | 1000 XP points | 6000 |
+| Misc | Glass | 1 |
 
 ### Acquisition machine
 | Item | Default |
@@ -393,9 +418,9 @@ Values inside an existing save / config file are not updated automatically — s
 | Farm produce | Poisonous Potato | 10 | 1 |
 | Farm produce | Beetroot | 1 | 1 |
 | Farm produce | Sugar Cane | 2 | 1 |
-| Farm produce | Melon Slice | 1 | 1 |
-| Farm produce | Pumpkin | 2 | 1 |
-| Farm produce | Apple | 2 | 1 |
+| Farm produce | Melon | 4 | 1 |
+| Farm produce | Pumpkin | 4 | 1 |
+| Farm produce | Apple | 4 | 1 |
 | Farm produce | Sweet Berries | 1 | 1 |
 | Farm produce | Nether Wart | 2 | 1 |
 | Farm produce | Cocoa Beans | 1 | 1 |
@@ -455,6 +480,7 @@ Values inside an existing save / config file are not updated automatically — s
 | Forestry produce | Chorus Fruit | 1 | 1 |
 | Misc | Music disc (any) | 3 | 1 |
 | Misc | Ominous Banner (white banner) | 50 | 1 |
+| Misc | Ominous Bottle | 50 | 1 |
 | Misc | Goat Horn | 3 | 1 |
 | Misc | Shulker Shell | 20 | 1 |
 | Misc | Sculk Sensor | 20 | 1 |
@@ -486,10 +512,10 @@ Values inside an existing save / config file are not updated automatically — s
 | Trident | 75 |
 | Heart of the Sea | 58 |
 | Echo Shard | 33 |
-| Monster Spawner | 50 |
+| Monster Spawner | 40 |
 | Ominous Bottle | 42 |
 | Mob heads (6 kinds: skeleton / wither skeleton / zombie / creeper / piglin / dragon) | 83 |
-| All spawn eggs | 52 |
+| Spawn egg (any, modded included) | 40 |
 
 
 ---
@@ -499,6 +525,10 @@ Values inside an existing save / config file are not updated automatically — s
 Server config: `<world>/serverconfig/emerald_economy-server.toml`
 (on a dedicated server it lives under `config/`; in the dev environment it is `run/config/`).
 
+> **Server-side only.** The TOML and `config/emerald_economy/*.json` are read by the server and synced to
+> clients in snapshots. Other players **do not copy any config files**; they only need the same mod jar
+> version (matching protocol version).
+
 In game: **ESC &rarr; Mods &rarr; Emerald Economy &rarr; Config**.
 That button is **editable only by the server owner / an OP (permission level &ge; 2)** — everyone else just
 sees a notice.
@@ -507,7 +537,7 @@ What you can tune:
 
 | Section | Contents |
 | --- | --- |
-| `account` | deposit/withdraw fee rate, daily interest and the **balance threshold that starts it**, loan interest, credit limit, transaction history size, **level storage unlock cost**, **online reward levels**, **player transfer fee rate** |
+| `account` | deposit/withdraw fee rate, daily interest and the **balance threshold that starts it**, loan interest, credit limit, transaction history size, **experience storage unlock cost**, **online reward base XP and per-day step**, **player transfer fee rate** |
 | `market` | price interval, momentum and reversion parameters, **daily random drift**, fees, trade cooldown, per-fund base price / volatility / supply, weather table, news event table |
 | `lottery` | odds for the three games, daily bet count |
 | `shop` | initial slot count, upgrade cost range, **enchantment price and category table**, other goods table, daily purchase limit, excluded enchantments |
@@ -521,36 +551,58 @@ The Vending Machine's shelves and the Acquisition Machine's price table live in 
 | File | What you can change |
 | --- | --- |
 | `shop.json` | "group &rarr; subcategory &rarr; goods". Enchanted books use `enchants` (an `id` plus a `min`/`max` price range); ordinary goods use `items` (`item` + `price`); **XP goods** also live in `items`, written as `exp` + `price` (buying them adds XP points directly). A name can be a translation key (`lang`) or plain text (`name`) |
-| `acquire.json` | "category &rarr; entries". Each entry looks like `{"item":"minecraft:wheat","price":1}`, or `{"tag":"minecraft:saplings","price":1}` to accept a whole tag (vanilla or this mod's item tags; **a tag entry takes a single row on screen**); `"batch": 8` means eight make one batch; `"lang"` names that row; `"filter": "treasure_map"` accepts only treasure maps with a structure marker; the trailing `friday` block holds Crazy Friday's pool (plain items, `#tags` or `*_spawn_egg` wildcards), `poolMaxPicks` (how many items a single pool entry may contribute per day) and `basePrices`. **The enchantment recycle category is generated by scanning the player's inventory and is not written in this file** |
+| `acquire.json` | "category &rarr; entries". Each entry looks like `{"item":"minecraft:wheat","price":1}`, or `{"tag":"minecraft:saplings","price":1}` to accept a whole tag (vanilla or this mod's item tags; **a tag entry takes a single row on screen**); `"batch": 8` means eight make one batch; `"lang"` names that row; `"filter": "treasure_map"` accepts only treasure maps with a structure marker; the trailing `friday` block holds Crazy Friday's pool (plain items, `#tags` or `*` wildcards; `*_spawn_egg` means the whole "any spawn egg" class), `poolMaxPicks` (how many items a single pool entry may contribute per day) and `basePrices`. **The enchantment recycle category is generated by scanning the player's inventory and is not written in this file** |
 
 **Run `/ee reload` in game and the changes apply immediately** (no restart; a broken file keeps the previous
 contents and reports the error in the log).
+
+> **Upgrading from an older version (level storage &rarr; experience storage)**: the server config key
+> `onlineRewardLevels` is gone; use `onlineRewardBaseExp` (default 50) and `onlineRewardPerDayExp`
+> (default 1). Leaving the old key in place is harmless but it does nothing. The world save's
+> `storedLevels` is converted to XP on load (new key `storedXp`), so no manual save editing is needed.
+> The `acquire.json` changes (melon / pumpkin / apple / ominous bottle / Friday's any-spawn-egg row and
+> spawner base price) must be applied by hand or by using the new default `acquire.json`.
 
 > If you already generated these two JSON files in an older version, **new goods / entries do not appear
 > automatically** (the server only writes the default template when the file is missing). To pick up the new
 > defaults, delete `config/emerald_economy/shop.json` and `acquire.json` (back them up first) and let the
 > server regenerate them, or add the entries by hand using the format above.
 
-```jsonc
-// shop.json snippet: add a group / subcategory / two goods (one item, one XP good)
+`shop.json` snippet: add a group / subcategory / two goods (one item, one XP good).
+
+```json
 {
   "groups": [
-    { "id": "OTHER", "lang": "shop.group.other", "name": "Other", "icon": "📦", "unlockable": false,
+    {
+      "id": "OTHER",
+      "lang": "shop.group.other",
+      "name": "Other",
+      "icon": "📦",
+      "unlockable": false,
       "subcategories": [
         { "id": "SEED", "name": "Seeds", "items": [ { "item": "minecraft:wheat_seeds", "price": 8 } ] },
         { "id": "MISC", "name": "Misc", "items": [ { "exp": 1000, "price": 6000 } ] }
-      ] }
+      ]
+    }
   ]
 }
+```
 
-// acquire.json snippet: add a category that buys every sapling (1 emerald per batch, one row on screen)
+`acquire.json` snippet: add a category that buys every sapling (1 emerald per batch, one row on screen).
+
+```json
 {
   "categories": [
-    { "id": "FORESTRY", "name": "Forestry Produce",
-      "items": [ { "item": "minecraft:oak_log", "price": 1 },
-                 { "tag": "minecraft:saplings", "price": 1, "lang": "acquire.tag.saplings" },
-                 { "item": "minecraft:filled_map", "price": 20,
-                   "filter": "treasure_map", "lang": "acquire.item.treasure_map" } ] }
+    {
+      "id": "FORESTRY",
+      "name": "Forestry Produce",
+      "items": [
+        { "item": "minecraft:oak_log", "price": 1 },
+        { "tag": "minecraft:saplings", "price": 1, "lang": "acquire.tag.saplings" },
+        { "item": "minecraft:filled_map", "price": 20,
+          "filter": "treasure_map", "lang": "acquire.item.treasure_map" }
+      ]
+    }
   ]
 }
 ```
@@ -569,6 +621,303 @@ marketEvents = ["EMR_MIN|0.08|news.vein_found", "ALL|-0.06|news.recession"]
 > **Remember to delete the old config after changing defaults**: NeoForge only writes a default when a key is
 > *missing*, so an existing key keeps whatever the file already holds. Delete
 > `emerald_economy-server.toml` (back it up first) and restart.
+
+---
+
+## FAQ & configuration tutorials (beginner-friendly)
+
+This section only covers things that **cannot (or should not) be edited in the in-game mod config GUI**:
+`shop.json`, `acquire.json`, item tags (datapacks) and the list-style TOML parameters.
+Single numeric values such as fees, interest, odds, purchase limits and fund base prices should be changed in
+**ESC &rarr; Mods &rarr; Emerald Economy &rarr; Config**.
+
+### 0. Five rules before editing any file
+
+1. **Where the files are**
+   - Single-player: `.minecraft/config/emerald_economy/shop.json` and `acquire.json`
+     (on Windows `.minecraft` is usually under `%APPDATA%\.minecraft`; modpack instances use their own folder)
+   - Dedicated server: `config/emerald_economy/` in the server root
+   - These two files are shared by the whole instance / server; they do not live inside a world save.
+   - In multiplayer only the **server** files matter. Clients do not need to edit anything, but they do need
+     the mods that provide the items, otherwise icons / names may not render.
+2. **Back up first**: copy `shop.json` to `shop.json.bak` so you can restore it.
+3. **It must be valid JSON**
+   - Edit with VS Code / Notepad++ and save as **UTF-8 (no BOM)**;
+   - Do not use `//` or `#` comments; the `"_comment"` fields in the default files are ordinary strings and
+     can stay. (A `#` inside a string is a tag, e.g. `"#minecraft:saplings"`; that is not a comment.)
+   - Do not leave a trailing comma after the last entry;
+   - If unsure, paste the file into an online JSON validator.
+4. **Run `/ee reload` after editing** (OP required). Success prints "content loaded: vending ...; acquisition ...".
+   If it says a file failed to parse, the old content is kept; search `logs/latest.log` for `[内容] 解析`.
+5. **How to find an item ID**
+   - Type `/give @s ` in chat and press Tab; the game lists every item ID;
+   - Or enable `F3 + H` advanced tooltips and hover an item;
+   - The format is always `namespace:item_name`, for example `minecraft:wheat` or `farmersdelight:tomato`;
+   - The part before the colon is the mod ID;
+   - Only item IDs are accepted — no NBT, enchantments, custom names or counts.
+
+> In the snippets below `...` means "keep the existing entries"; do not write `...` or comments in the real file.
+
+### 1. Acquisition Machine: adding crops / modded items
+
+#### 1.1 Add to an existing category (easiest)
+
+For example, add Farmer's Delight tomatoes to `AGRICULTURE`:
+
+```json
+{
+  "item": "farmersdelight:tomato",
+  "price": 2
+}
+```
+
+Run `/ee reload` and the machine shows "Tomato 2 each".
+
+#### 1.2 Batch pricing
+
+```json
+{
+  "item": "farmersdelight:tomato",
+  "price": 2,
+  "batch": 4
+}
+```
+
+Four tomatoes make one batch worth 2 emeralds. Selling 10 tomatoes pays for 2 batches (8 consumed, 4 emeralds),
+leaving 2 in your inventory.
+
+#### 1.3 Create a new category
+
+```json
+{
+  "id": "MOD_CROPS",
+  "name": "Mod Crops",
+  "items": [
+    { "item": "farmersdelight:tomato", "price": 2 },
+    { "item": "farmersdelight:cabbage", "price": 2 },
+    { "item": "farmersdelight:onion", "price": 2 }
+  ]
+}
+```
+
+Put this object into the top-level `"categories"` array of `acquire.json` (mind the commas).
+- The `id` can be anything except the reserved `FRIDAY` and `ENCHANT`;
+- On-screen order follows file order;
+- Use `name` for custom categories; an invented `lang` key will display as an untranslated key.
+
+#### 1.4 Whole-tag buying (advanced)
+
+```json
+{
+  "tag": "minecraft:saplings",
+  "price": 1,
+  "name": "Saplings (any)"
+}
+```
+
+The tag must actually exist in game. Vanilla tags look like `minecraft:saplings`; NeoForge common tags often
+use the `c:` prefix. A tag row takes one line and accepts any member, even mixed kinds.
+**In a normal category the `tag` field does not take `#`** (write `minecraft:saplings`); `#` is only used in
+Crazy Friday's `pool`. If you are unsure whether a tag exists, list the items individually.
+
+#### 1.5 Remove an entry
+
+Delete the `{ ... }` entry and run `/ee reload`. Do not use `"price": 0` to disable it — prices are clamped to
+a minimum of 1, so it would still be bought.
+
+### 2. Vending Machine: adding goods / subcategories / groups
+
+#### 2.1 Add an ordinary good to an existing subcategory
+
+```json
+{
+  "id": "GENERAL",
+  "name": "Misc",
+  "items": [
+    { "item": "minecraft:glass", "price": 1 },
+    { "item": "farmersdelight:tomato", "price": 3 }
+  ]
+}
+```
+
+One purchase gives **one item**; prices are account balance, not emeralds in your inventory; the per-player
+daily limit is 2 per slot (change it in the TOML / config GUI).
+
+#### 2.2 Create a subcategory
+
+```json
+{
+  "id": "FOOD",
+  "name": "Food",
+  "icon": "🍎",
+  "items": [
+    { "item": "farmersdelight:tomato", "price": 3 },
+    { "item": "farmersdelight:cabbage", "price": 3 }
+  ]
+}
+```
+
+Put it into the `subcategories` array of the `OTHER` group. IDs must be unique (existing ones are `SEED`,
+`SAPLING`, `MISC`, `GENERAL`).
+
+#### 2.3 Create a group
+
+```json
+{
+  "id": "MOD_FOOD",
+  "name": "Mod Food",
+  "icon": "🍲",
+  "unlockable": false,
+  "subcategories": [
+    {
+      "id": "COOKED",
+      "name": "Cooked",
+      "items": [ { "item": "farmersdelight:hamburger", "price": 5 } ]
+    }
+  ]
+}
+```
+
+Always use `"unlockable": false` for a normal group. `true` is only for enchanted books.
+
+#### 2.4 XP goods
+
+```json
+{ "exp": 100, "price": 800 }
+```
+
+This gives **100 XP points** (not 100 levels) for 800 balance.
+
+#### 2.5 Enchanted books (advanced, be careful)
+
+```json
+{ "id": "minecraft:mending", "min": 1560, "max": 2560 }
+```
+
+Adding an enchantment changes the total unlock slots (and the upgrade costs of the later slots), and its
+minimum price also affects enchantment recycling. Leave the enchantment table alone unless you know what you are doing.
+
+#### 2.6 Custom names: use `name`, not an invented `lang`
+
+`lang` is a translation key and gets the `emerald_economy.` prefix. For your own categories / rows, use
+`"name": "Plain text"`. A missing `lang` key displays as `emerald_economy.xxx`.
+
+### 3. Crazy Friday: adding single items / prices / pick limits (advanced)
+
+`friday.pool` accepts plain item IDs, `#tags`, and `*` wildcards. The default `*_spawn_egg` wildcard
+means "any spawn egg" (modded included) and appears as one whole-class row, so any spawn egg in your
+inventory sells at that row's price. Add a single item:
+
+```json
+"pool": [
+  "minecraft:nether_star",
+  "minecraft:dragon_egg"
+],
+"basePrices": {
+  "minecraft:nether_star": 133,
+  "minecraft:dragon_egg": 200
+}
+```
+
+Entries without a `basePrices` value use the fallback price 100.
+
+Limit how many items one pool entry may contribute per day:
+
+```json
+"poolMaxPicks": {
+  "#emerald_economy:acquire/heads": 1
+}
+```
+
+The default is 1. Raising the head entry to 2 can produce two heads in one Friday.
+
+Use `/ee friday` to see today's picks. For quick testing, temporarily set the Crazy Friday interval to 1 in
+the config GUI, or advance the game time to a multiple of 5 days.
+
+### 4. Advanced: create your own item tag (datapack)
+
+1. Create a folder in the world's `datapacks/`, for example `my_tags/`;
+2. Add `my_tags/pack.mcmeta`:
+
+```json
+{
+  "pack": {
+    "pack_format": 48,
+    "description": "My custom item tags"
+  }
+}
+```
+
+3. Add `my_tags/data/mymod/tags/item/my_crops.json`:
+
+```json
+{
+  "values": [
+    "farmersdelight:tomato",
+    "farmersdelight:cabbage",
+    "farmersdelight:onion"
+  ]
+}
+```
+
+4. In `acquire.json`:
+
+```json
+{
+  "tag": "mymod:my_crops",
+  "price": 2,
+  "name": "Mod vegetables (any)"
+}
+```
+
+5. Run `/reload` (datapacks), then `/ee reload`.
+
+The namespace (`mymod` above) can be anything, but it must use lowercase letters / digits / underscores and
+match the folder path. If you do not want to make a datapack, list the items individually.
+
+### 5. Advanced: list-style TOML parameters
+
+These are visible in the config GUI but are long string lists, which are painful to edit there. The TOML file
+is easier:
+
+- Single-player: `saves/<world>/serverconfig/emerald_economy-server.toml`
+- Dedicated server: `config/emerald_economy-server.toml`
+
+```toml
+# Per-fund base price: CODE=price
+fundBasePrices = ["EMR_MIN=100", "EMR_AGR=80", "EMR_LIV=90", "EMR_BLD=70", "EMR_HYD=85", "EMR_HUN=95", "EMR_CMP=100"]
+
+# Per-fund volatility: CODE=decimal
+fundVolatilities = ["EMR_MIN=0.060", "EMR_AGR=0.045", "EMR_LIV=0.040"]
+
+# Weather correction: WEATHER:FUND=delta
+weatherModifiers = ["RAIN:EMR_AGR=0.080", "THUNDER:EMR_HYD=0.090"]
+
+# Random market event: SCOPE|delta|lang-key
+marketEvents = ["EMR_MIN|0.08|news.vein_found", "ALL|-0.06|news.recession"]
+```
+
+Fund codes: `EMR_MIN` mining, `EMR_AGR` farming, `EMR_LIV` livestock, `EMR_BLD` building, `EMR_HYD` hydro,
+`EMR_HUN` hunting, `EMR_CMP` composite. Weather: `CLEAR`, `RAIN`, `THUNDER`. Event scope is `ALL` or a fund
+code; use an existing `news.xxx` key (custom text needs a resource pack). Restart the server after editing
+TOML; changes made in the config GUI usually apply immediately.
+
+### 6. Configuration not working? Check in this order
+
+1. **Are you editing the server-side file?** Client edits do nothing in multiplayer.
+2. **Did you run `/ee reload`?** JSON needs it; TOML needs a restart.
+3. **Is the JSON valid?** Check `logs/latest.log` for `[内容] 解析`; common mistakes are missing/extra commas,
+   missing quotes, or curly Chinese quotes.
+4. **Is the item ID correct?** Verify with `/give` autocomplete; IDs are lowercase and include the namespace.
+5. **Is the mod installed on the server?** Items come from the server registry; if the server lacks the mod,
+   the item does not exist.
+6. **Is the file from an old version?** Upgrades do not merge new defaults; back up, delete and regenerate,
+   or add the entries manually.
+7. **Is the tag empty?** A missing tag or a tag with no members is skipped.
+8. **Are category / subcategory IDs duplicated?** Keep them unique; do not use `FRIDAY` / `ENCHANT` as
+   acquisition category IDs.
+9. **Still seeing old content?** Close and reopen the machine screen; `/ee reload` refreshes open screens, but
+   reopening is the safest check.
 
 ---
 
@@ -619,18 +968,22 @@ rm -rf run/world                   # the main case asserts absolute balances, so
 ./gradlew runClientUiTest          # terminal 2: real server, real button clicks, screenshots at the end
 ```
 
-- `SelfTest` (the server run sets `-Dee.selftest=true`) runs **157 pure-logic assertions** on startup.
-- The main `ClientUiTest` case has **157 assertions / 44 screenshots**, covering: opening and clicking every
+- `SelfTest` (the server run sets `-Dee.selftest=true`) runs pure-logic assertions on startup
+  (1.21.1 XP math, legacy level-to-XP migration, Crazy Friday pool sampling).
+- The main `ClientUiTest` case connects a real client to the server and takes screenshots, covering: opening and clicking every
   one of the nine screens, the redstone-power gate on all five machines, the seven kinds of world supply,
   the trade cooldown, failure paths and rule-based refusals, batch buyout and batch settlement,
   **whole-tag buyout (one row selling any music disc / sapling / flower / mushroom)**,
-  **ATM level storage (locked by default &rarr; paid unlock &rarr; store/withdraw levels) and the online
+  **ATM experience storage (locked by default &rarr; paid unlock &rarr; store/withdraw XP by level) and the online
   reward (only granted to players online at the settlement)**, **buying XP goods (points +1000, balance
   -6000)**, betting blocked while in debt and Crazy Friday blocked while in debt, before/after balances and
-  level entries in the transaction history, sell buttons greyed out by inventory, editing the JSON plus
+  XP entries in the transaction history, sell buttons greyed out by inventory, editing the JSON plus
   `/ee reload` hot-reload, and mining a machine in survival always dropping exactly one.
-  **v1.0.2 split the ATM into a main screen plus sub-screens; the test navigation has been updated to open
-  the sub-screens directly, but the in-game suite has not been re-run for this version yet.**
+  It then fast-forwards the game to day 15 (running `/ee settle` once per day) to capture the
+  **multi-day chart with mixed green/red changes, multi-day transaction history, the day-15 Crazy
+  Friday, a lottery screen that accepts bets, enchantment recycle and the new misc vending shelf**.
+  **v1.0.3 (experience storage, dual leaderboards / XP gifts, the any-spawn-egg whole-class row) is
+  covered by the script; re-run the full suite from a clean save before releasing.**
 - Four dedicated cases: `runClientUiTestShopFull` (shop fully unlocked), `runClientUiTestMarketEvents`
   (each random market event checked individually), `runClientUiTestOwner` + `runClientUiTestPeer`
   (two players online at once), and `runClientUiTestMine` (mining and drops only — a result in under a
