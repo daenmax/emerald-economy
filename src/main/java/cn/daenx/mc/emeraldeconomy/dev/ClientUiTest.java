@@ -9,9 +9,11 @@ import cn.daenx.mc.emeraldeconomy.client.screen.LevelStorageScreen;
 import cn.daenx.mc.emeraldeconomy.client.screen.LoanRepayScreen;
 import cn.daenx.mc.emeraldeconomy.client.screen.LotteryScreen;
 import cn.daenx.mc.emeraldeconomy.client.screen.OnlineRewardScreen;
+import cn.daenx.mc.emeraldeconomy.client.screen.RankingScreen;
 import cn.daenx.mc.emeraldeconomy.client.screen.TradeScreen;
 import cn.daenx.mc.emeraldeconomy.client.screen.VendingScreen;
 import cn.daenx.mc.emeraldeconomy.core.EEConstants;
+import cn.daenx.mc.emeraldeconomy.core.Experience;
 import cn.daenx.mc.emeraldeconomy.lottery.LotteryType;
 import cn.daenx.mc.emeraldeconomy.market.FundType;
 import cn.daenx.mc.emeraldeconomy.network.payload.ServerPayloads;
@@ -135,6 +137,8 @@ public final class ClientUiTest {
     private static int levelsBeforeReward;
     /** 在线奖励测试前的玩家经验点基线。 */
     private static long xpBeforeReward;
+    /** 存入 5 级后 ATM 里的经验，用于核对取出后的剩余量。 */
+    private static long xpStoredAfterDeposit;
     /** 买「经验值商品」之前的经验点基线。 */
     private static long xpBefore;
     /** 疯狂星期五「收购数量不限」用例：当天挑中的第一件物品与它的单价。 */
@@ -252,6 +256,9 @@ public final class ClientUiTest {
 
         // ---------- ATM：四个操作全部真的点一遍 ----------
         add("打开 ATM 界面", 35, (mc, player) -> open(mc, new AtmScreen()));
+        // 等开场成就 / 聊天提示淡出，避免它们盖住右上角的信用额度
+        add("等待开场提示消失", 240, (mc, player) -> {
+        });
         add("截图 01 ATM（存款前：余额 100,000 / 信用额度 1,000）", 0,
                 (mc, player) -> shot(mc, "01_atm_before_deposit"));
         add("进入「存款和取款」子页面", 20,
@@ -433,6 +440,12 @@ public final class ClientUiTest {
             log("  矿业基金持仓份额 = " + shares);
             check("买入 5 份后持仓份额为 5", shares == 5L);
         });
+        add("从交易所点开卖出弹窗（显示我的份额 + 全部卖出）", 25, (mc, player) -> {
+            open(mc, new ExchangeScreen());
+            click(mc, tr("screen.common.sell"));
+        });
+        add("截图 55 交易弹窗·卖出（我的份额 / 全部卖出）", 0,
+                (mc, player) -> shot(mc, "55_trade_sell"));
         add("从交易所点开「市场新闻」", 25, (mc, player) -> {
             open(mc, new ExchangeScreen());
             click(mc, tr("screen.exchange.news"));
@@ -1135,32 +1148,70 @@ public final class ClientUiTest {
                     + "，ATM 经验 = " + (account == null ? -1 : account.storedExperience()));
             check("存入 5 级后玩家等级 -5", player.experienceLevel == levelsBeforeReward - 5);
             check("ATM 里存下了正数经验点", account != null && account.storedExperience() > 0L);
+            xpStoredAfterDeposit = account == null ? 0L : account.storedExperience();
         });
         add("点「取出」（同样填 5）", 35, (mc, player) -> {
             setNumbers(mc, "5");
             click(mc, tr("screen.atm.level.withdraw"));
         });
-        add("校验取出经验：等级回到原样、ATM 清空", 20, (mc, player) -> {
+        add("校验取出经验：等级回到原样、ATM 只剩原经验条进度", 20, (mc, player) -> {
             var account = ClientEconomyCache.account;
+            long movedBack = Experience.totalXpForLevel(levelsBeforeReward)
+                    - Experience.totalXpForLevel(levelsBeforeReward - 5);
+            long expectedRemainder = xpStoredAfterDeposit - movedBack;
             log("  取出后玩家等级 = " + player.experienceLevel
-                    + "，ATM 经验 = " + (account == null ? -1 : account.storedExperience()));
+                    + "，ATM 经验 = " + (account == null ? -1 : account.storedExperience())
+                    + "（预期剩余 " + expectedRemainder + "）");
             check("取出 5 级后玩家等级回来", player.experienceLevel == levelsBeforeReward);
-            check("ATM 经验清零", account != null && account.storedExperience() == 0L);
+            check("取出 5 级只搬走 5 级所需经验，ATM 保留原经验条进度",
+                    account != null && account.storedExperience() == expectedRemainder);
             check("经验存取留下了流水（存入 / 取出各一笔）", account != null
                     && account.transactions().stream().anyMatch(t -> t.type().equals("LEVEL_DEPOSIT"))
                     && account.transactions().stream().anyMatch(t -> t.type().equals("LEVEL_WITHDRAW")));
         });
-        add("点开交易记录，确认等级类流水也列在余额明细里", 30, (mc, player) -> {
+        add("再存入 3 级（给经验排行榜准备数据）", 35, (mc, player) -> {
+            open(mc, new LevelStorageScreen());
+            setNumbers(mc, "3");
+            click(mc, tr("screen.atm.level.deposit"));
+        });
+        add("校验经验库存已经准备好", 15, (mc, player) -> {
+            var account = ClientEconomyCache.account;
+            log("  准备排行榜数据：ATM 经验 = "
+                    + (account == null ? -1 : account.storedExperience()));
+            check("再存入 3 级后 ATM 里有经验", account != null && account.storedExperience() > 0L);
+        });
+        add("点开交易记录并切到「经验存取明细」", 35, (mc, player) -> {
             open(mc, new AtmScreen());
             click(mc, tr("screen.atm.menu.records"));
         });
-        add("截图 43 交易记录·经验存取（金额列写的是「经验」）", 0,
+        add("切到「经验存取明细」分类", 25,
+                (mc, player) -> click(mc, tr("screen.atm.records.tab.experience")));
+        add("截图 43 ATM·经验存取明细（变动前经验 → 变动后经验）", 0,
                 (mc, player) -> shot(mc, "43_atm_level_records"));
-        add("校验经验流水没有因为「余额没变」被过滤掉", 10, (mc, player) -> {
+        add("校验经验流水仍在快照里", 10, (mc, player) -> {
             var account = ClientEconomyCache.account;
-            check("余额明细里能看到经验类流水（服务端确实推了这几笔）", account != null
+            check("快照里保留经验类流水（服务端确实推了这几笔）", account != null
                     && account.transactions().stream().filter(t -> t.type().startsWith("LEVEL_"))
                     .count() >= 2);
+        });
+
+        add("打开 ATM 排行榜（余额榜）", 40, (mc, player) -> {
+            open(mc, new AtmScreen());
+            click(mc, tr("screen.atm.menu.ranking"));
+        });
+        add("截图 53 ATM·余额排行榜（实时刷新）", 0,
+                (mc, player) -> shot(mc, "53_ranking_balance"));
+        add("切到「经验排行榜」", 20,
+                (mc, player) -> click(mc, tr("screen.atm.ranking.tab.experience")));
+        add("截图 54 ATM·经验排行榜（只显示已存经验）", 0,
+                (mc, player) -> shot(mc, "54_ranking_experience"));
+        add("校验排行榜快照包含两个榜单", 10, (mc, player) -> {
+            var account = ClientEconomyCache.account;
+            int balanceRows = account == null ? -1 : account.ranking().size();
+            int expRows = account == null ? -1 : account.experienceRanking().size();
+            log("  余额榜人数 = " + balanceRows + "，经验榜人数 = " + expRows);
+            check("余额排行榜有数据", balanceRows >= 1);
+            check("经验排行榜有数据", expRows >= 1);
         });
     }
 

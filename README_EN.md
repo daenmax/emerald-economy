@@ -107,48 +107,48 @@ Each recipe yields one machine. Picking up redstone for the first time unlocks a
 
 <table>
 <tr>
-<td align="center"><img src="素材/README截图/01_atm_before_deposit.png" width="330"><br><b>ATM</b>: account overview + function menu (deposit / loans / history / experience / reward / leaderboard &amp; transfer)</td>
-<td align="center"><img src="素材/README截图/46_atm_transactions_multiday.png" width="330"><br><b>Transactions</b>: deposits, loans and daily interest across many days, with before &rarr; after</td>
+<td align="center"><img src="素材/README截图/01_atm_overview.png" width="330"><br><b>ATM</b>: balance / credit limit / debt / available credit / stored XP + six function pages</td>
+<td align="center"><img src="素材/README截图/02_transactions_balance.png" width="330"><br><b>Transactions &middot; Balance details</b>: multi-day deposits, loans and daily interest, before &rarr; after</td>
 </tr>
 <tr>
-<td align="center"><img src="素材/README截图/40_atm_online_reward.png" width="330"><br><b>ATM &middot; Online reward</b>: online at settlement, grants XP</td>
-<td align="center"><img src="素材/README截图/42_atm_level_stored.png" width="330"><br><b>ATM &middot; Experience storage</b>: enter levels, the ATM shows stored XP</td>
+<td align="center"><img src="素材/README截图/03_transactions_experience.png" width="330"><br><b>Transactions &middot; XP details</b>: deposit / withdraw / online reward / gifts, with XP before &rarr; after</td>
+<td align="center"><img src="素材/README截图/04_transactions_debt.png" width="330"><br><b>Transactions &middot; Debt details</b>: debt changes from loans and repayments</td>
 </tr>
 <tr>
-<td align="center"><img src="素材/README截图/47_atm_records_debt_multiday.png" width="330"><br><b>Transactions &middot; Debt details</b> (the two categories are kept apart)</td>
-<td align="center"><img src="素材/README截图/44_exchange_multiday.png" width="330"><br><b>Fund Exchange</b>: seven funds with price, green/red change and a 15-day chart</td>
+<td align="center"><img src="素材/README截图/05_atm_experience_storage.png" width="330"><br><b>ATM &middot; Experience storage</b>: enter levels, see stored XP, store/withdraw everything</td>
+<td align="center"><img src="素材/README截图/06_atm_online_reward.png" width="330"><br><b>ATM &middot; Online reward</b>: online at settlement, grants 50 + game day XP</td>
 </tr>
 <tr>
-<td align="center"><img src="素材/README截图/45_holdings_multiday.png" width="330"><br><b>My holdings</b>: shares / average cost / market value / unrealized P&L after several days</td>
-<td align="center"><img src="素材/README截图/48_market_news_multiday.png" width="330"><br><b>Market news</b>: weather, random events and settlement records across many days</td>
+<td align="center"><img src="素材/README截图/07_ranking_balance.png" width="330"><br><b>Balance ranking</b>: refreshed when opened, showing net / balance / debt, with transfers</td>
+<td align="center"><img src="素材/README截图/08_ranking_experience.png" width="330"><br><b>Experience ranking</b>: sorted by stored XP, XP column only, with gifts</td>
 </tr>
 <tr>
-<td align="center"><img src="素材/README截图/11_lottery.png" width="330"><br><b>Lottery Machine</b>: three games; betting is blocked while you owe money</td>
-<td align="center"><img src="素材/README截图/14_vending.png" width="330"><br><b>Vending Machine</b>: enchanted books by category, with level and applicable items</td>
+<td align="center"><img src="素材/README截图/09_exchange_multiday.png" width="330"><br><b>Fund Exchange</b>: day and total change columns plus a multi-day chart</td>
+<td align="center"><img src="素材/README截图/10_exchange_holdings.png" width="330"><br><b>My holdings</b>: shares / average cost / market value / unrealized P&amp;L after several days</td>
 </tr>
 <tr>
-<td align="center"><img src="素材/README截图/36_vending_other.png" width="330"><br><b>Vending Machine &middot; Other</b>: seeds / saplings / experience / misc (no unlock progression)</td>
-<td align="center"><img src="素材/README截图/17_acquisition.png" width="330"><br><b>Acquisition Machine</b>: five permanent categories + enchantment recycle + Crazy Friday</td>
+<td align="center"><img src="素材/README截图/11_exchange_sell.png" width="330"><br><b>Sell dialog</b>: shows my shares and supports selling everything</td>
+<td align="center"><img src="素材/README截图/12_market_news.png" width="330"><br><b>Market news</b>: weather, random events and settlement records across many days</td>
 </tr>
 <tr>
-<td align="center"><img src="素材/README截图/40c_vending_misc_exp.png" width="330"><br><b>Vending Machine &middot; Experience</b>: 10 / 100 / 1000 XP points</td>
-<td align="center"><img src="素材/README截图/40b_acquire_disc_sold.png" width="330"><br><b>Acquisition &middot; whole-tag row</b>: music discs take one row, any disc sells</td>
+<td align="center"><img src="素材/README截图/13_lottery.png" width="330"><br><b>Lottery Machine</b>: three games; betting is blocked while you owe money</td>
+<td align="center"><img src="素材/README截图/14_vending_enchants.png" width="330"><br><b>Vending Machine</b>: enchanted books by category, with level and applicable items</td>
 </tr>
 <tr>
-<td align="center"><img src="素材/README截图/37_acquire_misc.png" width="330"><br><b>Miscellaneous</b>: ominous banner / music discs / shulker shell / sculk sensor&hellip;</td>
-<td align="center"><img src="素材/README截图/38_acquire_livestock.png" width="330"><br><b>Livestock</b>: fish and meat, bone, eggs in batches of 8</td>
+<td align="center"><img src="素材/README截图/15_vending_other.png" width="330"><br><b>Vending &middot; Other</b>: seeds / saplings / experience / misc, all unlimited</td>
+<td align="center"><img src="素材/README截图/16_vending_experience.png" width="330"><br><b>Vending &middot; Experience</b>: 10 / 100 / 1000 XP points, unlimited</td>
 </tr>
 <tr>
-<td align="center"><img src="素材/README截图/49_crazy_friday_day15.png" width="330"><br><b>Crazy Friday</b>: 3 of 9 pool entries at 5–10×</td>
-<td align="center"><img src="素材/README截图/20_atm_opened_by_click.png" width="330"><br><b>Real interaction</b>: right-click a machine (needs redstone power) to open it</td>
+<td align="center"><img src="素材/README截图/17_acquisition.png" width="330"><br><b>Acquisition Machine</b>: farm produce with Sell / Sell all on every row</td>
+<td align="center"><img src="素材/README截图/18_acquisition_misc.png" width="330"><br><b>Misc category</b>: ominous banner, ominous bottle, one music-disc row&hellip;</td>
 </tr>
 <tr>
-<td align="center"><img src="素材/README截图/50_lottery_can_bet.png" width="330"><br><b>Lottery &middot; ready to bet</b>: all three rounds accept bets once the loan is repaid</td>
-<td align="center"><img src="素材/README截图/51_acquire_enchant.png" width="330"><br><b>Enchantment recycle</b>: 3 pieces of gear + 1 multi-enchant book, each price itemised</td>
+<td align="center"><img src="素材/README截图/19_acquisition_livestock.png" width="330"><br><b>Livestock category</b>: fish and meat, bone, eggs in batches of 8</td>
+<td align="center"><img src="素材/README截图/20_crazy_friday.png" width="330"><br><b>Crazy Friday</b>: 3 of 9 pool entries; any spawn egg is one whole-class row</td>
 </tr>
 <tr>
-<td align="center"><img src="素材/README截图/52_vending_general.png" width="330"><br><b>Vending Machine &middot; Misc</b>: the new subcategory, currently glass at 1 balance each</td>
-<td></td>
+<td align="center"><img src="素材/README截图/21_enchant_recycle.png" width="330"><br><b>Enchantment recycle</b>: itemised enchant prices and whole-stack total</td>
+<td align="center"><img src="素材/README截图/22_machine_opened_by_click.png" width="330"><br><b>Real interaction</b>: right-click a machine (needs redstone power) to open it</td>
 </tr>
 </table>
 
@@ -253,9 +253,9 @@ Each recipe yields one machine. Picking up redstone for the first time unlocks a
 - **Enchantment recycle** lists every enchanted item in your inventory (hotbar included; enchanted books
   count too). Each row shows the icon, name, stack size, the recycle price of every enchantment and the
   whole-stack total. Only enchantments matter, never the base material:
-  **vending min price / max level × current level**.
-  Example: Mending min price 1560, max level 1, level 1 &rarr; 1560; Protection min price 896, max level 4,
-  level 3 &rarr; 672; total 2232. Clicking **Recycle** opens a **second confirmation**, and only then is
+  **vending min price / 3 / max level × current level**.
+  Example: Mending min price 1560, max level 1, level 1 &rarr; 520; Protection min price 896, max level 4,
+  level 3 &rarr; 224; total 744. Clicking **Recycle** opens a **second confirmation**, and only then is
   the whole stack consumed and credited.
 - **Treasure maps** are only accepted when they carry a structure marker (woodland mansion / ocean
   monument / buried treasure); ordinary explored maps and empty maps are rejected.
@@ -795,7 +795,8 @@ This gives **100 XP points** (not 100 levels) for 800 balance.
 ```
 
 Adding an enchantment changes the total unlock slots (and the upgrade costs of the later slots), and its
-minimum price also affects enchantment recycling. Leave the enchantment table alone unless you know what you are doing.
+minimum price also affects enchantment recycling (recycle price = min price / 3 / max level × current level).
+Leave the enchantment table alone unless you know what you are doing.
 
 #### 2.6 Custom names: use `name`, not an invented `lang`
 
@@ -976,19 +977,20 @@ rm -rf run/world                   # the main case asserts absolute balances, so
   **whole-tag buyout (one row selling any music disc / sapling / flower / mushroom)**,
   **ATM experience storage (locked by default &rarr; paid unlock &rarr; store/withdraw XP by level) and the online
   reward (only granted to players online at the settlement)**, **buying XP goods (points +1000, balance
-  -6000)**, betting blocked while in debt and Crazy Friday blocked while in debt, before/after balances and
-  XP entries in the transaction history, sell buttons greyed out by inventory, editing the JSON plus
-  `/ee reload` hot-reload, and mining a machine in survival always dropping exactly one.
+  -6000)**, betting blocked while in debt and Crazy Friday blocked while in debt,
+  **the before/after values in all three transaction tabs (balance / debt / XP)**, **both leaderboards
+  and XP gifts**, sell buttons greyed out by inventory, editing the JSON plus `/ee reload` hot-reload,
+  and mining a machine in survival always dropping exactly one.
   It then fast-forwards the game to day 15 (running `/ee settle` once per day) to capture the
   **multi-day chart with mixed green/red changes, multi-day transaction history, the day-15 Crazy
-  Friday, a lottery screen that accepts bets, enchantment recycle and the new misc vending shelf**.
-  **v1.0.3 (experience storage, dual leaderboards / XP gifts, the any-spawn-egg whole-class row) is
-  covered by the script; re-run the full suite from a clean save before releasing.**
+  Friday, a lottery screen that accepts bets, enchantment recycle, both leaderboards and the sell dialog**.
+  **v1.0.3 was re-run from a clean save: 171 assertions / 56 screenshots, 0 failures.**
 - Four dedicated cases: `runClientUiTestShopFull` (shop fully unlocked), `runClientUiTestMarketEvents`
   (each random market event checked individually), `runClientUiTestOwner` + `runClientUiTestPeer`
   (two players online at once), and `runClientUiTestMine` (mining and drops only — a result in under a
   minute when you are debugging).
 
-Screenshots are archived in `素材/验证截图/` (everything) and `素材/README截图/` (the ones used here).
+Screenshots are archived in `素材/验证截图/` (all 56 screenshots from the clean-save run plus the
+test log) and `素材/README截图/` (the 22 selected here, numbered 01-22).
 
 Deeper development notes, design trade-offs and the pitfalls we hit are in [JOB.md](JOB.md).

@@ -203,7 +203,7 @@ public final class EnchantCatalog {
     /**
      * 附魔在售货机里的<b>最低售价</b>。
      * <p>
-     * 附魔回收按这个价格折算（「最低价 ÷ 最大等级 × 当前等级」）。
+     * 附魔回收按这个价格折算（「最低价 ÷ 3 ÷ 最大等级 × 当前等级」）。
      * 内容文件里没写的附魔退回配置里的兜底最低价，保证整合包新增的附魔也有回收价。
      */
     public static int minPriceOf(RegistryAccess access, String id) {

@@ -22,10 +22,10 @@ import java.util.List;
  * <ul>
  *     <li>列出玩家背包（含快捷栏，0~35 格）里<b>所有带附魔的物品</b>，
  *         附魔书也算（它带的是 {@code STORED_ENCHANTMENTS} 组件）；</li>
- *     <li>每个附魔的回收价 = <b>自动售货机里该附魔的最低价 ÷ 该附魔最大等级 × 当前等级</b>，
+ *     <li>每个附魔的回收价 = <b>自动售货机里该附魔的最低价 ÷ 3 ÷ 该附魔最大等级 × 当前等级</b>，
  *         向下取整、最低 1；
- *         例：经验修补最低价 1560、最大等级 1、等级 1 → 1560；
- *         保护最低价 896、最大等级 4、等级 3 → 672；合计 2232。</li>
+ *         例：经验修补最低价 1560、最大等级 1、等级 1 → 1560 ÷ 3 = 520；
+ *         保护最低价 896、最大等级 4、等级 3 → 896 ÷ 3 ÷ 4 × 3 = 224；合计 744。</li>
  *     <li>只看附魔，不看物品本身是皮革还是钻石；没写进售货机价格表的附魔用兜底最低价；</li>
  *     <li>一行代表背包里的<b>一整叠</b>，回收时整叠消失，总价 = 单件价格 × 数量。</li>
  * </ul>
@@ -33,6 +33,13 @@ import java.util.List;
  * 并会再弹一次确认框，防止误操作。
  */
 public final class EnchantRecycleService {
+
+    /**
+     * 回收价相对售货机最低价的折算比例：最低价的 1/3。
+     * <p>
+     * 收购价永远低于售价，玩家没法靠「买书 → 卖回」套利。
+     */
+    private static final int RECYCLE_PRICE_DIVISOR = 3;
 
     /** 回收结果。 */
     public enum Result {
@@ -132,7 +139,10 @@ public final class EnchantRecycleService {
     }
 
     /**
-     * 单个附魔的回收价：最低价 ÷ 最大等级 × 当前等级（向下取整，最低 1）。
+     * 单个附魔的回收价：最低价 ÷ 3 ÷ 最大等级 × 当前等级（向下取整，最低 1）。
+     * <p>
+     * 先把乘法做完再一次性除，避免 {@code 896 ÷ 3 ÷ 4 × 3} 在整数运算里丢精度：
+     * 正确结果是 {@code 896 × 3 ÷ (3 × 4) = 224}，而不是 {@code 298 ÷ 4 × 3 = 222}。
      */
     public static long priceOf(RegistryAccess access, String enchantId, int level) {
         int maxLevel = EnchantCatalog.level(access, enchantId);
@@ -141,7 +151,8 @@ public final class EnchantRecycleService {
         }
         int effective = Math.max(1, Math.min(level, maxLevel));
         int minPrice = EnchantCatalog.minPriceOf(access, enchantId);
-        return Math.max(1L, (long) minPrice * effective / maxLevel);
+        long denominator = (long) RECYCLE_PRICE_DIVISOR * maxLevel;
+        return Math.max(1L, (long) minPrice * effective / denominator);
     }
 
     private static long sum(List<EnchantLine> lines) {

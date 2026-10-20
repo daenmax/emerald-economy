@@ -159,7 +159,7 @@ public final class ServerPayloads {
      *
      * @param enchantId 附魔 ID
      * @param level     当前等级
-     * @param price     回收价（最低价 ÷ 最大等级 × 当前等级）
+     * @param price     回收价（最低价 ÷ 3 ÷ 最大等级 × 当前等级）
      */
     public record EnchantPriceLine(String enchantId, int level, long price) {
     }

@@ -424,7 +424,8 @@ public final class SelfTest {
      * 本轮新增的纯逻辑：排行榜排序与附魔回收价公式。
      * <p>
      * 排行榜用临时存档验证「净值 = 余额 - 欠款」「按净值降序」「记录更新日」；
-     * 附魔回收价直接用本地注册表验证需求里的两个例子（经验修补 1560、保护 3 级 672）。
+     * 附魔回收价直接用本地注册表验证需求里的两个例子
+     * （经验修补 1 级 = 520、保护 3 级 = 224）。
      */
     private static void testRankingAndRecycle(MinecraftServer server) {
         EconomyData data = new EconomyData();
@@ -447,10 +448,10 @@ public final class SelfTest {
         check("转账手续费率默认 0.01", EEConfig.transferFeeRate() == 0.01D);
 
         var access = server.registryAccess();
-        check("附魔回收价：经验修补 1 级 = 1560",
-                EnchantRecycleService.priceOf(access, "minecraft:mending", 1) == 1560L);
-        check("附魔回收价：保护 3 级 = 896 / 4 * 3 = 672",
-                EnchantRecycleService.priceOf(access, "minecraft:protection", 3) == 672L);
+        check("附魔回收价：经验修补 1 级 = 1560 / 3 = 520",
+                EnchantRecycleService.priceOf(access, "minecraft:mending", 1) == 520L);
+        check("附魔回收价：保护 3 级 = 896 / 3 / 4 * 3 = 224",
+                EnchantRecycleService.priceOf(access, "minecraft:protection", 3) == 224L);
     }
 
     /**

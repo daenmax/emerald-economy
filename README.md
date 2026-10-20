@@ -98,48 +98,48 @@
 
 <table>
 <tr>
-<td align="center"><img src="素材/README截图/01_atm_before_deposit.png" width="330"><br><b>ATM</b>：账户概况 + 功能菜单（存取 / 贷款 / 流水 / 经验存取 / 在线奖励 / 排行榜和转账）</td>
-<td align="center"><img src="素材/README截图/46_atm_transactions_multiday.png" width="330"><br><b>交易记录</b>：连续多日的存取、贷款与每日利息，含变动前 → 变动后</td>
+<td align="center"><img src="素材/README截图/01_atm_overview.png" width="330"><br><b>ATM</b>：余额 / 信用额度 / 贷款欠款 / 可贷额度 / 已存经验 + 六个功能页</td>
+<td align="center"><img src="素材/README截图/02_transactions_balance.png" width="330"><br><b>交易记录·账户余额明细</b>：多日存取、贷款与每日利息，变动前 → 变动后</td>
 </tr>
 <tr>
-<td align="center"><img src="素材/README截图/40_atm_online_reward.png" width="330"><br><b>ATM·在线奖励</b>：结算时在线才有资格，奖励经验值</td>
-<td align="center"><img src="素材/README截图/42_atm_level_stored.png" width="330"><br><b>ATM·经验存取</b>：按等级输入，ATM 里显示已存经验</td>
+<td align="center"><img src="素材/README截图/03_transactions_experience.png" width="330"><br><b>交易记录·经验存取明细</b>：存入 / 取出 / 在线奖励 / 赠送，显示经验变动前 → 后</td>
+<td align="center"><img src="素材/README截图/04_transactions_debt.png" width="330"><br><b>交易记录·贷款欠款明细</b>：贷款与还款的欠款变化</td>
 </tr>
 <tr>
-<td align="center"><img src="素材/README截图/47_atm_records_debt_multiday.png" width="330"><br><b>交易记录·贷款欠款明细</b>（两个分类分开看）</td>
-<td align="center"><img src="素材/README截图/44_exchange_multiday.png" width="330"><br><b>基金交易所</b>：七支基金的价格、日涨跌 / 累计涨跌与走势图</td>
+<td align="center"><img src="素材/README截图/05_atm_experience_storage.png" width="330"><br><b>ATM·经验存取</b>：按等级输入，显示已存经验，支持全部存入 / 全部取出</td>
+<td align="center"><img src="素材/README截图/06_atm_online_reward.png" width="330"><br><b>ATM·在线奖励</b>：结算时在线才有资格，奖励 50 + 游戏日经验</td>
 </tr>
 <tr>
-<td align="center"><img src="素材/README截图/45_holdings_multiday.png" width="330"><br><b>我的持仓</b>：多日结算后的份额 / 平均成本 / 市值 / 浮动盈亏</td>
-<td align="center"><img src="素材/README截图/48_market_news_multiday.png" width="330"><br><b>市场新闻</b>：连续多日的天气、随机事件与结算记录</td>
+<td align="center"><img src="素材/README截图/07_ranking_balance.png" width="330"><br><b>余额排行榜</b>：打开时实时刷新，显示净值 / 余额 / 欠款，可转账</td>
+<td align="center"><img src="素材/README截图/08_ranking_experience.png" width="330"><br><b>经验排行榜</b>：按已存经验排序，只显示经验列，可赠送</td>
 </tr>
 <tr>
-<td align="center"><img src="素材/README截图/11_lottery.png" width="330"><br><b>抽奖机</b>：三个场次；欠款未清时不能下注</td>
-<td align="center"><img src="素材/README截图/14_vending.png" width="330"><br><b>自动售货机</b>：附魔书按分类排版，带等级与适用物品</td>
+<td align="center"><img src="素材/README截图/09_exchange_multiday.png" width="330"><br><b>基金交易所</b>：日涨跌 / 累计涨跌两列 + 连续多日走势图</td>
+<td align="center"><img src="素材/README截图/10_exchange_holdings.png" width="330"><br><b>我的持仓</b>：多日结算后的份额 / 平均成本 / 市值 / 浮动盈亏</td>
 </tr>
 <tr>
-<td align="center"><img src="素材/README截图/36_vending_other.png" width="330"><br><b>售货机·其他</b>：种子 / 树苗 / 经验 / 杂物（不参与解锁进度）</td>
-<td align="center"><img src="素材/README截图/17_acquisition.png" width="330"><br><b>自动收购机</b>：五个常驻分类 + 附魔回收 + 疯狂星期五</td>
+<td align="center"><img src="素材/README截图/11_exchange_sell.png" width="330"><br><b>卖出弹窗</b>：显示我的份额，支持全部卖出</td>
+<td align="center"><img src="素材/README截图/12_market_news.png" width="330"><br><b>市场新闻</b>：连续多日的天气、随机事件与结算记录</td>
 </tr>
 <tr>
-<td align="center"><img src="素材/README截图/40c_vending_misc_exp.png" width="330"><br><b>售货机·经验</b>：10 / 100 / 1000 点经验值</td>
-<td align="center"><img src="素材/README截图/40b_acquire_disc_sold.png" width="330"><br><b>收购机·整类行</b>：唱片只占一行，任意唱片都能卖</td>
+<td align="center"><img src="素材/README截图/13_lottery.png" width="330"><br><b>抽奖机</b>：三个场次；欠款未清时不能下注</td>
+<td align="center"><img src="素材/README截图/14_vending_enchants.png" width="330"><br><b>自动售货机</b>：附魔书按分类排版，带等级与适用物品</td>
 </tr>
 <tr>
-<td align="center"><img src="素材/README截图/37_acquire_misc.png" width="330"><br><b>杂物分类</b>：不祥旗帜 / 唱片一行 / 潜影壳 / 幽匿感测体……</td>
-<td align="center"><img src="素材/README截图/38_acquire_livestock.png" width="330"><br><b>畜牧分类</b>：鱼肉类、骨头、鸡蛋每 8 个一份</td>
+<td align="center"><img src="素材/README截图/15_vending_other.png" width="330"><br><b>售货机·其他</b>：种子 / 树苗 / 经验 / 杂物，全部不限量</td>
+<td align="center"><img src="素材/README截图/16_vending_experience.png" width="330"><br><b>售货机·经验</b>：10 / 100 / 1000 点经验值，不限量</td>
 </tr>
 <tr>
-<td align="center"><img src="素材/README截图/49_crazy_friday_day15.png" width="330"><br><b>疯狂星期五</b>：9 个池子条目随机 3 件、5-10 倍收购</td>
-<td align="center"><img src="素材/README截图/20_atm_opened_by_click.png" width="330"><br><b>真实交互</b>：右键机器（需红石块供电）打开界面</td>
+<td align="center"><img src="素材/README截图/17_acquisition.png" width="330"><br><b>自动收购机</b>：农业分类，每行有「出售 / 出售全部」</td>
+<td align="center"><img src="素材/README截图/18_acquisition_misc.png" width="330"><br><b>杂物分类</b>：不祥旗帜、不祥之瓶、唱片一行……</td>
 </tr>
 <tr>
-<td align="center"><img src="素材/README截图/50_lottery_can_bet.png" width="330"><br><b>抽奖机·可下注</b>：欠款还清后三个场次都能正常下注</td>
-<td align="center"><img src="素材/README截图/51_acquire_enchant.png" width="330"><br><b>附魔回收</b>：背包里 3 件装备 + 1 本多附魔书，逐条列出回收价</td>
+<td align="center"><img src="素材/README截图/19_acquisition_livestock.png" width="330"><br><b>畜牧分类</b>：鱼肉类、骨头、鸡蛋每 8 个一份</td>
+<td align="center"><img src="素材/README截图/20_crazy_friday.png" width="330"><br><b>疯狂星期五</b>：9 个池子条目随机 3 件；任意刷怪蛋整类一行</td>
 </tr>
 <tr>
-<td align="center"><img src="素材/README截图/52_vending_general.png" width="330"><br><b>售货机·杂物</b>：新增子分类，目前卖玻璃 1 余额 / 个</td>
-<td></td>
+<td align="center"><img src="素材/README截图/21_enchant_recycle.png" width="330"><br><b>附魔回收</b>：逐条列出附魔回收价与整叠总价</td>
+<td align="center"><img src="素材/README截图/22_machine_opened_by_click.png" width="330"><br><b>真实交互</b>：右键机器（需红石块供电）打开界面</td>
 </tr>
 </table>
 
@@ -224,9 +224,9 @@
   所以「我有 16 个鸡蛋」点一下出售就是卖 16 个、换 2 绿宝石。
 - **附魔回收**：把背包（含快捷栏）里所有带附魔的物品列出来（附魔书也算），
   每行显示物品图标、名字、数量、每个附魔的回收价和整叠总价。
-  回收价只看附魔，不看物品材质：**售货机里该附魔的最低价 ÷ 最大等级 × 当前等级**。
-  例：经验修补最低价 1560、最大等级 1、等级 1 → 1560；保护最低价 896、最大等级 4、等级 3 → 672，
-  合计 2232。点「回收」会先弹**二次确认**，确认后才整叠扣除并入账，防止误操作。
+  回收价只看附魔，不看物品材质：**售货机里该附魔的最低价 ÷ 3 ÷ 最大等级 × 当前等级**。
+  例：经验修补最低价 1560、最大等级 1、等级 1 → 520；保护最低价 896、最大等级 4、等级 3 → 224，
+  合计 744。点「回收」会先弹**二次确认**，确认后才整叠扣除并入账，防止误操作。
 - **藏宝图**只收带结构标记的已填写地图（林地府邸 / 海底神殿 / 埋藏的宝藏等），
   普通已探索地图与空地图不收。
 - **疯狂星期五**：逢 5 的游戏日随机抽 3 件稀有物品按 **5-10 倍**收购，广播里会**带上每件的单价**。
@@ -770,7 +770,7 @@ marketEvents = ["EMR_MIN|0.08|news.vein_found", "ALL|-0.06|news.recession"]
 
 - 加一个新的附魔会**改变全服解锁格子的总数**（后面格子的升级费用也会跟着变）；
 - 附魔必须已经在游戏里注册（原版或已安装的模组）；
-- 售货机里该附魔的最低价也会影响**附魔回收**的回收价；
+- 售货机里该附魔的最低价也会影响**附魔回收**的回收价（回收价 = 最低价 ÷ 3 ÷ 最大等级 × 当前等级）；
 - 不懂就别动附魔表。
 
 #### 2.6 自定义显示名：用 `name`，别乱写 `lang`
@@ -963,16 +963,17 @@ rm -rf run/world                   # 主用例断言的是绝对余额，必须�
   批量收购与批次结算、**整类收购（一行卖任意唱片 / 树苗 / 花 / 蘑菇）**、
   **ATM 经验存取（默认锁定 → 付费解锁 → 按等级存 / 取经验）与在线奖励（跨天结算时在线才有资格）**、
   **售货机买经验值（经验点 +1000、余额 -6000）**、欠款禁赌 / 禁止参加疯狂星期五、
-  交易记录的前后余额与经验流水、收购按钮按背包置灰、改 JSON + `/ee reload` 热重载、
-  生存模式挖机器必定掉一台等。最后还会把游戏日快速推到第 15 天（每天用 `/ee settle`
-  强制结算一次），专门拍**红绿混合的多日基金走势、多日交易流水、第 15 天的疯狂星期五、
-  可正常下注的抽奖机、附魔回收与售货机新杂物货架**。
-  **v1.0.3 的经验存取、双排行榜 / 经验赠送、任意刷怪蛋整类等改动已同步进测试脚本；
-  建议用干净存档重跑一遍完整流程后再发布。**
+  **交易记录三个分类（余额 / 欠款 / 经验）的前后值**、**双排行榜与经验赠送**、
+  收购按钮按背包置灰、改 JSON + `/ee reload` 热重载、生存模式挖机器必定掉一台等。
+  最后还会把游戏日快速推到第 15 天（每天用 `/ee settle` 强制结算一次），专门拍
+  **红绿混合的多日基金走势、多日交易流水、第 15 天的疯狂星期五、可正常下注的抽奖机、
+  附魔回收、双排行榜与卖出弹窗**。
+  **v1.0.3 已用干净存档完整重跑：171 项断言 / 56 张截图，0 失败。**
 - 另有四个专用用例：`runClientUiTestShopFull`（商店全解锁）、`runClientUiTestMarketEvents`
   （随机市场事件逐类核对）、`runClientUiTestOwner` + `runClientUiTestPeer`（两人同时在线）、
   `runClientUiTestMine`（只跑挖掘与掉落，排查问题时几十秒出结果）。
 
-截图留档：`素材/验证截图/`（全量）与 `素材/README截图/`（本 README 用的那些）。
+截图留档：`素材/验证截图/`（本次干净存档的 56 张全量截图 + 测试日志）与
+`素材/README截图/`（本 README 精选的 22 张，按 01~22 编号）。
 
 更细的开发笔记、需求取舍与踩过的坑都写在 [JOB.md](JOB.md)。

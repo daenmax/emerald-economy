@@ -554,7 +554,7 @@ public class AcquisitionScreen extends EEScreen {
                 page + 1, pages).getString(), x + 56, panelY + panelH - 19, COLOR_MUTED);
     }
 
-    /** 一行附魔的摘要：「经验修补 1 → 1560 · 保护 3 → 672」。 */
+    /** 一行附魔的摘要：「经验修补 1 → 520 · 保护 3 → 224」。 */
     private static String enchantSummary(ServerPayloads.EnchantItemLine item) {
         StringBuilder builder = new StringBuilder();
         for (ServerPayloads.EnchantPriceLine line : item.enchants()) {
