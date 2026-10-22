@@ -576,8 +576,11 @@ public final class AccountService {
         player.experienceProgress = progress;
         player.totalExperience = value;
         if (player.connection != null) {
-            // 服务端每刻也会比对这三个字段并补发，这里主动发一次让界面立刻刷新
-            player.connection.send(new ClientboundSetExperiencePacket(progress, level, value));
+            // 服务端每刻也会比对这三个字段并补发，这里主动发一次让界面立刻刷新。
+            // 注意：1.21.1 这个包的构造器参数顺序是 (进度, 总经验, 等级)，
+            // 与它内部的网络读写顺序 (进度, 等级, 总经验) 不同，传反了客户端会把
+            // 总经验当成等级显示（例如取回 1 级后 HUD 闪一下 7 级）。
+            player.connection.send(new ClientboundSetExperiencePacket(progress, value, level));
         }
         return true;
     }

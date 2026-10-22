@@ -273,10 +273,18 @@ public final class ServerPayloads {
         }
     }
 
-    /** 市场快照（交易所界面用）。 */
+    /**
+     * 市场快照（交易所界面用）。
+     *
+     * @param dailyBuyLimit      每日买入份额上限（0 表示不限制）
+     * @param dailyBuyRemaining  今日还剩多少份额可以买入
+     * @param dailySellLimit     每日卖出份额上限（0 表示不限制）
+     * @param dailySellRemaining 今日还剩多少份额可以卖出
+     */
     public record SyncMarket(List<FundSnapshot> funds, List<NewsLine> news, long day,
                              double tradeFeeRate, int cooldownMillis,
-                             long balance) implements CustomPacketPayload {
+                             long balance, int dailyBuyLimit, long dailyBuyRemaining,
+                             int dailySellLimit, long dailySellRemaining) implements CustomPacketPayload {
 
         public static final CustomPacketPayload.Type<SyncMarket> TYPE =
                 new CustomPacketPayload.Type<>(EEConstants.id("sync_market"));
@@ -477,6 +485,10 @@ public final class ServerPayloads {
         buf.writeDouble(payload.tradeFeeRate());
         buf.writeVarInt(payload.cooldownMillis());
         buf.writeVarLong(payload.balance());
+        buf.writeVarInt(payload.dailyBuyLimit());
+        buf.writeVarLong(payload.dailyBuyRemaining());
+        buf.writeVarInt(payload.dailySellLimit());
+        buf.writeVarLong(payload.dailySellRemaining());
     }
 
     private static SyncMarket readMarket(RegistryFriendlyByteBuf buf) {
@@ -504,7 +516,8 @@ public final class ServerPayloads {
             news.add(new NewsLine(langKey, kind, args, buf.readVarLong()));
         }
         return new SyncMarket(funds, news, buf.readVarLong(), buf.readDouble(), buf.readVarInt(),
-                buf.readVarLong());
+                buf.readVarLong(), buf.readVarInt(), buf.readVarLong(),
+                buf.readVarInt(), buf.readVarLong());
     }
 
     private static void writeLottery(RegistryFriendlyByteBuf buf, SyncLottery payload) {

@@ -208,6 +208,14 @@ Each recipe yields one machine. Picking up redstone for the first time unlocks a
   price vs the fund's base price. Day change resets at every settlement, while Total shows the fund's
   performance since launch.
 - Opening the sell screen shows **your current shares** and offers a **Sell all** button.
+- The buy screen shows **how many shares your balance can afford** (fee included) right below the
+  quantity box, together with **how many shares you may still buy today**.
+- **Daily share limits**: by default each player may buy at most 10 shares and sell at most 20 shares
+  per day. The limit counts **shares, not transactions**, and all seven funds share the same quota
+  (buying 5 shares of one fund and 3 of another leaves 2). The quota resets when the game day changes,
+  and **Sell all** automatically stops at the remaining quota.
+- **Daily price limit (limit-up / limit-down) is ±10% by default**: each day's price is kept within
+  the previous close ±10%, covering both the 5-minute updates and the opening price after settlement.
 - Trades cost a 2% fee (minimum 1), with a 5-second cooldown per fund.
 
 ### Lottery Machine
@@ -326,8 +334,11 @@ Values inside an existing save / config file are not updated automatically — s
 | Weather strength | 1 |
 | Daily random drift (rolled per fund) | ±5.0% |
 | Random market event chance | 15% |
+| Daily price limit (limit-up / limit-down) | ±10% |
 | Fund trade fee | 2% (minimum 1) |
 | Trade cooldown per fund | 5000 ms |
+| Daily buy share limit per player (all funds) | 10 shares |
+| Daily sell share limit per player (all funds) | 20 shares |
 
 ### Lottery
 | Game | Odds | Bets per day |
@@ -538,7 +549,7 @@ What you can tune:
 | Section | Contents |
 | --- | --- |
 | `account` | deposit/withdraw fee rate, daily interest and the **balance threshold that starts it**, loan interest, credit limit, transaction history size, **experience storage unlock cost**, **online reward base XP and per-day step**, **player transfer fee rate** |
-| `market` | price interval, momentum and reversion parameters, **daily random drift**, fees, trade cooldown, per-fund base price / volatility / supply, weather table, news event table |
+| `market` | price interval, momentum and reversion parameters, **daily random drift**, **daily price limit**, fees, trade cooldown, **daily buy/sell share limits**, per-fund base price / volatility / supply, weather table, news event table |
 | `lottery` | odds for the three games, daily bet count |
 | `shop` | initial slot count, upgrade cost range, **enchantment price and category table**, other goods table, daily purchase limit, excluded enchantments |
 | `acquire` | Crazy Friday interval / item pool / base prices and multipliers; per-category price tables live in `acquire.json` |
@@ -985,6 +996,8 @@ rm -rf run/world                   # the main case asserts absolute balances, so
   **multi-day chart with mixed green/red changes, multi-day transaction history, the day-15 Crazy
   Friday, a lottery screen that accepts bets, enchantment recycle, both leaderboards and the sell dialog**.
   **v1.0.3 was re-run from a clean save: 171 assertions / 56 screenshots, 0 failures.**
+  v1.0.4 did not re-run the full GUI suite; the server `SelfTest` passes **175 assertions** and
+  `gradlew build` succeeds.
 - Four dedicated cases: `runClientUiTestShopFull` (shop fully unlocked), `runClientUiTestMarketEvents`
   (each random market event checked individually), `runClientUiTestOwner` + `runClientUiTestPeer`
   (two players online at once), and `runClientUiTestMine` (mining and drops only — a result in under a

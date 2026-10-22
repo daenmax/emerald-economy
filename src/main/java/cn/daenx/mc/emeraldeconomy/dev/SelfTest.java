@@ -62,6 +62,7 @@ public final class SelfTest {
 
         try {
             testAmounts();
+            testAffordableQuantity();
             testParams();
             testHolding();
             testFundState();
@@ -102,6 +103,21 @@ public final class SelfTest {
         check("价格四舍五入且最小 1", Amounts.roundPrice(0.4D) == 1);
         check("价格四舍五入", Amounts.roundPrice(12.6D) == 13);
         check("中奖金额至少 1", Amounts.floorAtLeastOne(1.2D) == 1L);
+    }
+
+    /** 按余额反推可买份额，以及每日买卖份额的计数与跨天重置。 */
+    private static void testAffordableQuantity() {
+        check("按余额反推可买份额", Amounts.affordableQuantity(1000L, 100L, 0.02D) == 9L);
+        check("余额不足一份时返回 0", Amounts.affordableQuantity(50L, 100L, 0.02D) == 0L);
+        check("无手续费时按整份计算", Amounts.affordableQuantity(1000L, 100L, 0.0D) == 10L);
+
+        AccountData account = new AccountData(UUID.randomUUID());
+        account.recordFundBuy(5L, 12L);
+        account.recordFundBuy(5L, 3L);
+        check("每日买入份额跨基金累计", account.fundBoughtShares(5L) == 15L);
+        check("跨天后买入份额归零", account.fundBoughtShares(6L) == 0L);
+        account.recordFundSell(5L, 7L);
+        check("每日卖出份额独立统计", account.fundSoldShares(5L) == 7L);
     }
 
     private static void testParams() {
@@ -146,8 +162,10 @@ public final class SelfTest {
 
         double minFactor = EEConfig.priceMinFactor();
         double maxFactor = EEConfig.priceMaxFactor();
+        double dailyLimit = EEConfig.dailyLimitRate();
         boolean boundsOk = true;
         boolean positiveOk = true;
+        boolean dailyLimitOk = true;
 
         for (int i = 0; i < 500; i++) {
             MarketEngine.updatePrices(data, random);
@@ -161,10 +179,19 @@ public final class SelfTest {
                 if (price < Math.floor(base * minFactor) || price > Math.ceil(base * maxFactor)) {
                     boundsOk = false;
                 }
+                // 涨跌停以「上一日收盘价」为基准（与 MarketEngine 一样加极小量抵消浮点误差）
+                int previousClose = state.previousClose();
+                int dailyMin = Math.max(1, (int) Math.ceil(
+                        previousClose * (1.0D - dailyLimit) - 1.0E-9D));
+                int dailyMax = (int) Math.floor(previousClose * (1.0D + dailyLimit) + 1.0E-9D);
+                if (price < dailyMin || price > dailyMax) {
+                    dailyLimitOk = false;
+                }
             }
         }
         check("500 次价格更新后价格始终不小于 1", positiveOk);
         check("500 次价格更新后价格始终在硬性边界内", boundsOk);
+        check("500 次价格更新后价格始终在当日涨跌停内", dailyLimitOk);
 
         boolean momentumOk = true;
         for (FundType type : FundType.industryFunds()) {
@@ -175,7 +202,7 @@ public final class SelfTest {
         }
         check("动量被限制在最大幅度内", momentumOk);
 
-        // 综合基金应当等于六支基金的加权指数
+        // 综合基金应当等于六支基金的加权指数（再受硬性边界与当日涨跌停约束）
         double index = 0.0D;
         for (FundType type : FundType.industryFunds()) {
             FundState state = data.market().fund(type);
@@ -183,9 +210,17 @@ public final class SelfTest {
         }
         FundState composite = data.market().fund(FundType.EMR_CMP);
         double expected = composite.basePrice() * index * (1.0D + composite.momentum());
+        int prevClose = composite.previousClose();
+        double hardMin = Amounts.roundPrice(composite.basePrice() * minFactor);
+        double hardMax = Amounts.roundPrice(composite.basePrice() * maxFactor);
+        double bandMin = Math.max(hardMin, Math.max(1.0D,
+                Math.ceil(prevClose * (1.0D - dailyLimit) - 1.0E-9D)));
+        double bandMax = Math.min(hardMax, Math.max(1.0D,
+                Math.floor(prevClose * (1.0D + dailyLimit) + 1.0E-9D)));
+        expected = Math.max(bandMin, Math.min(bandMax, (double) Amounts.roundPrice(expected)));
         double actual = composite.price();
         check("综合基金由六支基金加权得出",
-                Math.abs(actual - expected) <= Math.max(2.0D, expected * 0.02D));
+                Math.abs(actual - expected) <= 1.0D);
     }
 
     private static void testSettlement(MinecraftServer server) {

@@ -4,6 +4,7 @@ import cn.daenx.mc.emeraldeconomy.acquire.AcquireService;
 import cn.daenx.mc.emeraldeconomy.acquire.EnchantRecycleService;
 import cn.daenx.mc.emeraldeconomy.client.ClientNetworkHandler;
 import cn.daenx.mc.emeraldeconomy.core.Notify;
+import cn.daenx.mc.emeraldeconomy.data.AccountData;
 import cn.daenx.mc.emeraldeconomy.data.EconomyData;
 import cn.daenx.mc.emeraldeconomy.economy.AccountService;
 import cn.daenx.mc.emeraldeconomy.lottery.LotteryService;
@@ -44,7 +45,7 @@ import java.util.UUID;
 public final class NetworkHandler {
 
     /** 协议版本，客户端与服务端不一致时会被拒绝连接。 */
-    private static final String PROTOCOL_VERSION = "6";
+    private static final String PROTOCOL_VERSION = "7";
 
     private NetworkHandler() {
     }
@@ -374,10 +375,21 @@ public final class NetworkHandler {
                     case INSUFFICIENT_BALANCE -> "market.fail_balance";
                     case INSUFFICIENT_SHARES -> "market.fail_shares";
                     case COOLDOWN -> "market.fail_cooldown";
+                    case DAILY_BUY_LIMIT -> "market.fail_daily_buy";
+                    case DAILY_SELL_LIMIT -> "market.fail_daily_sell";
                     case OK -> "market.fail_unknown";
                 };
                 if (outcome.result() == FundTradeService.Result.COOLDOWN) {
                     feedback(player, true, key, (outcome.cooldown() + 999) / 1000);
+                } else if (outcome.result() == FundTradeService.Result.DAILY_BUY_LIMIT
+                        || outcome.result() == FundTradeService.Result.DAILY_SELL_LIMIT) {
+                    // 提示里带上「今天还剩多少份」，玩家才知道下一次能买 / 卖多少
+                    long today = cn.daenx.mc.emeraldeconomy.core.DaySettlement.currentDay(player.serverLevel());
+                    AccountData account = data.account(player.getUUID());
+                    long remaining = payload.buy()
+                            ? FundTradeService.remainingDailyBuy(account, today)
+                            : FundTradeService.remainingDailySell(account, today);
+                    feedback(player, true, key, remaining);
                 } else {
                     feedback(player, true, key);
                 }

@@ -53,6 +53,48 @@ public final class Amounts {
         return floorNonNegative(principal * rate);
     }
 
+    /**
+     * 按余额反推「最多能买多少份」。
+     * <p>
+     * 每份价格固定、手续费随成交额变大，所以花费对份额是单调递增的，
+     * 这里用二分查找求满足 {@code 成交额 + 手续费 ≤ 余额} 的最大份额。
+     * 只用于界面提示，真正下单时服务端还会再校验一次。
+     *
+     * @param balance   账户余额
+     * @param unitPrice 每份单价
+     * @param feeRate   手续费率（0.02 表示 2%）
+     * @return 最多可买份额，余额不够买 1 份时返回 0
+     */
+    public static long affordableQuantity(long balance, long unitPrice, double feeRate) {
+        if (balance <= 0L || unitPrice <= 0L) {
+            return 0L;
+        }
+        long low = 0L;
+        long high = balance / unitPrice;
+        while (low < high) {
+            long mid = low + (high - low + 1L) / 2L;
+            if (buyCost(unitPrice, mid, feeRate) <= balance) {
+                low = mid;
+            } else {
+                high = mid - 1L;
+            }
+        }
+        return low;
+    }
+
+    /** 买入总花费（成交额 + 手续费），溢出时返回 {@link Long#MAX_VALUE}。 */
+    private static long buyCost(long unitPrice, long quantity, double feeRate) {
+        if (quantity <= 0L) {
+            return 0L;
+        }
+        long gross = unitPrice * quantity;
+        long fee = fee(gross, feeRate);
+        if (gross > Long.MAX_VALUE - fee) {
+            return Long.MAX_VALUE;
+        }
+        return gross + fee;
+    }
+
     /** 把金额限制在 [min, max] 区间内。 */
     public static long clamp(long value, long min, long max) {
         return Math.max(min, Math.min(max, value));

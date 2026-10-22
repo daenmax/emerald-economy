@@ -14,6 +14,7 @@ import cn.daenx.mc.emeraldeconomy.lottery.BetRecord;
 import cn.daenx.mc.emeraldeconomy.lottery.LotteryBook;
 import cn.daenx.mc.emeraldeconomy.lottery.LotteryType;
 import cn.daenx.mc.emeraldeconomy.market.FundState;
+import cn.daenx.mc.emeraldeconomy.market.FundTradeService;
 import cn.daenx.mc.emeraldeconomy.market.FundType;
 import cn.daenx.mc.emeraldeconomy.market.Holding;
 import cn.daenx.mc.emeraldeconomy.market.NewsEntry;
@@ -220,9 +221,12 @@ public final class ServerSync {
         for (NewsEntry entry : data.market().news()) {
             news.add(new ServerPayloads.NewsLine(entry.langKey(), entry.kind(), entry.args(), entry.day()));
         }
+        long today = currentDay(player);
         PacketDistributor.sendToPlayer(player, new ServerPayloads.SyncMarket(
-                funds, news, currentDay(player), EEConfig.tradeFeeRate(), EEConfig.tradeCooldownMillis(),
-                account.balance()));
+                funds, news, today, EEConfig.tradeFeeRate(), EEConfig.tradeCooldownMillis(),
+                account.balance(),
+                EEConfig.dailyBuyShareLimit(), FundTradeService.remainingDailyBuy(account, today),
+                EEConfig.dailySellShareLimit(), FundTradeService.remainingDailySell(account, today)));
     }
 
     /** 抽奖快照。 */

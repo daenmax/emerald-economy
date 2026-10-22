@@ -113,6 +113,34 @@
 
 ## 四、最新变更
 
+### 第十六轮（1.0.4）：买入份额提示 + 每日买卖份数上限 + 涨停 / 跌停
+
+- **买入页提示**：`TradeScreen` 在份额输入框下方显示「按当前余额最多可买 X 份」
+  （用 `Amounts.affordableQuantity` 二分查找，已把手续费算进去），并附带今日剩余额度。
+- **每日份数上限**：`EEConfig.market.dailyBuyShareLimit`（默认 10）、`dailySellShareLimit`（默认 20），
+  0 表示不限制。统计的是**份额**，七支基金**合计**共享同一份额度，不是交易次数。
+  - 计数持久化在 `AccountData`（`fundBuyDay/fundBuyShares/fundSellDay/fundSellShares`），
+    用「统计日 == 当前游戏日」隐式重置，不依赖结算流程，旧存档缺字段时按 0 处理。
+  - 校验在 `FundTradeService.buy/sell`；`Result` 新增 `DAILY_BUY_LIMIT / DAILY_SELL_LIMIT`，
+    失败提示会带上「今天还能买卖多少份」。
+  - 卖出页「全部卖出」在客户端会自动截到今日剩余额度，避免发一个必然被拒的请求。
+- **涨停 / 跌停**：`EEConfig.market.dailyLimitRate`（默认 0.10）。
+  `MarketEngine.clampPriceToBounds` 现在同时约束「基准价 × 上下界」与「上一日收盘价 × (1 ± 该值)」，
+  每 5 分钟波动和结算后的开盘价都受这个限制；综合基金的重新计算也走同一个方法。
+- **网络**：`SyncMarket` 追加 `dailyBuyLimit / dailyBuyRemaining / dailySellLimit / dailySellRemaining`
+  四个字段，协议版本 6 → 7；客户端只做展示，额度仍由服务端最终校验。
+- **默认值调整（后续同一轮）**：每日限额默认 `dailyBuyShareLimit` 20 → **10**、
+  `dailySellShareLimit` 40 → **20**，配置注释与 README / README_EN 同步。
+  注意：已存在的 `serverconfig/emerald_economy-server.toml` 不会被覆盖，需要手动改值或删掉重新生成。
+- **已修复的问题**：ATM 取回经验后，客户端 HUD 的等级会短暂显示成经验点数
+  （例如 0 级取回 1 级 → 显示 7 级，随后恢复 1 级）。
+  原因是 `AccountService.setExperience` 里
+  `new ClientboundSetExperiencePacket(progress, level, value)` 的参数顺序写错了：
+  1.21.1 的构造器签名是 `(float experienceProgress, int totalExperience, int experienceLevel)`，
+  已改为 `(progress, value, level)`（网络包内部写入顺序是 progress → level → total）。
+- **文档**：README / README_EN 的交易所玩法与默认数值表同步更新。
+- **版本**：版本号 1.0.3 → **1.0.4**，更新日志见 `updateLog/1.0.4_zh_cn.md` 与 `1.0.4_en_us.md`。
+
 ### 第十五轮（1.0.3）：附魔回收价下调为最低价的 1/3
 
 - **计价公式调整**：`EnchantRecycleService.priceOf` 从「最低价 ÷ 最大等级 × 等级」
@@ -812,6 +840,9 @@
       完整重跑 **171 项断言 / 56 张截图，0 失败**（详见第四节）
 - [x] **第十五轮（1.0.3）**：附魔回收价改为「售货机最低价 ÷ 3 ÷ 最大等级 × 当前等级」，
       经验修补 1 级 520、保护 3 级 224；配置、存档、协议均无需变动（详见第四节）
+- [x] **第十六轮（1.0.4）**：买入页显示「余额最多能买多少份」；新增每人每日买入 10 份 / 卖出 20 份
+      的份额上限（可配、所有基金合计、跨天自动重置）；新增每日 ±10% 涨跌停（可配）；
+      修复 ATM 取回经验后 HUD 短暂显示成经验点数的问题；协议 6 → 7（详见第四节）
 
 **进行中**：无。
 
@@ -1245,6 +1276,30 @@
   走势图颜色改成看「图内最后一点 vs 第一点」，不再依赖当日涨跌幅。
 - **教训**：凡是「每天重置」的基准值，都要考虑它和「定时更新」的间隔叠加起来会显示成什么样；
   界面上的颜色尽量由**它正在展示的那组数据**决定，别跨组复用另一个口径的涨跌。
+
+### 43. 用 `ceil` 算跌停价，被浮点误差抬高了 1
+
+- **现象**：`previousClose = 100`、每日涨跌幅上限 0.10 时，跌停价理论上应是 90，
+  但 `Math.ceil(100 * (1.0 - 0.10))` 得到的是 **91**。
+- **原因**：`1.0 - 0.10` 在 double 下是 `0.9000000000000000222`，乘 100 后变成
+  `90.000000000000002`，向上取整自然进了 91；涨停价那边因为误差方向相反，恰好没暴露。
+- **解决**：取整前减去 / 加上一个极小量（`1.0E-9`），
+  即 `ceil(prev * (1 - limit) - 1e-9)` / `floor(prev * (1 + limit) + 1e-9)`。
+- **教训**：凡是「小数 × 整数再取整」的边界（涨停价、手续费、利息），都要用具体数值验证一次，
+  不要只看公式推导。
+
+### 44. `ClientboundSetExperiencePacket` 的构造参数顺序与网络顺序不一样
+
+- **现象**：0 级玩家从 ATM 取回 1 级，HUD 的等级数字短暂显示成 **7**（正好是升到 1 级所需的经验点数），
+  过几秒又自己变回 1 级；单人（房主）和联机都存在。
+- **原因**：1.21.1 的构造器是 `(float experienceProgress, int totalExperience, int experienceLevel)`，
+  而网络包读写的顺序是 `progress → experienceLevel → totalExperience`。
+  `AccountService.setExperience` 按「进度、等级、总经验」传参，结果客户端收到的是
+  `level = 7（被当成总经验的那个值）`、`totalExperience = 1`。之后原版每刻的自动同步
+  （按正确顺序 `progress, total, level`）又把等级改回 1，所以表现为「闪现 7 级再恢复」。
+- **解决**：改为 `new ClientboundSetExperiencePacket(progress, value, level)`（已修复）。
+- **教训**：构造器参数顺序 != 字段/网络顺序时，编译器不会报错；调用原版网络包前先看一眼构造器定义，
+  必要时直接 `javap` 确认。
 
 ## 九、怎么开发 / 验证
 

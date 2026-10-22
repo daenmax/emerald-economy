@@ -2,6 +2,7 @@ package cn.daenx.mc.emeraldeconomy.market;
 
 import cn.daenx.mc.emeraldeconomy.config.EEConfig;
 import cn.daenx.mc.emeraldeconomy.core.Amounts;
+import cn.daenx.mc.emeraldeconomy.core.EEConstants;
 import cn.daenx.mc.emeraldeconomy.core.Params;
 import cn.daenx.mc.emeraldeconomy.data.EconomyData;
 import net.minecraft.network.chat.Component;
@@ -74,8 +75,8 @@ public final class MarketEngine {
             // 步骤 7：计算新价格
             int newPrice = Amounts.roundPrice(state.price() * (1.0D + momentum));
 
-            // 步骤 8：约束价格到 [基础价 × 0.3, 基础价 × 3.0]
-            newPrice = clampPriceToBounds(newPrice, base);
+            // 步骤 8：约束价格到 [基础价 × 0.3, 基础价 × 3.0]，并限制当日涨跌幅（涨停 / 跌停）
+            newPrice = clampPriceToBounds(newPrice, base, state.previousClose());
 
             state.setMomentum(momentum);
             state.setPrice(newPrice);
@@ -110,17 +111,44 @@ public final class MarketEngine {
         composite.setMomentum(mood);
 
         int price = Amounts.roundPrice(composite.basePrice() * index * (1.0D + mood));
-        price = clampPriceToBounds(price, composite.basePrice());
+        price = clampPriceToBounds(price, composite.basePrice(), composite.previousClose());
         composite.setPrice(price);
         composite.pushHistory(price);
     }
 
-    /** 把价格限制在基础价格的配置倍数范围内。 */
-    private static int clampPriceToBounds(int price, int base) {
-        int min = Amounts.roundPrice(base * EEConfig.priceMinFactor());
-        int max = Amounts.roundPrice(base * EEConfig.priceMaxFactor());
+    /**
+     * 把价格限制在「基础价格的配置倍数范围」与「当日涨跌停范围」的交集内。
+     * <p>
+     * 涨跌停以「上一次每日结算的收盘价」为基准：当天无论更新多少次，
+     * 价格都不会超过 {@code 收盘价 × (1 ± dailyLimitRate)}，也就是常见的涨停 / 跌停。
+     *
+     * @param previousClose 上一日收盘价，用于计算当日涨跌停价
+     */
+    private static int clampPriceToBounds(int price, int base, int previousClose) {
+        int hardMin = Amounts.roundPrice(base * EEConfig.priceMinFactor());
+        int hardMax = Amounts.roundPrice(base * EEConfig.priceMaxFactor());
+        if (hardMin > hardMax) {
+            hardMin = hardMax;
+        }
+
+        int min = hardMin;
+        int max = hardMax;
+        double limit = EEConfig.dailyLimitRate();
+        if (previousClose > 0) {
+            // 涨停价向下取整、跌停价向上取整，保证不会因为四舍五入越过限制。
+            // 减去 / 加上一个极小量是为了抵消浮点误差：100 × (1 - 0.10) 在 double 下是
+            // 90.000000000000002，直接向上取整会得到 91，跌停价就被悄悄抬高了。
+            int dailyMin = (int) Math.ceil(previousClose * (1.0D - limit) - 1.0E-9D);
+            int dailyMax = (int) Math.floor(previousClose * (1.0D + limit) + 1.0E-9D);
+            min = Math.max(min, Math.max(EEConstants.MIN_PRICE, dailyMin));
+            max = Math.min(max, Math.max(EEConstants.MIN_PRICE, dailyMax));
+        }
         if (min > max) {
-            min = max;
+            // 配置的硬性区间与当日涨跌停区间完全不重叠（例如中途改了价格上下界配置）：
+            // 把上一日收盘价夹进硬性区间当作唯一合法价格，避免价格卡死在矛盾区间里
+            int anchor = (int) Amounts.clamp(previousClose, hardMin, hardMax);
+            min = Math.max(EEConstants.MIN_PRICE, anchor);
+            max = min;
         }
         return (int) Amounts.clamp(price, min, max);
     }

@@ -50,7 +50,7 @@ public class TradeScreen extends EEScreen {
 
     @Override
     protected int maxPanelHeight() {
-        return 168;
+        return 184;
     }
 
     @Override
@@ -60,7 +60,8 @@ public class TradeScreen extends EEScreen {
         int boxY = panelY + PAD + 74;
         quantityBox = addRenderableWidget(new NumberBox(this.font, x, boxY, 90, 18, "1"));
 
-        int buttonY = boxY + 26;
+        // 输入框下方留一行「最多能买/卖多少份」的提示，按钮再往下让开这一行
+        int buttonY = boxY + 36;
         addRenderableWidget(Button.builder(
                         Component.translatable(EEConstants.langKey("screen.common.confirm")),
                         b -> confirm())
@@ -90,6 +91,11 @@ public class TradeScreen extends EEScreen {
     private void sellAll() {
         ServerPayloads.FundSnapshot snapshot = snapshot();
         long shares = snapshot == null ? 0L : snapshot.shares();
+        // 每日限售优先：超出今日剩余额度时只卖能卖的那部分，避免发一个必然被拒的请求
+        ServerPayloads.SyncMarket market = ClientEconomyCache.market;
+        if (market != null && market.dailySellLimit() > 0) {
+            shares = Math.min(shares, Math.max(0L, market.dailySellRemaining()));
+        }
         if (shares <= 0L) {
             return;
         }
@@ -108,6 +114,26 @@ public class TradeScreen extends EEScreen {
 
     private ServerPayloads.FundSnapshot snapshot() {
         return ExchangeScreen.findFund(ClientEconomyCache.market, fund.ordinal());
+    }
+
+    /**
+     * 今日买卖额度提示。
+     * <p>
+     * 配置里把上限设为 0 表示不限制，此时显示「今日买卖份额不限」。
+     */
+    private static String dailyLimitText(ServerPayloads.SyncMarket market, boolean buy) {
+        if (market == null) {
+            return "";
+        }
+        int limit = buy ? market.dailyBuyLimit() : market.dailySellLimit();
+        if (limit <= 0) {
+            return Component.translatable(
+                    EEConstants.langKey("screen.trade.daily_unlimited")).getString();
+        }
+        long remaining = buy ? market.dailyBuyRemaining() : market.dailySellRemaining();
+        return Component.translatable(
+                EEConstants.langKey(buy ? "screen.trade.daily_buy" : "screen.trade.daily_sell"),
+                money(remaining), limit).getString();
     }
 
     @Override
@@ -140,6 +166,19 @@ public class TradeScreen extends EEScreen {
         y += 14;
         drawText(graphics, Component.translatable(EEConstants.langKey("screen.trade.quantity")).getString(),
                 x, y, COLOR_TEXT);
+
+        // 输入框下方：买入时提示「余额最多能买多少份」，并附带今日剩余额度
+        int hintY = panelY + PAD + 74 + 22;
+        if (buy) {
+            long balance = market == null ? 0L : market.balance();
+            long maxBuy = Amounts.affordableQuantity(balance, price, feeRate);
+            drawTrimmed(graphics, Component.translatable(
+                            EEConstants.langKey("screen.trade.max_buy"), money(maxBuy)).getString()
+                            + " · " + dailyLimitText(market, true),
+                    x, hintY, COLOR_MUTED, contentW());
+        } else {
+            drawTrimmed(graphics, dailyLimitText(market, false), x, hintY, COLOR_MUTED, contentW());
+        }
 
         // 右侧实时预估
         long quantity = quantityBox == null ? 0L : quantityBox.longValue();

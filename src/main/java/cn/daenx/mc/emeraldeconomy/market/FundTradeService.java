@@ -2,6 +2,7 @@ package cn.daenx.mc.emeraldeconomy.market;
 
 import cn.daenx.mc.emeraldeconomy.config.EEConfig;
 import cn.daenx.mc.emeraldeconomy.core.Amounts;
+import cn.daenx.mc.emeraldeconomy.core.DaySettlement;
 import cn.daenx.mc.emeraldeconomy.data.AccountData;
 import cn.daenx.mc.emeraldeconomy.data.EconomyData;
 import cn.daenx.mc.emeraldeconomy.data.TransactionType;
@@ -20,6 +21,7 @@ import java.util.UUID;
  *     <li>买卖份额必须是整数，最小 1</li>
  *     <li>每笔交易收取 2% 手续费，最低扣 1 个绿宝石</li>
  *     <li>同一支基金 5 秒内不能重复交易，防止刷价</li>
+ *     <li>每人每天买入 / 卖出的份额有总量上限（所有基金合计，不是交易次数）</li>
  *     <li>所有验证都在服务端进行</li>
  * </ul>
  * 结算统一走玩家的 ATM 账户余额。
@@ -42,7 +44,11 @@ public final class FundTradeService {
         /** 持有份额不足 */
         INSUFFICIENT_SHARES,
         /** 处于交易冷却中 */
-        COOLDOWN
+        COOLDOWN,
+        /** 超过当天的买入份额上限 */
+        DAILY_BUY_LIMIT,
+        /** 超过当天的卖出份额上限 */
+        DAILY_SELL_LIMIT
     }
 
     /**
@@ -104,6 +110,28 @@ public final class FundTradeService {
         return Math.max(0L, gross - fee);
     }
 
+    /**
+     * 当天还剩多少份额可以买入（所有基金合计）。
+     * <p>
+     * 返回 {@link Long#MAX_VALUE} 表示配置里把每日限购设成了 0（不限制）。
+     */
+    public static long remainingDailyBuy(AccountData account, long day) {
+        int limit = EEConfig.dailyBuyShareLimit();
+        if (limit <= 0) {
+            return Long.MAX_VALUE;
+        }
+        return Math.max(0L, (long) limit - account.fundBoughtShares(day));
+    }
+
+    /** 当天还剩多少份额可以卖出（所有基金合计），语义同 {@link #remainingDailyBuy}。 */
+    public static long remainingDailySell(AccountData account, long day) {
+        int limit = EEConfig.dailySellShareLimit();
+        if (limit <= 0) {
+            return Long.MAX_VALUE;
+        }
+        return Math.max(0L, (long) limit - account.fundSoldShares(day));
+    }
+
     /** 买入：消耗账户余额，按当前价格获得份额。 */
     public static Outcome buy(EconomyData data, ServerPlayer player, FundType fund, long quantity) {
         if (quantity < 1L) {
@@ -113,12 +141,17 @@ public final class FundTradeService {
         if (cooldown > 0L) {
             return Outcome.fail(Result.COOLDOWN, cooldown);
         }
+        long today = DaySettlement.currentDay(player.serverLevel());
+        AccountData account = data.account(player.getUUID());
+        // 每日限购：统计的是「份额」，不分基金，也不是下单次数
+        if (remainingDailyBuy(account, today) < quantity) {
+            return Outcome.fail(Result.DAILY_BUY_LIMIT, 0L);
+        }
         int price = data.market().fund(fund).price();
         long gross = (long) price * quantity;
         long fee = Amounts.fee(gross, EEConfig.tradeFeeRate());
         long total = gross + fee;
 
-        AccountData account = data.account(player.getUUID());
         if (!account.canAfford(total)) {
             return Outcome.fail(Result.INSUFFICIENT_BALANCE, 0L);
         }
@@ -127,6 +160,7 @@ public final class FundTradeService {
         long debtBefore = account.debt();
         account.addBalance(-total);
         account.holding(fund).onBuy(quantity, total);
+        account.recordFundBuy(today, quantity);
         account.pushRecord(TransactionType.FUND_BUY, -total, balanceBefore, debtBefore,
                 player.level().getGameTime());
         markTraded(player.getUUID(), fund);
@@ -143,7 +177,12 @@ public final class FundTradeService {
         if (cooldown > 0L) {
             return Outcome.fail(Result.COOLDOWN, cooldown);
         }
+        long today = DaySettlement.currentDay(player.serverLevel());
         AccountData account = data.account(player.getUUID());
+        // 每日限售：同样按份额统计，所有基金合计
+        if (remainingDailySell(account, today) < quantity) {
+            return Outcome.fail(Result.DAILY_SELL_LIMIT, 0L);
+        }
         Holding holding = account.holding(fund);
         if (holding.shares() < quantity) {
             return Outcome.fail(Result.INSUFFICIENT_SHARES, 0L);
@@ -157,6 +196,7 @@ public final class FundTradeService {
         long debtBefore = account.debt();
         holding.onSell(quantity, net);
         account.addBalance(net);
+        account.recordFundSell(today, quantity);
         account.pushRecord(TransactionType.FUND_SELL, net, balanceBefore, debtBefore,
                 player.level().getGameTime());
         markTraded(player.getUUID(), fund);

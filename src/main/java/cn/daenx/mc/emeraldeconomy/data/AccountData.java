@@ -40,6 +40,12 @@ public class AccountData {
     private static final String KEY_LEGACY_STORED_LEVELS = "storedLevels";
     private static final String KEY_ONLINE_REWARD_DAY = "onlineRewardDay";
     private static final String KEY_ONLINE_REWARD_CLAIMED = "onlineRewardClaimed";
+    /** 基金每日买入份额限额的统计日与已用份额。 */
+    private static final String KEY_FUND_BUY_DAY = "fundBuyDay";
+    private static final String KEY_FUND_BUY_SHARES = "fundBuyShares";
+    /** 基金每日卖出份额限额的统计日与已用份额。 */
+    private static final String KEY_FUND_SELL_DAY = "fundSellDay";
+    private static final String KEY_FUND_SELL_SHARES = "fundSellShares";
 
     private final UUID playerId;
     private String name;
@@ -59,6 +65,14 @@ public class AccountData {
     private long onlineRewardDay = NO_REWARD_DAY;
     /** 当日资格是否已经被领走。 */
     private boolean onlineRewardClaimed;
+    /** 买入份额限额对应的游戏日（-1 表示还没有统计过）。 */
+    private long fundBuyDay = NO_REWARD_DAY;
+    /** 该游戏日已经买入的基金份额（所有基金合计）。 */
+    private long fundBuyShares;
+    /** 卖出份额限额对应的游戏日（-1 表示还没有统计过）。 */
+    private long fundSellDay = NO_REWARD_DAY;
+    /** 该游戏日已经卖出的基金份额（所有基金合计）。 */
+    private long fundSellShares;
 
     /** 没有在线奖励资格时的游戏日标记。 */
     public static final long NO_REWARD_DAY = -1L;
@@ -275,6 +289,49 @@ public class AccountData {
     }
 
     // ------------------------------------------------------------------
+    // 基金每日买卖份额统计（每日限购 / 限售）
+    // ------------------------------------------------------------------
+
+    /**
+     * 指定游戏日已经买入的份额（所有基金合计）。
+     * <p>
+     * 不做「定时清零」，而是用「统计日」与当前游戏日比较：
+     * 日期一变，旧数字就自然失效，避免依赖结算流程是否跑过。
+     */
+    public long fundBoughtShares(long day) {
+        return fundBuyDay == day ? fundBuyShares : 0L;
+    }
+
+    /** 指定游戏日已经卖出的份额（所有基金合计）。 */
+    public long fundSoldShares(long day) {
+        return fundSellDay == day ? fundSellShares : 0L;
+    }
+
+    /** 记录一笔买入份额（跨天时先清掉旧统计）。 */
+    public void recordFundBuy(long day, long quantity) {
+        if (quantity <= 0L) {
+            return;
+        }
+        if (fundBuyDay != day) {
+            fundBuyDay = day;
+            fundBuyShares = 0L;
+        }
+        fundBuyShares += quantity;
+    }
+
+    /** 记录一笔卖出份额（跨天时先清掉旧统计）。 */
+    public void recordFundSell(long day, long quantity) {
+        if (quantity <= 0L) {
+            return;
+        }
+        if (fundSellDay != day) {
+            fundSellDay = day;
+            fundSellShares = 0L;
+        }
+        fundSellShares += quantity;
+    }
+
+    // ------------------------------------------------------------------
     // 序列化
     // ------------------------------------------------------------------
 
@@ -290,6 +347,10 @@ public class AccountData {
         tag.putLong(KEY_STORED_EXPERIENCE, storedExperience);
         tag.putLong(KEY_ONLINE_REWARD_DAY, onlineRewardDay);
         tag.putBoolean(KEY_ONLINE_REWARD_CLAIMED, onlineRewardClaimed);
+        tag.putLong(KEY_FUND_BUY_DAY, fundBuyDay);
+        tag.putLong(KEY_FUND_BUY_SHARES, fundBuyShares);
+        tag.putLong(KEY_FUND_SELL_DAY, fundSellDay);
+        tag.putLong(KEY_FUND_SELL_SHARES, fundSellShares);
         ListTag list = new ListTag();
         for (TransactionRecord record : records) {
             list.add(record.save());
@@ -323,6 +384,11 @@ public class AccountData {
         data.onlineRewardDay = tag.contains(KEY_ONLINE_REWARD_DAY)
                 ? tag.getLong(KEY_ONLINE_REWARD_DAY) : NO_REWARD_DAY;
         data.onlineRewardClaimed = tag.getBoolean(KEY_ONLINE_REWARD_CLAIMED);
+        // 旧存档没有这几个字段：读成「没统计过」，当天即可正常交易
+        data.fundBuyDay = tag.contains(KEY_FUND_BUY_DAY) ? tag.getLong(KEY_FUND_BUY_DAY) : NO_REWARD_DAY;
+        data.fundBuyShares = Math.max(0L, tag.getLong(KEY_FUND_BUY_SHARES));
+        data.fundSellDay = tag.contains(KEY_FUND_SELL_DAY) ? tag.getLong(KEY_FUND_SELL_DAY) : NO_REWARD_DAY;
+        data.fundSellShares = Math.max(0L, tag.getLong(KEY_FUND_SELL_SHARES));
         ListTag list = tag.getList(KEY_RECORDS, Tag.TAG_COMPOUND);
         for (int i = 0; i < list.size(); i++) {
             data.records.addLast(TransactionRecord.load(list.getCompound(i)));

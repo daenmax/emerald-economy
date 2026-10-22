@@ -39,12 +39,15 @@ public final class EEConfig {
     private static final ModConfigSpec.DoubleValue MAX_MOMENTUM;
     private static final ModConfigSpec.DoubleValue PRICE_MIN_FACTOR;
     private static final ModConfigSpec.DoubleValue PRICE_MAX_FACTOR;
+    private static final ModConfigSpec.DoubleValue DAILY_LIMIT_RATE;
     private static final ModConfigSpec.DoubleValue EVENT_SENSITIVITY;
     private static final ModConfigSpec.DoubleValue WEATHER_STRENGTH;
     private static final ModConfigSpec.DoubleValue MARKET_EVENT_CHANCE;
     private static final ModConfigSpec.DoubleValue DAILY_RANDOM_DRIFT;
     private static final ModConfigSpec.DoubleValue TRADE_FEE_RATE;
     private static final ModConfigSpec.IntValue TRADE_COOLDOWN_MILLIS;
+    private static final ModConfigSpec.IntValue DAILY_BUY_SHARE_LIMIT;
+    private static final ModConfigSpec.IntValue DAILY_SELL_SHARE_LIMIT;
     private static final ModConfigSpec.IntValue HISTORY_SIZE;
     private static final ModConfigSpec.ConfigValue<List<? extends String>> FUND_BASE_PRICES;
     private static final ModConfigSpec.ConfigValue<List<? extends String>> FUND_VOLATILITIES;
@@ -145,6 +148,14 @@ public final class EEConfig {
                 .defineInRange("priceMinFactor", 0.3D, 0.01D, 10.0D);
         PRICE_MAX_FACTOR = b.comment("价格硬性上界 = 基础价格 × 该系数\nHard upper price bound = base price x this factor.")
                 .defineInRange("priceMaxFactor", 3.0D, 0.01D, 100.0D);
+        DAILY_LIMIT_RATE = b.comment("""
+                每日最大涨跌幅（涨停 / 跌停），0.10 表示 ±10%。
+                每支基金当天的价格被限制在「上一日收盘价 × (1 ± 该值)」之内，
+                无论是每 5 分钟的价格波动，还是每日结算后的开盘价，都不会突破这个范围。
+                设为 1.0 表示几乎不限制（一天最多翻倍或跌到最低价 1）。
+
+                Daily price limit (limit-up / limit-down); 0.10 means +/-10%. Each fund's price is kept within last close x (1 +/- this value) for the whole day, covering both the 5-minute updates and the opening price after settlement. Set it to 1.0 for a very wide limit (at most doubling or falling to the minimum price of 1).""")
+                .defineInRange("dailyLimitRate", 0.10D, 0.01D, 1.0D);
         EVENT_SENSITIVITY = b.comment("世界事件修正灵敏度（供给比取对数后的放大系数）\nWorld-event sensitivity (amplifier applied to the log of the supply ratio).")
                 .defineInRange("eventSensitivity", 0.05D, 0.0D, 10.0D);
         WEATHER_STRENGTH = b.comment("天气修正强度系数，会与 weatherModifiers 中的数值相乘\nWeather correction strength; multiplied with the values in weatherModifiers.")
@@ -164,6 +175,19 @@ public final class EEConfig {
                 .defineInRange("tradeFeeRate", 0.02D, 0.0D, 1.0D);
         TRADE_COOLDOWN_MILLIS = b.comment("同一支基金的交易冷却时间（毫秒）\nTrade cooldown per fund, in milliseconds.")
                 .defineInRange("tradeCooldownMillis", 5000, 0, 600000);
+        DAILY_BUY_SHARE_LIMIT = b.comment("""
+                每个玩家每天最多买入的基金份额（所有基金合计，不是次数）。
+                默认 10：今天买了矿业基金 5 份、农业基金 3 份，就只剩 2 份额度。
+                设为 0 表示不限制。额度在游戏日切换时自动重置。
+
+                Maximum fund shares a player may buy per day, summed across all funds (not a transaction count). Default 10: buying 5 shares of one fund and 3 of another leaves 2. Set 0 to disable the limit. The quota resets automatically when the game day changes.""")
+                .defineInRange("dailyBuyShareLimit", 10, 0, 1000000);
+        DAILY_SELL_SHARE_LIMIT = b.comment("""
+                每个玩家每天最多卖出的基金份额（所有基金合计，不是次数）。
+                默认 20，设为 0 表示不限制。额度在游戏日切换时自动重置。
+
+                Maximum fund shares a player may sell per day, summed across all funds (not a transaction count). Default 20; set 0 to disable the limit. The quota resets automatically when the game day changes.""")
+                .defineInRange("dailySellShareLimit", 20, 0, 1000000);
         HISTORY_SIZE = b.comment("走势图保留的价格点数量\nNumber of price points kept for the chart.")
                 .defineInRange("historySize", EEConstants.DEFAULT_HISTORY_SIZE, 8, 512);
         FUND_BASE_PRICES = b.comment("各基金的基础价格，格式 EMR_MIN=100\nBase price of each fund, format EMR_MIN=100.")
@@ -385,6 +409,11 @@ public final class EEConfig {
         return PRICE_MAX_FACTOR.get();
     }
 
+    /** 每日最大涨跌幅（0.10 表示 ±10%）。 */
+    public static double dailyLimitRate() {
+        return DAILY_LIMIT_RATE.get();
+    }
+
     public static double eventSensitivity() {
         return EVENT_SENSITIVITY.get();
     }
@@ -408,6 +437,16 @@ public final class EEConfig {
 
     public static int tradeCooldownMillis() {
         return TRADE_COOLDOWN_MILLIS.get();
+    }
+
+    /** 每人每天的买入份额上限（所有基金合计），0 表示不限制。 */
+    public static int dailyBuyShareLimit() {
+        return DAILY_BUY_SHARE_LIMIT.get();
+    }
+
+    /** 每人每天的卖出份额上限（所有基金合计），0 表示不限制。 */
+    public static int dailySellShareLimit() {
+        return DAILY_SELL_SHARE_LIMIT.get();
     }
 
     public static int historySize() {
