@@ -8,6 +8,7 @@ import cn.daenx.mc.emeraldeconomy.core.Notify;
 import cn.daenx.mc.emeraldeconomy.data.AccountData;
 import cn.daenx.mc.emeraldeconomy.data.EconomyData;
 import cn.daenx.mc.emeraldeconomy.data.TransactionType;
+import cn.daenx.mc.emeraldeconomy.data.UnlockFeature;
 import cn.daenx.mc.emeraldeconomy.economy.AccountService;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -60,6 +61,8 @@ public final class ShopService {
         OK,
         /** 格子还没解锁、商品不存在或是非法键 */
         SLOT_LOCKED,
+        /** 「附魔书」大分类还没付费解锁（每个玩家一次） */
+        CATEGORY_LOCKED,
         /** 今日限购已用完 */
         LIMIT_REACHED,
         /** 账户余额不足 */
@@ -265,6 +268,7 @@ public final class ShopService {
         boolean expGood = isExpKey(goodKey);
         String id = idOf(goodKey);
         ShopBook shop = data.shop();
+        AccountData account = data.account(player.getUUID());
 
         ShopContent content = EconomyContent.shop();
         int price;
@@ -273,6 +277,12 @@ public final class ShopService {
         // 只有「解锁制」大分类（附魔书）才限购；「其他」大分类不限量
         boolean limited = true;
         if (enchant) {
+            // 「附魔书」大分类要先付费解锁（每个玩家一次），解锁制格子的进度另算
+            ShopContent.Tab enchantTab = content.tabOfEnchant(id);
+            if (enchantTab != null && enchantTab.unlockable()
+                    && !account.isUnlocked(UnlockFeature.ENCHANT_BOOK)) {
+                return Result.CATEGORY_LOCKED;
+            }
             // 必须是已经解锁的格子，而且内容文件里还有它
             if (!shop.enchantments().contains(id) || shop.enchantments().indexOf(id) >= shop.unlockedSlots()
                     || EconomyContent.shop().enchantSpec(id) == null) {
@@ -317,7 +327,6 @@ public final class ShopService {
         if (limited && shop.purchasedCount(player.getUUID(), goodKey) >= limit) {
             return Result.LIMIT_REACHED;
         }
-        AccountData account = data.account(player.getUUID());
         if (!account.canAfford(price)) {
             return Result.INSUFFICIENT_BALANCE;
         }
@@ -347,6 +356,11 @@ public final class ShopService {
      */
     public static UpgradeOutcome upgrade(EconomyData data, ServerPlayer player, RegistryAccess access,
                                          RandomSource random) {
+        // 「附魔书」大分类先付费解锁（每个玩家一次），升级进度才有资格参与
+        AccountData account = data.account(player.getUUID());
+        if (!account.isUnlocked(UnlockFeature.ENCHANT_BOOK)) {
+            return new UpgradeOutcome(Result.CATEGORY_LOCKED, null);
+        }
         ShopBook shop = data.shop();
         List<String> pool = new ArrayList<>(EnchantCatalog.availableEnchantments(access));
         pool.removeAll(shop.enchantments());
@@ -357,7 +371,6 @@ public final class ShopService {
             return new UpgradeOutcome(Result.ALL_UNLOCKED, null);
         }
         long cost = upgradeCost(shop.unlockedSlots());
-        AccountData account = data.account(player.getUUID());
         if (!account.canAfford(cost)) {
             return new UpgradeOutcome(Result.INSUFFICIENT_BALANCE, null);
         }

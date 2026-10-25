@@ -115,6 +115,16 @@ public class VendingScreen extends EEScreen {
         return false;
     }
 
+    /**
+     * 当前大分类是否因「未付费解锁」而不可用（目前就是附魔书这类解锁制大分类）。
+     * <p>
+     * 解锁制大分类需要每个玩家先付一笔解锁费；未解锁时整个分类只显示提示，
+     * 不显示购买 / 升级按钮（服务端也会拒绝，这里只是把入口藏起来）。
+     */
+    private static boolean groupLocked(String groupId, ServerPayloads.SyncShop shop) {
+        return shop != null && unlockable(groupId) && !shop.enchantBookUnlocked();
+    }
+
     /** 标签显示名：优先翻译键，其次内容文件里写的原样名。 */
     private static Component label(String lang, String name, String fallback) {
         if (lang != null && !lang.isBlank()) {
@@ -189,8 +199,9 @@ public class VendingScreen extends EEScreen {
                     .bounds(x + i * subTabWidth, subTabsY, Math.max(30, subTabWidth - 2), 18).build());
         }
 
-        // 商品行
-        List<ServerPayloads.ShopGood> goods = goodsOf(groupId, subId);
+        // 商品行（「附魔书」大分类未解锁时整个货架只显示提示，不给购买按钮）
+        boolean locked = groupLocked(groupId, shop);
+        List<ServerPayloads.ShopGood> goods = locked ? List.of() : goodsOf(groupId, subId);
         int pages = Math.max(1, (goods.size() + PAGE_SIZE - 1) / PAGE_SIZE);
         if (page >= pages) {
             page = pages - 1;
@@ -211,27 +222,37 @@ public class VendingScreen extends EEScreen {
         }
 
         int bottom = panelY + panelH - 24;
-        if (pages > 1) {
-            addRenderableWidget(Button.builder(Component.literal("◀"), b -> {
-                        page--;
-                        this.rebuildWidgets();
-                    })
-                    .bounds(x, bottom, 22, 18).build());
-            addRenderableWidget(Button.builder(Component.literal("▶"), b -> {
-                        page++;
-                        this.rebuildWidgets();
-                    })
-                    .bounds(x + 26, bottom, 22, 18).build());
-        }
-
-        // 升级只跟解锁制的大分类有关，「其他」那种常驻货架不显示升级按钮
-        if (unlockable(groupId) && shop.nextUpgradeCost() >= 0L) {
+        if (locked) {
+            // 未解锁：只给一个解锁按钮，不给翻页（锁定状态下没有商品行可翻）
             addRenderableWidget(Button.builder(
-                            Component.translatable(EEConstants.langKey("screen.vending.upgrade"),
-                                    money(shop.nextUpgradeCost()), shop.unlocked() + 1),
+                            Component.translatable(EEConstants.langKey("screen.vending.unlock"),
+                                    money(shop.enchantBookUnlockCost())),
                             b -> PacketDistributor.sendToServer(new ClientPayloads.ShopActionRequest(
-                                    ClientPayloads.ShopAction.UPGRADE.ordinal(), "")))
+                                    ClientPayloads.ShopAction.UNLOCK.ordinal(), "")))
                     .bounds(x + contentW() - 150, bottom, 150, 18).build());
+        } else {
+            if (pages > 1) {
+                addRenderableWidget(Button.builder(Component.literal("◀"), b -> {
+                            page--;
+                            this.rebuildWidgets();
+                        })
+                        .bounds(x, bottom, 22, 18).build());
+                addRenderableWidget(Button.builder(Component.literal("▶"), b -> {
+                            page++;
+                            this.rebuildWidgets();
+                        })
+                        .bounds(x + 26, bottom, 22, 18).build());
+            }
+
+            // 升级只跟解锁制的大分类有关，「其他」那种常驻货架不显示升级按钮
+            if (unlockable(groupId) && shop.nextUpgradeCost() >= 0L) {
+                addRenderableWidget(Button.builder(
+                                Component.translatable(EEConstants.langKey("screen.vending.upgrade"),
+                                        money(shop.nextUpgradeCost()), shop.unlocked() + 1),
+                                b -> PacketDistributor.sendToServer(new ClientPayloads.ShopActionRequest(
+                                        ClientPayloads.ShopAction.UPGRADE.ordinal(), "")))
+                        .bounds(x + contentW() - 150, bottom, 150, 18).build());
+            }
         }
     }
 
@@ -318,6 +339,15 @@ public class VendingScreen extends EEScreen {
                 graphics.fill(x + i * subTabWidth, subTabsY - 1, x + i * subTabWidth + subTabWidth - 2,
                         subTabsY + 19, 0x4000C8FF);
             }
+        }
+
+        // 未付费解锁的大分类：不画商品行，只画一条解锁提示
+        if (groupLocked(groupId, shop)) {
+            drawText(graphics, Component.translatable(EEConstants.langKey("screen.vending.locked"),
+                    money(shop.enchantBookUnlockCost())).getString(), x, listTop + 6, COLOR_DOWN);
+            drawText(graphics, Component.translatable(EEConstants.langKey("screen.vending.locked_hint"))
+                    .getString(), x, listTop + 26, COLOR_MUTED);
+            return;
         }
 
         List<ServerPayloads.ShopGood> goods = goodsOf(groupId, subId);

@@ -7,6 +7,7 @@ import cn.daenx.mc.emeraldeconomy.core.Notify;
 import cn.daenx.mc.emeraldeconomy.data.AccountData;
 import cn.daenx.mc.emeraldeconomy.data.EconomyData;
 import cn.daenx.mc.emeraldeconomy.data.TransactionType;
+import cn.daenx.mc.emeraldeconomy.data.UnlockFeature;
 import net.minecraft.network.protocol.game.ClientboundSetExperiencePacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -405,24 +406,25 @@ public final class AccountService {
     }
 
     /**
-     * 付费解锁「经验存取」（每个玩家一次）。
+     * 付费解锁一个功能（每个玩家一次，费用与流水类型由 {@link UnlockFeature} 决定）。
      * <p>
-     * 需求：这个功能默认对所有人关闭，想用的玩家先付 1000 余额解锁，解锁后不再有任何限制。
+     * 需求：这类功能默认对所有人关闭，想用的玩家先付一笔余额解锁，解锁后不再有任何限制；
+     * 没有解锁记录（旧存档里没有对应字段）就视为未解锁。
      */
-    public static Outcome unlockLevelAccess(EconomyData data, ServerPlayer player) {
+    public static Outcome unlockFeature(EconomyData data, ServerPlayer player, UnlockFeature feature) {
         AccountData account = data.account(player.getUUID());
-        if (account.levelUnlocked()) {
+        if (account.isUnlocked(feature)) {
             return Outcome.fail(Result.LEVEL_ALREADY_UNLOCKED, 0L);
         }
-        long cost = Math.max(0L, EEConfig.levelUnlockCost());
+        long cost = Math.max(0L, feature.cost());
         if (!account.canAfford(cost)) {
             return Outcome.fail(Result.INSUFFICIENT_BALANCE, cost);
         }
         long balanceBefore = account.balance();
         long debtBefore = account.debt();
         account.addBalance(-cost);
-        account.setLevelUnlocked(true);
-        account.pushRecord(TransactionType.LEVEL_UNLOCK, -cost, balanceBefore, debtBefore,
+        account.unlockFeature(feature);
+        account.pushRecord(feature.transactionType(), -cost, balanceBefore, debtBefore,
                 player.level().getGameTime());
         data.setDirty();
         return new Outcome(Result.OK, cost, 0L, cost);

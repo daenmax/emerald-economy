@@ -9,6 +9,7 @@ import cn.daenx.mc.emeraldeconomy.core.Notify;
 import cn.daenx.mc.emeraldeconomy.data.AccountData;
 import cn.daenx.mc.emeraldeconomy.data.EconomyData;
 import cn.daenx.mc.emeraldeconomy.data.TransactionType;
+import cn.daenx.mc.emeraldeconomy.data.UnlockFeature;
 import cn.daenx.mc.emeraldeconomy.economy.AccountService;
 import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
@@ -86,6 +87,8 @@ public final class AcquireService {
         INSUFFICIENT_ITEMS,
         /** 还有贷款没还清（不能参加疯狂星期五） */
         HAS_DEBT,
+        /** 疯狂星期五还没付费解锁（每个玩家一次） */
+        FRIDAY_LOCKED,
         /** 数量还没凑够一份（例如鸡蛋要 8 个） */
         TOO_FEW_FOR_BATCH
     }
@@ -496,6 +499,10 @@ public final class AcquireService {
         }
         AccountData account = data.account(player.getUUID());
         boolean friday = isFridayItem(data, itemId);
+        // 疯狂星期五要先付费解锁（每个玩家一次）
+        if (friday && !account.isUnlocked(UnlockFeature.CRAZY_FRIDAY)) {
+            return SellOutcome.fail(Result.FRIDAY_LOCKED, 0L);
+        }
         // 欠债不许赌，也不许参加疯狂星期五
         if (account.debt() > 0L && friday) {
             return SellOutcome.fail(Result.HAS_DEBT, 0L);

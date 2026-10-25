@@ -10,6 +10,7 @@ import cn.daenx.mc.emeraldeconomy.core.DaySettlement;
 import cn.daenx.mc.emeraldeconomy.data.AccountData;
 import cn.daenx.mc.emeraldeconomy.data.EconomyData;
 import cn.daenx.mc.emeraldeconomy.data.TransactionRecord;
+import cn.daenx.mc.emeraldeconomy.data.UnlockFeature;
 import cn.daenx.mc.emeraldeconomy.lottery.BetRecord;
 import cn.daenx.mc.emeraldeconomy.lottery.LotteryBook;
 import cn.daenx.mc.emeraldeconomy.lottery.LotteryType;
@@ -262,6 +263,7 @@ public final class ServerSync {
             return;
         }
         var access = server.registryAccess();
+        AccountData account = data.account(player.getUUID());
         // 标签页直接来自内容文件（shop.json），所以「加一个大分类」就是加一段 JSON
         List<ServerPayloads.ShopTab> tabs = new ArrayList<>();
         for (ShopContent.Tab tab : EconomyContent.shop().tabs()) {
@@ -283,7 +285,9 @@ public final class ServerSync {
                 data.shop().unlockedSlots(),
                 ShopService.maxSlots(access),
                 EEConfig.shopDailyPurchaseLimit(),
-                data.account(player.getUUID()).balance()));
+                account.balance(),
+                account.isUnlocked(UnlockFeature.ENCHANT_BOOK),
+                EEConfig.enchantBookUnlockCost()));
     }
 
     private static String nullSafe(String value) {
@@ -298,12 +302,14 @@ public final class ServerSync {
             return;
         }
         AccountData account = data.account(player.getUUID());
+        boolean enchantUnlocked = account.isUnlocked(UnlockFeature.ENCHANT_RECYCLE);
         List<ServerPayloads.AcquireCategoryLine> categories = new ArrayList<>();
         for (AcquireContent.Category category : AcquireService.categories()) {
             categories.add(new ServerPayloads.AcquireCategoryLine(category.idOr(""), nullSafe(category.lang()),
                     nullSafe(category.name()), toLines(data, category.idOr(""))));
         }
-        // 「附魔回收」不来自 JSON：它扫描的是玩家此刻的背包，所以每行都是实时算出来的
+        // 「附魔回收」不来自 JSON：它扫描的是玩家此刻的背包，所以每行都是实时算出来的。
+        // 没付费解锁时干脆不扫描——玩家也看不到（更不报价）这些行
         categories.add(new ServerPayloads.AcquireCategoryLine(AcquireContent.ENCHANT_ID,
                 "acquire.category.enchant", "附魔回收", List.of()));
         if (data.acquire().isFridayActive() && AcquireService.hasFriday()) {
@@ -313,14 +319,16 @@ public final class ServerSync {
                     toLines(data, AcquireContent.FRIDAY_ID)));
         }
         List<ServerPayloads.EnchantItemLine> enchantItems = new ArrayList<>();
-        for (EnchantRecycleService.ItemEntry item : EnchantRecycleService.scan(player, server.registryAccess())) {
-            List<ServerPayloads.EnchantPriceLine> enchantLines = new ArrayList<>();
-            for (EnchantRecycleService.EnchantLine line : item.enchants()) {
-                enchantLines.add(new ServerPayloads.EnchantPriceLine(line.enchantId(), line.level(),
-                        line.price()));
+        if (enchantUnlocked) {
+            for (EnchantRecycleService.ItemEntry item : EnchantRecycleService.scan(player, server.registryAccess())) {
+                List<ServerPayloads.EnchantPriceLine> enchantLines = new ArrayList<>();
+                for (EnchantRecycleService.EnchantLine line : item.enchants()) {
+                    enchantLines.add(new ServerPayloads.EnchantPriceLine(line.enchantId(), line.level(),
+                            line.price()));
+                }
+                enchantItems.add(new ServerPayloads.EnchantItemLine(item.slot(), item.itemId(), item.count(),
+                        item.unitPrice(), item.totalPrice(), enchantLines));
             }
-            enchantItems.add(new ServerPayloads.EnchantItemLine(item.slot(), item.itemId(), item.count(),
-                    item.unitPrice(), item.totalPrice(), enchantLines));
         }
         PacketDistributor.sendToPlayer(player, new ServerPayloads.SyncAcquire(
                 categories,
@@ -329,7 +337,11 @@ public final class ServerSync {
                 EEConfig.fridayIntervalDays(),
                 account.balance(),
                 account.debt() > 0L,
-                enchantItems));
+                enchantItems,
+                enchantUnlocked,
+                EEConfig.enchantRecycleUnlockCost(),
+                account.isUnlocked(UnlockFeature.CRAZY_FRIDAY),
+                EEConfig.crazyFridayUnlockCost()));
     }
 
     private static List<ServerPayloads.AcquireLine> toLines(EconomyData data, String categoryId) {

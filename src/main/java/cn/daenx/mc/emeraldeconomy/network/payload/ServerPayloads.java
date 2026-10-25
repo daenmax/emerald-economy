@@ -314,9 +314,16 @@ public final class ServerPayloads {
         }
     }
 
-    /** 商店快照（货架标签页 + 商品行）。 */
+    /**
+     * 商店快照（货架标签页 + 商品行）。
+     *
+     * @param enchantBookUnlocked   「附魔书」大分类是否已付费解锁（每个玩家独立）
+     * @param enchantBookUnlockCost 解锁「附魔书」大分类需要的绿宝石（来自服务端配置）
+     */
     public record SyncShop(List<ShopTab> tabs, List<ShopGood> goods, long nextUpgradeCost, int unlocked,
-                           int maxSlots, int dailyLimit, long balance) implements CustomPacketPayload {
+                           int maxSlots, int dailyLimit, long balance,
+                           boolean enchantBookUnlocked, long enchantBookUnlockCost)
+            implements CustomPacketPayload {
 
         public static final CustomPacketPayload.Type<SyncShop> TYPE =
                 new CustomPacketPayload.Type<>(EEConstants.id("sync_shop"));
@@ -330,10 +337,20 @@ public final class ServerPayloads {
         }
     }
 
-    /** 收购快照。 */
+    /**
+     * 收购快照。
+     *
+     * @param enchantUnlocked   「附魔回收」分类是否已付费解锁（每个玩家独立；未解锁时
+     *                          服务端不会扫描背包，{@code enchantItems} 恒为空）
+     * @param enchantUnlockCost 解锁「附魔回收」需要的绿宝石
+     * @param fridayUnlocked    「疯狂星期五」是否已付费解锁（每个玩家独立）
+     * @param fridayUnlockCost  解锁「疯狂星期五」需要的绿宝石
+     */
     public record SyncAcquire(List<AcquireCategoryLine> categories, boolean fridayActive,
                               long day, int fridayIntervalDays, long balance,
-                              boolean hasDebt, List<EnchantItemLine> enchantItems)
+                              boolean hasDebt, List<EnchantItemLine> enchantItems,
+                              boolean enchantUnlocked, long enchantUnlockCost,
+                              boolean fridayUnlocked, long fridayUnlockCost)
             implements CustomPacketPayload {
 
         public static final CustomPacketPayload.Type<SyncAcquire> TYPE =
@@ -576,6 +593,8 @@ public final class ServerPayloads {
         buf.writeVarInt(payload.maxSlots());
         buf.writeVarInt(payload.dailyLimit());
         buf.writeVarLong(payload.balance());
+        buf.writeBoolean(payload.enchantBookUnlocked());
+        buf.writeVarLong(payload.enchantBookUnlockCost());
     }
 
     private static SyncShop readShop(RegistryFriendlyByteBuf buf) {
@@ -593,7 +612,7 @@ public final class ServerPayloads {
                     buf.readBoolean()));
         }
         return new SyncShop(tabs, goods, buf.readVarLong(), buf.readVarInt(), buf.readVarInt(),
-                buf.readVarInt(), buf.readVarLong());
+                buf.readVarInt(), buf.readVarLong(), buf.readBoolean(), buf.readVarLong());
     }
 
     private static void writeAcquire(RegistryFriendlyByteBuf buf, SyncAcquire payload) {
@@ -620,6 +639,10 @@ public final class ServerPayloads {
         buf.writeVarInt(payload.fridayIntervalDays());
         buf.writeVarLong(payload.balance());
         buf.writeBoolean(payload.hasDebt());
+        buf.writeBoolean(payload.enchantUnlocked());
+        buf.writeVarLong(payload.enchantUnlockCost());
+        buf.writeBoolean(payload.fridayUnlocked());
+        buf.writeVarLong(payload.fridayUnlockCost());
         buf.writeVarInt(payload.enchantItems().size());
         for (EnchantItemLine item : payload.enchantItems()) {
             buf.writeVarInt(item.slot());
@@ -657,6 +680,10 @@ public final class ServerPayloads {
         int fridayIntervalDays = buf.readVarInt();
         long balance = buf.readVarLong();
         boolean hasDebt = buf.readBoolean();
+        boolean enchantUnlocked = buf.readBoolean();
+        long enchantUnlockCost = buf.readVarLong();
+        boolean fridayUnlocked = buf.readBoolean();
+        long fridayUnlockCost = buf.readVarLong();
         int enchantCount = buf.readVarInt();
         List<EnchantItemLine> enchantItems = new ArrayList<>(Math.max(0, enchantCount));
         for (int i = 0; i < enchantCount; i++) {
@@ -673,6 +700,6 @@ public final class ServerPayloads {
             enchantItems.add(new EnchantItemLine(slot, itemId, count, unitPrice, totalPrice, enchants));
         }
         return new SyncAcquire(categories, fridayActive, day, fridayIntervalDays, balance, hasDebt,
-                enchantItems);
+                enchantItems, enchantUnlocked, enchantUnlockCost, fridayUnlocked, fridayUnlockCost);
     }
 }

@@ -553,6 +553,24 @@ public final class ClientUiTest {
                     shop != null && shop.goods().stream().anyMatch(g -> !g.enchant() && "SEED".equals(g.subId()))
                             && shop.goods().stream().anyMatch(g -> !g.enchant() && "SAPLING".equals(g.subId())));
         });
+        // ---------- 「附魔书」大分类的付费解锁（每个玩家一次，1.0.5 新增） ----------
+        add("校验附魔书分类对每个玩家默认关闭", 10, (mc, player) -> {
+            var shop = ClientEconomyCache.shop;
+            log("  附魔书分类已解锁 = " + (shop != null && shop.enchantBookUnlocked())
+                    + "，解锁费用 = " + (shop == null ? -1 : shop.enchantBookUnlockCost()));
+            check("附魔书大分类默认未解锁（没有解锁记录就要解锁）",
+                    shop != null && !shop.enchantBookUnlocked());
+            check("附魔书分类解锁费用来自配置（5000）",
+                    shop != null && shop.enchantBookUnlockCost() == 5000L);
+        });
+        add("点「解锁附魔书分类」按钮（花 5000 余额）", 30,
+                (mc, player) -> click(mc, tr("screen.vending.unlock", money(5000L))));
+        add("校验解锁成功：快照已标记可用、界面上出现了购买按钮", 15, (mc, player) -> {
+            var shop = ClientEconomyCache.shop;
+            log("  解锁后 enchantBookUnlocked = " + (shop != null && shop.enchantBookUnlocked()));
+            check("解锁后快照里标记附魔书分类可用", shop != null && shop.enchantBookUnlocked());
+            check("解锁后货架上出现「购买」按钮", countButtons(mc, tr("screen.vending.buy")) >= 1);
+        });
         add("点击第一个格子的「购买」按钮", 35, (mc, player) -> click(mc, tr("screen.vending.buy")));
         add("截图 15 购买后（限购次数应减少）", 0, (mc, player) -> shot(mc, "15_vending_after_buy"));
         add("校验购买后限购减少", 10, (mc, player) -> {
@@ -1104,8 +1122,8 @@ public final class ClientUiTest {
         });
 
         // ---------- ATM：经验存取（默认锁定 → 付费解锁 → 按等级存 / 取经验） ----------
-        add("给 5000 余额与 20 级（准备测经验存取）", 30, (mc, player) -> {
-            command(player, "ee give @s 5000");
+        add("给 20000 余额与 20 级（准备测经验存取）", 30, (mc, player) -> {
+            command(player, "ee give @s 20000");
             command(player, "xp add @s 20 levels");
         });
         add("打开 ATM（界面初始化会拉一次最新快照）", 35, (mc, player) -> open(mc, new LevelStorageScreen()));
@@ -1119,18 +1137,18 @@ public final class ClientUiTest {
             log("  已解锁 = " + (account != null && account.levelUnlocked())
                     + "，解锁费用 = " + (account == null ? -1 : account.levelUnlockCost()));
             check("经验存取对每个玩家默认关闭", account != null && !account.levelUnlocked());
-            check("解锁费用来自配置（1000）", account != null && account.levelUnlockCost() == 1000L);
+            check("解锁费用来自配置（5000）", account != null && account.levelUnlockCost() == 5000L);
             check("解锁前界面只有解锁按钮、没有存取按钮",
-                    buttonExists(mc, tr("screen.atm.level.unlock", money(1000L)))
+                    buttonExists(mc, tr("screen.atm.level.unlock", money(5000L)))
                             && !buttonExists(mc, tr("screen.atm.level.deposit")));
         });
         add("截图 41 ATM·经验存取（未解锁）", 0, (mc, player) -> shot(mc, "41_atm_level_locked"));
-        add("点「解锁」按钮（花 1000 余额）", 30, (mc, player) ->
-                click(mc, tr("screen.atm.level.unlock", money(1000L))));
-        add("校验解锁成功：扣 1000、状态变为已解锁", 20, (mc, player) -> {
+        add("点「解锁」按钮（花 5000 余额）", 30, (mc, player) ->
+                click(mc, tr("screen.atm.level.unlock", money(5000L))));
+        add("校验解锁成功：扣 5000、状态变为已解锁", 20, (mc, player) -> {
             var account = ClientEconomyCache.account;
             log("  解锁后余额 = " + accountBalance() + "（解锁前 " + savedBalance + "）");
-            check("解锁扣掉 1000 余额", accountBalance() == savedBalance - 1000L);
+            check("解锁扣掉 5000 余额", accountBalance() == savedBalance - 5000L);
             check("账户已标记为解锁", account != null && account.levelUnlocked());
         });
         add("记录存入前的等级", 10, (mc, player) -> {
@@ -1489,6 +1507,13 @@ public final class ClientUiTest {
             check("[房主] 猜单双下注 20 成功", slot != null && slot.betChoice() == 0 && slot.betAmount() == 20L);
         });
         add("[房主] 打开售货机", 30, (mc, player) -> open(mc, new VendingScreen()));
+        add("[房主] 解锁附魔书分类（花 5000 余额）", 30,
+                (mc, player) -> click(mc, tr("screen.vending.unlock", money(5000L))));
+        add("[房主] 校验附魔书分类已解锁", 15, (mc, player) -> {
+            var shop = ClientEconomyCache.shop;
+            log("  [房主] enchantBookUnlocked = " + (shop != null && shop.enchantBookUnlocked()));
+            check("[房主] 附魔书分类已付费解锁（房主视角）", shop != null && shop.enchantBookUnlocked());
+        });
         add("[房主] 购买第 1 格（占用自己的限购）", 25,
                 (mc, player) -> click(mc, tr("screen.vending.buy")));
         add("[房主] 校验限购被自己占用", 15, (mc, player) -> {
@@ -1720,6 +1745,18 @@ public final class ClientUiTest {
     }
 
     private static void buildShopFullSteps() {
+        // 全新存档的玩家余额为 0：先发钱并付费解锁「附魔书」大分类（1.0.5 起每个玩家都要解锁）
+        add("全解锁：给自己发钱并打开售货机", 40, (mc, player) -> {
+            command(player, "ee give @s 10000");
+            open(mc, new VendingScreen());
+        });
+        add("全解锁：点「解锁附魔书分类」（花 5000 余额）", 30,
+                (mc, player) -> click(mc, tr("screen.vending.unlock", money(5000L))));
+        add("全解锁：校验解锁成功", 15, (mc, player) -> {
+            var shop = ClientEconomyCache.shop;
+            log("  解锁后 enchantBookUnlocked = " + (shop != null && shop.enchantBookUnlocked()));
+            check("全解锁用例里附魔书分类已付费解锁", shop != null && shop.enchantBookUnlocked());
+        });
         add("全解锁：打开售货机", 35, (mc, player) -> open(mc, new VendingScreen()));
         add("截图 28 商店全解锁（升级按钮应已隐藏）", 0,
                 (mc, player) -> shot(mc, "28_vending_all_unlocked"));
@@ -2018,10 +2055,27 @@ public final class ClientUiTest {
         add("打开自动收购机（界面初始化会拉一次最新快照）", 40,
                 (mc, player) -> open(mc, new AcquisitionScreen()));
         add("切到「疯狂星期五」分类", 30, (mc, player) -> click(mc, tr("acquire.category.friday")));
-        add("校验疯狂星期五分类已切换过去（三行都有「出售 / 出售全部」按钮）", 10, (mc, player) -> {
+        // ---------- 「疯狂星期五」的付费解锁（每个玩家一次，1.0.5 新增） ----------
+        add("校验疯狂星期五对每个玩家默认关闭（界面上没有出售按钮，只有解锁按钮）", 10, (mc, player) -> {
+            var acquire = ClientEconomyCache.acquire;
+            log("  疯狂星期五已解锁 = " + (acquire != null && acquire.fridayUnlocked())
+                    + "，解锁费用 = " + (acquire == null ? -1 : acquire.fridayUnlockCost()));
+            check("疯狂星期五默认未解锁（没有解锁记录就要解锁）",
+                    acquire != null && !acquire.fridayUnlocked());
+            check("疯狂星期五解锁费用来自配置（5000）",
+                    acquire != null && acquire.fridayUnlockCost() == 5000L);
+            check("未解锁时疯狂星期五分类里没有「出售全部」按钮",
+                    countButtons(mc, tr("screen.acquire.sell_all")) == 0);
+        });
+        add("点「解锁疯狂星期五」按钮（花 5000 余额）", 30,
+                (mc, player) -> click(mc, tr("screen.acquire.friday.unlock", money(5000L))));
+        add("校验解锁成功：三行都出现了「出售 / 出售全部」按钮", 15, (mc, player) -> {
+            var acquire = ClientEconomyCache.acquire;
             int sellAll = countButtons(mc, tr("screen.acquire.sell_all"));
-            log("  疯狂星期五分类里的「出售全部」按钮数 = " + sellAll);
-            check("疯狂星期五分类真的切过去了", sellAll == 3);
+            log("  解锁后 fridayUnlocked = " + (acquire != null && acquire.fridayUnlocked())
+                    + "，「出售全部」按钮数 = " + sellAll);
+            check("解锁后快照里标记疯狂星期五可用", acquire != null && acquire.fridayUnlocked());
+            check("疯狂星期五分类真的切过去了（解锁后出售按钮回来）", sellAll == 3);
         });
         add("截图 26 疯狂星期五分类（重金收购横幅 + 三件重金物品）", 0,
                 (mc, player) -> shot(mc, "26_crazy_friday"));
@@ -2040,8 +2094,8 @@ public final class ClientUiTest {
                     }
                     fridayCount = line.entries().size();
                     for (var entry : line.entries()) {
-                        // 基准价是 40（刷怪笼 / 任意刷怪蛋）~133（下界之星），×5~10 倍 ⇒ 单件价格落在 200-1330
-                        if (!entry.friday() || entry.price() < 200L || entry.price() > 1330L) {
+                        // 基准价是 40（刷怪笼 / 不祥之瓶）~200（下界之星 / 鞘翅），×5~10 倍 ⇒ 单件价格落在 200-2000
+                        if (!entry.friday() || entry.price() < 200L || entry.price() > 2000L) {
                             priceOk = false;
                         }
                         if (entry.wildcard()) {
@@ -2461,6 +2515,25 @@ public final class ClientUiTest {
                 (mc, player) -> open(mc, new AcquisitionScreen()));
         add("README：切到「附魔回收」", 30,
                 (mc, player) -> click(mc, tr("acquire.category.enchant")));
+        // ---------- 「附魔回收」的付费解锁（每个玩家一次，1.0.5 新增） ----------
+        add("校验附魔回收对每个玩家默认关闭（没有背包扫描结果，只有解锁按钮）", 10, (mc, player) -> {
+            var acquire = ClientEconomyCache.acquire;
+            log("  附魔回收已解锁 = " + (acquire != null && acquire.enchantUnlocked())
+                    + "，解锁费用 = " + (acquire == null ? -1 : acquire.enchantUnlockCost()));
+            check("附魔回收默认未解锁（没有解锁记录就要解锁）",
+                    acquire != null && !acquire.enchantUnlocked());
+            check("附魔回收解锁费用来自配置（5000）",
+                    acquire != null && acquire.enchantUnlockCost() == 5000L);
+            check("未解锁时服务端不下发背包扫描结果", acquire != null && acquire.enchantItems().isEmpty());
+        });
+        add("点「解锁附魔回收」按钮（花 5000 余额）", 30,
+                (mc, player) -> click(mc, tr("screen.acquire.enchant.unlock", money(5000L))));
+        add("校验解锁成功：背包扫描结果回来了", 15, (mc, player) -> {
+            var acquire = ClientEconomyCache.acquire;
+            log("  解锁后 enchantUnlocked = " + (acquire != null && acquire.enchantUnlocked())
+                    + "，可回收物品数 = " + (acquire == null ? -1 : acquire.enchantItems().size()));
+            check("解锁后快照里标记附魔回收可用", acquire != null && acquire.enchantUnlocked());
+        });
         add("README：等右上角的「新配方已解锁」提示消失", 100, (mc, player) -> {
         });
         add("截图 51 附魔回收（3 件装备 + 多附魔书）", 0,

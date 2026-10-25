@@ -138,14 +138,32 @@ public class AcquisitionScreen extends EEScreen {
         }
 
         if (isEnchantCategory()) {
-            initEnchantButtons(x, listTop);
+            if (acquire.enchantUnlocked()) {
+                initEnchantButtons(x, listTop);
+            } else {
+                // 「附魔回收」未解锁：不摆回收按钮，只给一个解锁按钮
+                addUnlockButton(x, "screen.acquire.enchant.unlock", acquire.enchantUnlockCost());
+            }
+        } else if (AcquireContent.FRIDAY_ID.equalsIgnoreCase(category) && !acquire.fridayUnlocked()) {
+            // 疯狂星期五未解锁：列表照常显示（看得到价格与名单），但没有「出售」按钮
+            initSellButtons(acquire, x, listTop, true);
+            addUnlockButton(x, "screen.acquire.friday.unlock", acquire.fridayUnlockCost());
         } else {
-            initSellButtons(acquire, x, listTop);
+            initSellButtons(acquire, x, listTop, false);
         }
     }
 
+    /** 在面板右下角放一个「解锁」按钮，点击后向服务端发送解锁请求。 */
+    private void addUnlockButton(int x, String langKey, long cost) {
+        addRenderableWidget(Button.builder(
+                        Component.translatable(EEConstants.langKey(langKey), money(cost)),
+                        b -> PacketDistributor.sendToServer(new ClientPayloads.AcquireUnlockRequest(category)))
+                .bounds(x + contentW() - 160, panelY + panelH - 24, 160, 18).build());
+    }
+
     /** 普通分类：物品行 + 出售按钮 + 数量框。 */
-    private void initSellButtons(ServerPayloads.SyncAcquire acquire, int x, int listTop) {
+    private void initSellButtons(ServerPayloads.SyncAcquire acquire, int x, int listTop,
+                                 boolean fridayLocked) {
         List<ServerPayloads.AcquireLine> entries = entriesOf(acquire, category);
         int pages = Math.max(1, (entries.size() + PAGE_SIZE - 1) / PAGE_SIZE);
         if (page >= pages) {
@@ -155,8 +173,9 @@ public class AcquisitionScreen extends EEScreen {
             page = 0;
         }
 
-        // 欠款未清时疯狂星期五不能参加：列表照常显示（看得到价格），但不摆「出售」按钮
-        boolean fridayBlocked = acquire.hasDebt() && AcquireContent.FRIDAY_ID.equalsIgnoreCase(category);
+        // 欠款未清 / 未付费解锁时疯狂星期五不能参加：列表照常显示（看得到价格），
+        // 但界面上不生成「出售」按钮
+        boolean fridayBlocked = fridayLocked && AcquireContent.FRIDAY_ID.equalsIgnoreCase(category);
 
         int from = page * PAGE_SIZE;
         int to = Math.min(entries.size(), from + PAGE_SIZE);
@@ -446,9 +465,12 @@ public class AcquisitionScreen extends EEScreen {
 
         if (acquire.fridayActive()) {
             graphics.fill(x, y, x + contentW(), y + 12, 0x50FF5E5E);
+            // 横幅按状态换文案：欠款未清 / 未付费解锁都要说清「为什么暂时不能参加」
+            String bannerKey = acquire.hasDebt() ? "screen.acquire.friday_blocked"
+                    : acquire.fridayUnlocked() ? "screen.acquire.friday_banner"
+                    : "screen.acquire.friday_locked";
             // 物品名长短不一，按宽度截断，避免横幅文字顶出面板
-            drawTrimmed(graphics, Component.translatable(EEConstants.langKey(
-                            acquire.hasDebt() ? "screen.acquire.friday_blocked" : "screen.acquire.friday_banner"),
+            drawTrimmed(graphics, Component.translatable(EEConstants.langKey(bannerKey),
                     fridayNames(acquire)).getString(), x + 4, y + 2, COLOR_GOLD, contentW() - 8);
         } else {
             drawText(graphics, Component.translatable(EEConstants.langKey("screen.acquire.hint"),
@@ -468,7 +490,17 @@ public class AcquisitionScreen extends EEScreen {
         }
 
         if (isEnchantCategory()) {
-            drawEnchantContents(graphics, x, listTop);
+            if (acquire.enchantUnlocked()) {
+                drawEnchantContents(graphics, x, listTop);
+            } else {
+                // 未解锁：列表区域只画提示（服务端此时也不会下发背包扫描结果）
+                drawText(graphics, Component.translatable(EEConstants.langKey(
+                                "screen.acquire.enchant.locked"),
+                        money(acquire.enchantUnlockCost())).getString(), x, listTop + 6, COLOR_DOWN);
+                drawText(graphics, Component.translatable(EEConstants.langKey(
+                        "screen.acquire.enchant.locked_hint")).getString(), x, listTop + 26,
+                        COLOR_MUTED);
+            }
         } else {
             drawSellContents(graphics, acquire, x, listTop);
         }

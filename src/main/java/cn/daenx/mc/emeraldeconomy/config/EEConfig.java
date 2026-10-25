@@ -75,6 +75,7 @@ public final class EEConfig {
     private static final ModConfigSpec.IntValue SHOP_PRICE_MAX;
     private static final ModConfigSpec.DoubleValue SHOP_TREASURE_MULTIPLIER_MIN;
     private static final ModConfigSpec.DoubleValue SHOP_TREASURE_MULTIPLIER_MAX;
+    private static final ModConfigSpec.LongValue SHOP_ENCHANT_BOOK_UNLOCK_COST;
 
     // ------------------------------------------------------------------
     // 收购
@@ -83,6 +84,8 @@ public final class EEConfig {
     private static final ModConfigSpec.IntValue FRIDAY_PICK_COUNT;
     private static final ModConfigSpec.DoubleValue FRIDAY_MULTIPLIER_MIN;
     private static final ModConfigSpec.DoubleValue FRIDAY_MULTIPLIER_MAX;
+    private static final ModConfigSpec.LongValue ACQUIRE_ENCHANT_RECYCLE_UNLOCK_COST;
+    private static final ModConfigSpec.LongValue ACQUIRE_CRAZY_FRIDAY_UNLOCK_COST;
 
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
@@ -112,7 +115,7 @@ public final class EEConfig {
                 该功能每个玩家默认关闭，付费一次后永久解锁、不再有任何限制。
 
                 Unlock cost for the ATM's experience storage, in emeralds. The feature is off for every player by default; paying once unlocks it permanently with no further limits.""")
-                .defineInRange("levelUnlockCost", 1000L, 0L, Long.MAX_VALUE);
+                .defineInRange("levelUnlockCost", 5000L, 0L, Long.MAX_VALUE);
         ONLINE_REWARD_BASE_EXP = b.comment("""
                 每日在线奖励的基础经验值。
                 实际奖励 = 基础经验 + 当前游戏日 × 每日增量（默认 50 + 第 N 天）。
@@ -288,6 +291,13 @@ public final class EEConfig {
                 .defineInRange("treasureMultiplierMin", 3.0D, 1.0D, 100.0D);
         SHOP_TREASURE_MULTIPLIER_MAX = b.comment("未在 shop.json 里列出的宝藏附魔价格倍率上限（兜底）\nFallback maximum price multiplier for treasure enchants not listed in shop.json.")
                 .defineInRange("treasureMultiplierMax", 5.0D, 1.0D, 100.0D);
+        SHOP_ENCHANT_BOOK_UNLOCK_COST = b.comment("""
+                「附魔书」大分类的解锁费用（绿宝石）。
+                该分类每个玩家默认关闭，付费一次后永久解锁；解锁前看不到购买 / 升级按钮。
+                注意「逐格解锁」进度是全服共享的，这里的费用只是每个玩家自己的门槛。
+
+                Unlock cost for the enchanted-book category of the vending machine, in emeralds. The category is off for every player by default; paying once unlocks it permanently. The slot-by-slot upgrade progress stays shared across the server; this is only a per-player gate.""")
+                .defineInRange("enchantBookUnlockCost", 5000L, 0L, Long.MAX_VALUE);
         b.pop();
 
         // ============================ 收购 ============================
@@ -302,6 +312,19 @@ public final class EEConfig {
                 .defineInRange("fridayMultiplierMin", 5.0D, 1.0D, 1000.0D);
         FRIDAY_MULTIPLIER_MAX = b.comment("疯狂星期五收购倍率上限\nCrazy Friday buyout multiplier upper bound.")
                 .defineInRange("fridayMultiplierMax", 10.0D, 1.0D, 1000.0D);
+        ACQUIRE_ENCHANT_RECYCLE_UNLOCK_COST = b.comment("""
+                「附魔回收」分类的解锁费用（绿宝石）。
+                该分类每个玩家默认关闭，付费一次后永久解锁；解锁前无法回收背包里的附魔物品。
+
+                Unlock cost for the enchant-recycle category of the acquisition machine, in emeralds. The category is off for every player by default; paying once unlocks it permanently.""")
+                .defineInRange("enchantRecycleUnlockCost", 5000L, 0L, Long.MAX_VALUE);
+        ACQUIRE_CRAZY_FRIDAY_UNLOCK_COST = b.comment("""
+                「疯狂星期五」的解锁费用（绿宝石）。
+                该功能每个玩家默认关闭，付费一次后永久解锁；解锁前无法参加重金收购。
+                欠款没还清时即使解锁了也不能参加。
+
+                Unlock cost for Crazy Friday, in emeralds. The feature is off for every player by default; paying once unlocks it permanently. Unpaid loans still block participation.""")
+                .defineInRange("crazyFridayUnlockCost", 5000L, 0L, Long.MAX_VALUE);
         b.pop();
 
         SPEC = b.build();
@@ -525,6 +548,11 @@ public final class EEConfig {
         return SHOP_TREASURE_MULTIPLIER_MAX.get();
     }
 
+    /** 售货机「附魔书」大分类的解锁费用（每个玩家一次）。 */
+    public static long enchantBookUnlockCost() {
+        return SHOP_ENCHANT_BOOK_UNLOCK_COST.get();
+    }
+
     public static int fridayIntervalDays() {
         return FRIDAY_INTERVAL_DAYS.get();
     }
@@ -539,6 +567,16 @@ public final class EEConfig {
 
     public static double fridayMultiplierMax() {
         return FRIDAY_MULTIPLIER_MAX.get();
+    }
+
+    /** 收购机「附魔回收」分类的解锁费用（每个玩家一次）。 */
+    public static long enchantRecycleUnlockCost() {
+        return ACQUIRE_ENCHANT_RECYCLE_UNLOCK_COST.get();
+    }
+
+    /** 收购机「疯狂星期五」的解锁费用（每个玩家一次）。 */
+    public static long crazyFridayUnlockCost() {
+        return ACQUIRE_CRAZY_FRIDAY_UNLOCK_COST.get();
     }
 
 }

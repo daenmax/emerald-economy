@@ -3,6 +3,7 @@ package cn.daenx.mc.emeraldeconomy.acquire;
 import cn.daenx.mc.emeraldeconomy.data.AccountData;
 import cn.daenx.mc.emeraldeconomy.data.EconomyData;
 import cn.daenx.mc.emeraldeconomy.data.TransactionType;
+import cn.daenx.mc.emeraldeconomy.data.UnlockFeature;
 import cn.daenx.mc.emeraldeconomy.shop.EnchantCatalog;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -44,6 +45,8 @@ public final class EnchantRecycleService {
     /** 回收结果。 */
     public enum Result {
         OK,
+        /** 「附魔回收」还没付费解锁（每个玩家一次） */
+        LOCKED,
         /** 格子序号不合法 */
         INVALID_SLOT,
         /** 背包内容已经变了（界面上的信息和实际不一致） */
@@ -176,6 +179,10 @@ public final class EnchantRecycleService {
      */
     public static Outcome recycle(EconomyData data, ServerPlayer player, int slot,
                                   String expectedItemId, int expectedCount) {
+        // 「附魔回收」要先付费解锁（每个玩家一次）
+        if (!data.account(player.getUUID()).isUnlocked(UnlockFeature.ENCHANT_RECYCLE)) {
+            return Outcome.fail(Result.LOCKED, expectedCount);
+        }
         Inventory inventory = player.getInventory();
         int slots = Math.min(Inventory.INVENTORY_SIZE, inventory.getContainerSize());
         if (slot < 0 || slot >= slots || expectedCount < 1) {

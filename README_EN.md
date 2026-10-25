@@ -176,8 +176,9 @@ Each recipe yields one machine. Picking up redstone for the first time unlocks a
 - **Experience storage** (off by default): you enter **levels**, but the ATM stores **XP points**.
   For example, at level 27 entering 1 moves the XP from your current bar plus everything needed to reach
   level 28 into the ATM, leaving you at exactly level 26 with an empty bar. **Store all / Withdraw all**
-  move everything at once. Every player must **unlock it for 1000** first, after which there are no limits:
-  you cannot store more than your current level, nor withdraw more than the ATM holds.
+  move everything at once. Every player must **unlock it for 5000** first (one-off, permanent),
+  after which there are no limits: you cannot store more than your current level, nor withdraw more
+  than the ATM holds.
 - **Online reward**: eligibility is reset at the moment interest is settled each day, and **only players
   online at that moment** get it for that day (offline means no eligibility, and no claiming it later);
   the reward is **50 base + current game day** XP (day 38 gives 88), claimable once per day. The screen
@@ -229,6 +230,10 @@ Each recipe yields one machine. Picking up redstone for the first time unlocks a
   Tools / Armor / General &amp; Curses — and each entry shows its **level** and **applicable items**.
   Prices come from the per-category ranges in the config (for example Sharpness 896-1280,
   Wind Burst 1560-2560).
+- **The enchanted-book group must be unlocked per player first**: by default nobody can buy books
+  (the screen shows only an unlock button). Pay **5000** (configurable) once to unlock it permanently;
+  the **Other** group is unaffected. The unlock fee is a **per-player gate** — the slot-by-slot
+  upgrade progression of the bookshelf itself stays shared server-wide.
 - Book slots must be **unlocked by pooling money server-wide** (512-1280 per level, fixed for a given
   level); unlocking broadcasts which enchantment was unlocked.
 - **Other** has four subcategories: **Seeds** (wheat seeds 8 each), **Saplings** (oak / birch 16 each),
@@ -258,7 +263,8 @@ Each recipe yields one machine. Picking up redstone for the first time unlocks a
   (8 = 1 emerald); the screen writes it as "per 8 &rarr; 1". If the amount box holds less than one batch,
   the screen **switches to selling every full batch you have** (the number in the box follows along),
   so "I have 16 eggs" plus one click sells 16 eggs for 2 emeralds.
-- **Enchantment recycle** lists every enchanted item in your inventory (hotbar included; enchanted books
+- **Enchantment recycle** (each player must unlock it for **5000** once): lists every enchanted item in
+  your inventory (hotbar included; enchanted books
   count too). Each row shows the icon, name, stack size, the recycle price of every enchantment and the
   whole-stack total. Only enchantments matter, never the base material:
   **vending min price / 3 / max level × current level**.
@@ -267,18 +273,20 @@ Each recipe yields one machine. Picking up redstone for the first time unlocks a
   the whole stack consumed and credited.
 - **Treasure maps** are only accepted when they carry a structure marker (woodland mansion / ocean
   monument / buried treasure); ordinary explored maps and empty maps are rejected.
-- **Crazy Friday**: on every 5th game day, three rare items are picked at random and bought at 5–10×,
+- **Crazy Friday** (each player must unlock it for **5000** once to join): on every 5th game day, three
+  rare items are picked at random and bought at 5–10×,
   and the broadcast **includes the price of every item**. The pool has **9 entries**: nether star,
   elytra, trident, heart of the sea, echo shard, monster spawner, ominous bottle,
   **all mob heads** and **any spawn egg**. Three entries are rolled first; whole-class entries occupy
   a single row, so **a Friday contains at most one head row and one spawn-egg row**.
   - **All mob heads**: skeleton skull, wither skeleton skull, zombie head, creeper head, piglin head and
     **dragon head** — six kinds (the dragon head lives inside this entry: no separate line, no separate
-    roll), base price **83**.
+    roll), base price **90**.
   - **Any spawn egg**: the `*_spawn_egg` wildcard matches vanilla and **modded** spawn eggs alike,
-    base price **40**. When picked, the screen shows one row and any spawn egg in your inventory sells at
-    that row's price. The monster spawner base price is now **40** as well.
-  **You cannot take part while a loan is unpaid** (the list still shows, but Sell is not clickable).
+    base price **70**. When picked, the screen shows one row and any spawn egg in your inventory sells at
+    that row's price.
+  While locked, the list and the banner still show what is being bought today at which price,
+  but Sell is not clickable. **You cannot take part while a loan is unpaid** either.
 - Buyout earnings go straight into your account, with no fee.
 
 ### Machine looks and mining
@@ -309,8 +317,8 @@ Values inside an existing save / config file are not updated automatically — s
 | Loan interest (compound) | 2.00% |
 | Credit limit | 1000 |
 | Records kept | 100 |
-| Experience storage unlock (once per player) | 1000 |
-| Online reward XP | 50 + game day × 1 (online at settlement required) |
+| Experience storage unlock (once per player) | 5000 |
+| Online reward XP | 50 + game day x 1 (online at settlement required) |
 | Player transfer fee | 1.00% |
 
 ### Fund exchange
@@ -337,8 +345,8 @@ Values inside an existing save / config file are not updated automatically — s
 | Daily price limit (limit-up / limit-down) | ±10% |
 | Fund trade fee | 2% (minimum 1) |
 | Trade cooldown per fund | 5000 ms |
-| Daily buy share limit per player (all funds) | 10 shares |
-| Daily sell share limit per player (all funds) | 20 shares |
+| Daily buy share limit per player (all funds, 0 = none) | 10 shares |
+| Daily sell share limit per player (all funds, 0 = none) | 20 shares |
 
 ### Lottery
 | Game | Odds | Bets per day |
@@ -355,6 +363,7 @@ Values inside an existing save / config file are not updated automatically — s
 | Upgrade cost (stable per level) | 512 - 1280 |
 | Fallback price for unlisted enchants | 256 - 1280 |
 | Fallback treasure multiplier | ×3 - ×5 |
+| Enchanted-book category unlock (once per player) | 5000 |
 
 **Enchanted book prices** (max level books; the price is stable per enchant id)
 | Category | Enchant (max level) | Price range |
@@ -419,6 +428,8 @@ Values inside an existing save / config file are not updated automatically — s
 | Crazy Friday interval | every 5 game days |
 | Premium items picked per day | 3 |
 | Daily multiplier | ×5 - ×10 |
+| Enchant recycle unlock (once per player) | 5000 |
+| Crazy Friday unlock (once per player) | 5000 |
 
 **Buyout prices by category** (price per unit; batch = items per unit)
 | Category | Item / whole tag | Price | Batch |
@@ -518,16 +529,15 @@ Values inside an existing save / config file are not updated automatically — s
 **Crazy Friday pool** (base price × 5-10 = actual buyout price)
 | Pool entry | Base price |
 | --- | --- |
-| Nether Star | 133 |
-| Elytra | 100 |
-| Trident | 75 |
-| Heart of the Sea | 58 |
-| Echo Shard | 33 |
+| Nether Star | 200 |
+| Elytra | 200 |
+| Trident | 100 |
+| Heart of the Sea | 80 |
+| Echo Shard | 60 |
 | Monster Spawner | 40 |
-| Ominous Bottle | 42 |
-| Mob heads (6 kinds: skeleton / wither skeleton / zombie / creeper / piglin / dragon) | 83 |
-| Spawn egg (any, modded included) | 40 |
-
+| Ominous Bottle | 40 |
+| Mob heads (6 kinds: skeleton / wither skeleton / zombie / creeper / piglin / dragon) | 90 |
+| Spawn egg (any, incl. mods) | 70 |
 
 ---
 
@@ -551,8 +561,8 @@ What you can tune:
 | `account` | deposit/withdraw fee rate, daily interest and the **balance threshold that starts it**, loan interest, credit limit, transaction history size, **experience storage unlock cost**, **online reward base XP and per-day step**, **player transfer fee rate** |
 | `market` | price interval, momentum and reversion parameters, **daily random drift**, **daily price limit**, fees, trade cooldown, **daily buy/sell share limits**, per-fund base price / volatility / supply, weather table, news event table |
 | `lottery` | odds for the three games, daily bet count |
-| `shop` | initial slot count, upgrade cost range, **enchantment price and category table**, other goods table, daily purchase limit, excluded enchantments |
-| `acquire` | Crazy Friday interval / item pool / base prices and multipliers; per-category price tables live in `acquire.json` |
+| `shop` | initial slot count, upgrade cost range, **enchantment price and category table**, other goods table, daily purchase limit, excluded enchantments, **enchanted-book category unlock cost** |
+| `acquire` | Crazy Friday interval / item pool / base prices and multipliers, **enchant recycle unlock cost**, **Crazy Friday unlock cost**; per-category price tables live in `acquire.json` |
 
 ### What you sell / what it buys: two editable JSON files
 

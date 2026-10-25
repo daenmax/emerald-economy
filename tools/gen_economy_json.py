@@ -220,17 +220,17 @@ FRIDAY_POOL = [
 # 这个表只用来「把某一类调大」。
 FRIDAY_POOL_MAX_PICKS = {}
 FRIDAY_BASE_PRICES = {
-    'minecraft:nether_star': 133,
-    'minecraft:elytra': 100,
-    'minecraft:trident': 75,
-    'minecraft:heart_of_the_sea': 58,
-    'minecraft:echo_shard': 33,
+    'minecraft:nether_star': 200,
+    'minecraft:elytra': 200,
+    'minecraft:trident': 100,
+    'minecraft:heart_of_the_sea': 80,
+    'minecraft:echo_shard': 60,
     'minecraft:spawner': 40,
-    'minecraft:ominous_bottle': 42,
+    'minecraft:ominous_bottle': 40,
     # 池子条目也可以直接配基准价（头颅这一类里含龙首，六种头颅的价格一样）
-    '#emerald_economy:acquire/heads': 83,
-    # 通配整类：任意刷怪蛋（含其他模组）统一基准价 40
-    '*_spawn_egg': 40,
+    '#emerald_economy:acquire/heads': 90,
+    # 通配整类：任意刷怪蛋（含其他模组）统一基准价 70
+    '*_spawn_egg': 70,
 }
 
 

@@ -57,7 +57,9 @@ public final class ClientPayloads {
         /** 购买某个格子 */
         BUY,
         /** 升级商店 */
-        UPGRADE;
+        UPGRADE,
+        /** 付费解锁「附魔书」大分类（每个玩家一次） */
+        UNLOCK;
 
         public static ShopAction byIndex(int index) {
             ShopAction[] values = values();
@@ -158,6 +160,29 @@ public final class ClientPayloads {
                         },
                         buf -> new AcquireEnchantSellRequest(buf.readVarInt(), buf.readUtf(),
                                 buf.readVarInt()));
+
+        @Override
+        public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    /**
+     * 收购机的付费解锁请求。
+     * <p>
+     * {@code categoryId} 是收购分类的固定 ID：
+     * {@code ENCHANT}（附魔回收）或 {@code FRIDAY}（疯狂星期五）。
+     * 服务端只认这两个值，其余一律忽略并回推快照。
+     */
+    public record AcquireUnlockRequest(String categoryId) implements CustomPacketPayload {
+
+        public static final CustomPacketPayload.Type<AcquireUnlockRequest> TYPE =
+                new CustomPacketPayload.Type<>(EEConstants.id("acquire_unlock"));
+
+        public static final StreamCodec<RegistryFriendlyByteBuf, AcquireUnlockRequest> STREAM_CODEC =
+                StreamCodec.of(
+                        (buf, payload) -> buf.writeUtf(payload.categoryId() == null ? "" : payload.categoryId()),
+                        buf -> new AcquireUnlockRequest(buf.readUtf()));
 
         @Override
         public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {

@@ -438,15 +438,15 @@
     ],
     "poolMaxPicks": {},
     "basePrices": {
-      "minecraft:nether_star": 133,
-      "minecraft:elytra": 100,
-      "minecraft:trident": 75,
-      "minecraft:heart_of_the_sea": 58,
-      "minecraft:echo_shard": 33,
+      "minecraft:nether_star": 200,
+      "minecraft:elytra": 200,
+      "minecraft:trident": 100,
+      "minecraft:heart_of_the_sea": 80,
+      "minecraft:echo_shard": 60,
       "minecraft:spawner": 40,
-      "minecraft:ominous_bottle": 42,
-      "#emerald_economy:acquire/heads": 83,
-      "*_spawn_egg": 40
+      "minecraft:ominous_bottle": 40,
+      "#emerald_economy:acquire/heads": 90,
+      "*_spawn_egg": 70
     }
   }
 }

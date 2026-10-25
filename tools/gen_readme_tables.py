@@ -183,7 +183,7 @@ def build(lang):
         (L('贷款日息（复利）', 'Loan interest (compound)'), '%.2f%%' % (cfg['loanInterestRate'] * 100)),
         (L('信用额度', 'Credit limit'), cfg['creditLimit']),
         (L('保留流水条数', 'Records kept'), cfg['maxTransactionRecords']),
-        (L('等级存取解锁费用（每人一次）', 'Level storage unlock (once per player)'),
+        (L('经验存取解锁费用（每人一次）', 'Experience storage unlock (once per player)'),
          cfg['levelUnlockCost']),
         (L('在线奖励经验值', 'Online reward XP'),
          L('%s + 游戏日 × %s（结算时在线才能领）'
@@ -226,11 +226,19 @@ def build(lang):
          '±%.1f%%' % (cfg['dailyRandomDrift'] * 100)),
         (L('随机市场事件概率', 'Random market event chance'),
          '%.0f%%' % (cfg['marketEventChance'] * 100)),
+        (L('每日涨跌幅上限（涨停 / 跌停）', 'Daily price limit (limit-up / limit-down)'),
+         '±%.0f%%' % (cfg['dailyLimitRate'] * 100)),
         (L('基金交易手续费', 'Fund trade fee'),
          L('%.0f%%（最低 1）' % (cfg['tradeFeeRate'] * 100),
            '%.0f%% (minimum 1)' % (cfg['tradeFeeRate'] * 100))),
         (L('同一支基金的交易冷却', 'Trade cooldown per fund'),
          L('%s 毫秒' % cfg['tradeCooldownMillis'], '%s ms' % cfg['tradeCooldownMillis'])),
+        (L('每人每日买入份额上限（所有基金合计，0 = 不限）',
+           'Daily buy share limit per player (all funds, 0 = none)'),
+         L('%s 份' % cfg['dailyBuyShareLimit'], '%s shares' % cfg['dailyBuyShareLimit'])),
+        (L('每人每日卖出份额上限（所有基金合计，0 = 不限）',
+           'Daily sell share limit per player (all funds, 0 = none)'),
+         L('%s 份' % cfg['dailySellShareLimit'], '%s shares' % cfg['dailySellShareLimit'])),
     ]))
 
     # ---------------- 抽奖 ----------------
@@ -255,6 +263,8 @@ def build(lang):
          '%s - %s' % (cfg['priceMin'], cfg['priceMax'])),
         (L('未列表宝藏附魔的倍率', 'Fallback treasure multiplier'),
          '×%s - ×%s' % (fnum(cfg['treasureMultiplierMin']), fnum(cfg['treasureMultiplierMax']))),
+        (L('附魔书分类解锁费用（每人一次）', 'Enchanted-book category unlock (once per player)'),
+         cfg['enchantBookUnlockCost']),
     ]))
     out.append('')
     out.append(L('**附魔书价格区间**（每本都是满级书，价格在区间内按附魔 ID 稳定随机）',
@@ -289,6 +299,10 @@ def build(lang):
         (L('每日随机重金收购件数', 'Premium items picked per day'), cfg['fridayPickCount']),
         (L('当日收购倍率', 'Daily multiplier'),
          '×%s - ×%s' % (fnum(cfg['fridayMultiplierMin']), fnum(cfg['fridayMultiplierMax']))),
+        (L('附魔回收解锁费用（每人一次）', 'Enchant recycle unlock (once per player)'),
+         cfg['enchantRecycleUnlockCost']),
+        (L('疯狂星期五解锁费用（每人一次）', 'Crazy Friday unlock (once per player)'),
+         cfg['crazyFridayUnlockCost']),
     ]))
     out.append('')
     out.append(L('**各分类收购价**（价格是「每份」的价；批次 = 几个算一份）',
@@ -319,7 +333,7 @@ def build(lang):
         if entry.startswith('#'):
             label = TAG_NAMES.get(entry[1:], (entry, entry))[0 if zh else 1]
         elif entry == '*_spawn_egg':
-            label = L('刷怪蛋（任意）', 'Spawn egg (any)')
+            label = L('刷怪蛋（任意，含模组）', 'Spawn egg (any, incl. mods)')
         elif '*' in entry:
             label = L('通配匹配的物品', 'Wildcard-matched items')
         else:

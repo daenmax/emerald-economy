@@ -3,9 +3,11 @@ package cn.daenx.mc.emeraldeconomy.network;
 import cn.daenx.mc.emeraldeconomy.acquire.AcquireService;
 import cn.daenx.mc.emeraldeconomy.acquire.EnchantRecycleService;
 import cn.daenx.mc.emeraldeconomy.client.ClientNetworkHandler;
+import cn.daenx.mc.emeraldeconomy.content.AcquireContent;
 import cn.daenx.mc.emeraldeconomy.core.Notify;
 import cn.daenx.mc.emeraldeconomy.data.AccountData;
 import cn.daenx.mc.emeraldeconomy.data.EconomyData;
+import cn.daenx.mc.emeraldeconomy.data.UnlockFeature;
 import cn.daenx.mc.emeraldeconomy.economy.AccountService;
 import cn.daenx.mc.emeraldeconomy.lottery.LotteryService;
 import cn.daenx.mc.emeraldeconomy.lottery.LotteryType;
@@ -45,7 +47,7 @@ import java.util.UUID;
 public final class NetworkHandler {
 
     /** 协议版本，客户端与服务端不一致时会被拒绝连接。 */
-    private static final String PROTOCOL_VERSION = "7";
+    private static final String PROTOCOL_VERSION = "8";
 
     private NetworkHandler() {
     }
@@ -85,6 +87,9 @@ public final class NetworkHandler {
                 NetworkHandler::handleShopAction);
         registrar.playToServer(ClientPayloads.AcquireSellRequest.TYPE, ClientPayloads.AcquireSellRequest.STREAM_CODEC,
                 NetworkHandler::handleAcquireSell);
+        registrar.playToServer(ClientPayloads.AcquireUnlockRequest.TYPE,
+                ClientPayloads.AcquireUnlockRequest.STREAM_CODEC,
+                NetworkHandler::handleAcquireUnlock);
         registrar.playToServer(ClientPayloads.AcquireEnchantSellRequest.TYPE,
                 ClientPayloads.AcquireEnchantSellRequest.STREAM_CODEC,
                 NetworkHandler::handleAcquireEnchantSell);
@@ -115,6 +120,23 @@ public final class NetworkHandler {
                                          String langPath, Object... args) {
         Notify.sendPrefixed(player, prefix, langPath, args);
         ServerSync.sendNotice(player, Notify.componentPrefixed(prefix, langPath, args), error);
+    }
+
+    /**
+     * 付费解锁一个功能（ATM 经验存取 / 附魔回收 / 疯狂星期五 / 附魔书分类共用）。
+     * <p>
+     * 成功、失败（余额不足 / 已解锁过）都按 {@link UnlockFeature} 给出的语言键提示，
+     * 调用方随后自行回推对应的界面快照。
+     */
+    private static void unlockFeature(ServerPlayer player, EconomyData data, UnlockFeature feature) {
+        AccountService.Outcome outcome = AccountService.unlockFeature(data, player, feature);
+        if (outcome.ok()) {
+            feedbackPrefixed(player, "💰 ", false, feature.successLangKey(), outcome.credited());
+        } else if (outcome.result() == AccountService.Result.LEVEL_ALREADY_UNLOCKED) {
+            feedback(player, true, "atm.level_fail_unlocked");
+        } else {
+            feedback(player, true, "atm.fail_no_balance");
+        }
     }
 
     // ------------------------------------------------------------------
@@ -195,14 +217,7 @@ public final class NetworkHandler {
                         notifyAtmFailure(player, outcome.result());
                     }
                 }
-                case LEVEL_UNLOCK -> {
-                    AccountService.Outcome outcome = AccountService.unlockLevelAccess(data, player);
-                    if (outcome.ok()) {
-                        feedbackPrefixed(player, "💰 ", false, "atm.level_unlock_ok", outcome.credited());
-                    } else {
-                        notifyAtmFailure(player, outcome.result());
-                    }
-                }
+                case LEVEL_UNLOCK -> unlockFeature(player, data, UnlockFeature.EXPERIENCE_STORAGE);
                 case LEVEL_DEPOSIT -> {
                     AccountService.ExperienceOutcome outcome = AccountService.depositExperience(
                             data, player, (int) Math.min(Integer.MAX_VALUE, amount));
@@ -450,6 +465,8 @@ public final class NetworkHandler {
                 } else {
                     feedback(player, true, shopFailKey(result));
                 }
+            } else if (action == ClientPayloads.ShopAction.UNLOCK) {
+                unlockFeature(player, data, UnlockFeature.ENCHANT_BOOK);
             } else {
                 ShopService.UpgradeOutcome outcome = ShopService.upgrade(data, player,
                         server.registryAccess(), player.serverLevel().random);
@@ -468,6 +485,7 @@ public final class NetworkHandler {
     private static String shopFailKey(ShopService.Result result) {
         return switch (result) {
             case SLOT_LOCKED -> "shop.fail_slot";
+            case CATEGORY_LOCKED -> "shop.fail_locked";
             case LIMIT_REACHED -> "shop.fail_limit";
             case INSUFFICIENT_BALANCE -> "shop.fail_balance";
             case ALL_UNLOCKED -> "shop.fail_all_unlocked";
@@ -503,11 +521,36 @@ public final class NetworkHandler {
                         case INVALID_COUNT -> "acquire.fail_count";
                         case INSUFFICIENT_ITEMS -> "acquire.fail_no_items";
                         case HAS_DEBT -> "acquire.fail_debt";
+                        case FRIDAY_LOCKED -> "acquire.friday_fail_locked";
                         case TOO_FEW_FOR_BATCH -> "acquire.fail_batch";
                         case OK -> "acquire.fail_unknown";
                     };
                     feedback(player, true, key);
                 }
+            }
+            ServerSync.sendAcquire(player);
+        });
+    }
+
+    /**
+     * 收购机的付费解锁：{@code ENCHANT} = 附魔回收，{@code FRIDAY} = 疯狂星期五。
+     * <p>
+     * 其余值直接忽略（回一次快照让界面保持最新）。
+     */
+    private static void handleAcquireUnlock(ClientPayloads.AcquireUnlockRequest payload,
+                                            IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (!(context.player() instanceof ServerPlayer player)) {
+                return;
+            }
+            EconomyData data = EconomyData.get(player.getServer());
+            if (data == null) {
+                return;
+            }
+            if (AcquireContent.FRIDAY_ID.equalsIgnoreCase(payload.categoryId())) {
+                unlockFeature(player, data, UnlockFeature.CRAZY_FRIDAY);
+            } else if (AcquireContent.ENCHANT_ID.equalsIgnoreCase(payload.categoryId())) {
+                unlockFeature(player, data, UnlockFeature.ENCHANT_RECYCLE);
             }
             ServerSync.sendAcquire(player);
         });
@@ -532,6 +575,7 @@ public final class NetworkHandler {
                 String key = switch (outcome.result()) {
                     case ITEM_CHANGED -> "acquire.enchant_fail_changed";
                     case NO_ENCHANTS -> "acquire.enchant_fail_empty";
+                    case LOCKED -> "acquire.enchant_fail_locked";
                     case INVALID_SLOT -> "acquire.fail_count";
                     case OK -> "acquire.fail_unknown";
                 };

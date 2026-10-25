@@ -6,12 +6,15 @@ import cn.daenx.mc.emeraldeconomy.market.FundType;
 import cn.daenx.mc.emeraldeconomy.market.Holding;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -33,7 +36,10 @@ public class AccountData {
     private static final String KEY_CREDIT_LIMIT = "creditLimit";
     private static final String KEY_RECORDS = "records";
     private static final String KEY_HOLDINGS = "holdings";
+    /** 旧版本字段：是否解锁「经验存取」。仍会写入（兼容降级），读取时作为兜底。 */
     private static final String KEY_LEVEL_UNLOCKED = "levelUnlocked";
+    /** 付费解锁过的功能列表（元素是 {@link UnlockFeature} 的小写名字）。 */
+    private static final String KEY_UNLOCKS = "unlocks";
     /** ATM 里存的经验点数（新字段）。 */
     private static final String KEY_STORED_EXPERIENCE = "storedXp";
     /** 旧版本字段：ATM 里存的「等级数」，只在读旧存档时用来换算。 */
@@ -57,8 +63,12 @@ public class AccountData {
     private long debtInterest;
     /** 该玩家的信用额度，可被单独调整，默认取配置值。 */
     private long creditLimit;
-    /** 是否已经付费解锁 ATM 的「经验存取」功能（每个玩家独立，默认未解锁）。 */
-    private boolean levelUnlocked;
+    /**
+     * 付费解锁过的功能（每人独立，默认一个都没有）。
+     * <p>
+     * 旧存档里没有这个字段：读出来就是空集合，即「没有解锁记录 = 需要解锁」。
+     */
+    private final Set<UnlockFeature> unlocks = EnumSet.noneOf(UnlockFeature.class);
     /** 存在 ATM 里的经验点数（不是等级；界面按等级输入，内部按经验结算）。 */
     private long storedExperience;
     /** 最近一次被发放「在线奖励领取资格」的游戏日（-1 表示从没拿到过）。 */
@@ -165,17 +175,33 @@ public class AccountData {
     }
 
     // ------------------------------------------------------------------
-    // ATM 等级存取与在线奖励（本轮新增）
+    // 付费解锁的功能与在线奖励
     // ------------------------------------------------------------------
 
-    /** 是否已解锁「经验存取」。 */
-    public boolean levelUnlocked() {
-        return levelUnlocked;
+    /** 是否已解锁某个付费功能（没有解锁记录就视为未解锁）。 */
+    public boolean isUnlocked(UnlockFeature feature) {
+        return feature != null && unlocks.contains(feature);
     }
 
-    /** 解锁「经验存取」（调用方负责扣费）。 */
-    public void setLevelUnlocked(boolean levelUnlocked) {
-        this.levelUnlocked = levelUnlocked;
+    /** 是否已解锁「经验存取」（等价于 {@code isUnlocked(EXPERIENCE_STORAGE)}）。 */
+    public boolean levelUnlocked() {
+        return isUnlocked(UnlockFeature.EXPERIENCE_STORAGE);
+    }
+
+    /** 解锁某个付费功能（调用方负责扣费）。 */
+    public void unlockFeature(UnlockFeature feature) {
+        if (feature != null) {
+            unlocks.add(feature);
+        }
+    }
+
+    /** 兼容旧代码：设置「经验存取」的解锁状态。 */
+    public void setLevelUnlocked(boolean unlocked) {
+        if (unlocked) {
+            unlocks.add(UnlockFeature.EXPERIENCE_STORAGE);
+        } else {
+            unlocks.remove(UnlockFeature.EXPERIENCE_STORAGE);
+        }
     }
 
     /** ATM 里存着的经验点数（不是等级）。 */
@@ -343,7 +369,7 @@ public class AccountData {
         tag.putLong(KEY_DEBT, debt);
         tag.putLong(KEY_DEBT_INTEREST, debtInterest);
         tag.putLong(KEY_CREDIT_LIMIT, creditLimit);
-        tag.putBoolean(KEY_LEVEL_UNLOCKED, levelUnlocked);
+        tag.putBoolean(KEY_LEVEL_UNLOCKED, levelUnlocked());
         tag.putLong(KEY_STORED_EXPERIENCE, storedExperience);
         tag.putLong(KEY_ONLINE_REWARD_DAY, onlineRewardDay);
         tag.putBoolean(KEY_ONLINE_REWARD_CLAIMED, onlineRewardClaimed);
@@ -359,6 +385,11 @@ public class AccountData {
         CompoundTag holdingsTag = new CompoundTag();
         holdings.forEach((fund, holding) -> holdingsTag.put(fund.code(), holding.save()));
         tag.put(KEY_HOLDINGS, holdingsTag);
+        ListTag unlocksTag = new ListTag();
+        for (UnlockFeature feature : unlocks) {
+            unlocksTag.add(StringTag.valueOf(feature.code()));
+        }
+        tag.put(KEY_UNLOCKS, unlocksTag);
         return tag;
     }
 
@@ -371,8 +402,21 @@ public class AccountData {
         data.debt = Math.max(0L, tag.getLong(KEY_DEBT));
         data.debtInterest = Math.max(0L, tag.getLong(KEY_DEBT_INTEREST));
         data.creditLimit = Math.max(0L, tag.getLong(KEY_CREDIT_LIMIT));
-        // 旧存档没有这几个字段：按「未解锁 / 没有库存 / 没有资格」读取，不会读出乱数字
-        data.levelUnlocked = tag.getBoolean(KEY_LEVEL_UNLOCKED);
+        // 旧存档没有这几个字段：按「未解锁 / 没有库存 / 没有资格」读取，不会读出乱数字。
+        // 没有解锁记录 = 需要解锁（默认一个功能都不送）
+        data.unlocks.clear();
+        if (tag.contains(KEY_UNLOCKS)) {
+            ListTag unlocksTag = tag.getList(KEY_UNLOCKS, Tag.TAG_STRING);
+            for (int i = 0; i < unlocksTag.size(); i++) {
+                UnlockFeature feature = UnlockFeature.byCode(unlocksTag.getString(i));
+                if (feature != null) {
+                    data.unlocks.add(feature);
+                }
+            }
+        } else {
+            // 更旧的存档只有「经验存取」一个布尔字段：为 true 时保留该功能，其余仍视为未解锁
+            data.setLevelUnlocked(tag.getBoolean(KEY_LEVEL_UNLOCKED));
+        }
         if (tag.contains(KEY_STORED_EXPERIENCE)) {
             data.storedExperience = Math.max(0L, tag.getLong(KEY_STORED_EXPERIENCE));
         } else if (tag.contains(KEY_LEGACY_STORED_LEVELS)) {

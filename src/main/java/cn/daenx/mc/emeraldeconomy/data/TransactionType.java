@@ -53,7 +53,13 @@ public enum TransactionType {
     /** 从 ATM 取回经验（金额字段记的是「经验点数」） */
     LEVEL_WITHDRAW,
     /** 每日在线奖励（金额字段记的是「赠送的经验点数」） */
-    ONLINE_REWARD;
+    ONLINE_REWARD,
+    /** 解锁收购机的「附魔回收」分类（花绿宝石，每人一次） */
+    ENCHANT_RECYCLE_UNLOCK,
+    /** 解锁收购机的「疯狂星期五」（花绿宝石，每人一次） */
+    CRAZY_FRIDAY_UNLOCK,
+    /** 解锁售货机的「附魔书」大分类（花绿宝石，每人一次） */
+    ENCHANT_BOOK_UNLOCK;
 
     private final String langKey = EEConstants.langKey("tx." + name().toLowerCase(Locale.ROOT));
 
