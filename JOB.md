@@ -43,7 +43,7 @@
 | --- | --- |
 | `core` | 常量、金额取整规则、**经验/等级换算（`Experience`）**、配置表解析、聊天栏广播、**每日结算调度器** |
 | `config` | `EEConfig`：所有可配置项（服务端 config） |
-| `data` | `AccountData`（含 `storedXp` 经验库存与旧字段迁移）/ `RankingBook`（每日净值快照，ATM 界面已改为实时榜单）/ `TransactionType` / `TransactionRecord` / `EconomyData`（唯一的 SavedData 根） |
+| `data` | `AccountData`（含 `storedXp` 经验库存与旧字段迁移、`UnlockFeature` 付费解锁集合）/ `UnlockFeature`（四个付费功能：经验存取 / 附魔回收 / 疯狂星期五 / 附魔书分类）/ `RankingBook`（每日净值快照，ATM 界面已改为实时榜单）/ `TransactionType` / `TransactionRecord` / `EconomyData`（唯一的 SavedData 根） |
 | `economy` | `AccountService`：存取款、贷款、还款、每日利息、**按等级存取经验**、背包物品读写 |
 | `market` | 七支基金：`FundType` / `FundState` / `Holding` / `MarketBook` / `MarketEngine`（价格引擎）/ `FundTradeService` / `SupplyTracker` / `WeatherKind` / `NewsEntry` / `NewsText` |
 | `lottery` | `LotteryType` / `LotteryBook` / `BetRecord` / `LotteryService` |
@@ -112,6 +112,68 @@
 - 事件回调只做加计数，修正计算全部推到每日结算。
 
 ## 四、最新变更
+
+### 第十八轮（仍为 1.0.5）：疯狂星期五随机池基准价整体上调
+
+**需求**：九个池子条目的基准价调整为——下界之星 200、鞘翅 200、三叉戟 100、海洋之心 80、
+回响碎片 60、刷怪笼 40（不变）、不祥之瓶 40（原 42）、头颅 90（原 83）、任意刷怪蛋 70（原 40）。
+
+- **单一真源**：`tools/gen_economy_json.py#FRIDAY_BASE_PRICES` 改完后重跑脚本，
+  jar 内默认模板 `src/main/resources/data/emerald_economy/economy/acquire.json` 随之更新。
+- **开发环境 `run/config/emerald_economy/acquire.json` 用脚本精准只改 `friday.basePrices` 一段**：
+  该文件里有需求方自己加的 7 条农夫乐事（farmersdelight）条目，**绝对不能整份覆盖**——
+  这也再次验证了「config 里的文件是玩家的，模板才是我们的」这条边界。
+- **断言同步**：`SelfTest`（头颅 90 / 不祥之瓶 40 / 刷怪蛋 70 / 刷怪笼 40；通配行按 70 抽样；
+  头颅按 90 抽样）、`ClientUiTest`（周五价格区间 200-1330 → **200-2000**，
+  新下界 = 40×5，新上界 = 200×10）。
+- **文档**：README / README_EN 玩法段落（头颅 90、刷怪蛋 70）与默认数值总表
+  （`gen_readme_tables.py` 重新生成整节）同步；`updateLog/1.0.5_*` 并入调价表
+  与「acquire.json 不会自动更新，需手动同步或删除重新生成」的升级须知。
+- **版本号不变**：需求方未要求改版本，1.0.5 尚未发布，调价并入同一版更新日志。
+
+### 第十七轮（1.0.5）：四个功能改成「每个玩家付费解锁」
+
+**需求**：附魔回收 / 疯狂星期五增加每玩家解锁（5000 余额/玩家），经验存取解锁价改成 5000，
+三个价格可配；售货机「附魔书」大分类也要每玩家解锁（5000）。
+**存档规则**：更新后检查解锁记录，**没有记录就视为未解锁**（不给老玩家白送）。
+
+- **新增 `data/UnlockFeature` 枚举**（`EXPERIENCE_STORAGE / ENCHANT_RECYCLE / CRAZY_FRIDAY / ENCHANT_BOOK`），
+  每个枚举自带：费用（读 EEConfig）、流水类型、成功/失败提示语言键。
+  `AccountData` 的 `boolean levelUnlocked` 换成 `EnumSet<UnlockFeature> unlocks`，
+  `levelUnlocked()` 变成兼容委托。
+- **存档**：NBT 新键 `unlocks`（字符串列表）；读取时若无此键则回退旧的 `levelUnlocked` 布尔
+  （旧玩家已解锁的经验存取保留）。save 时两个键都写（保留降级兼容）。
+  没有记录 = 未解锁，正好满足需求，无需任何迁移代码。
+- **配置**：`levelUnlockCost` 默认 1000 → **5000**（键名不变）；
+  新增 `shop.enchantBookUnlockCost` / `acquire.enchantRecycleUnlockCost` / `acquire.crazyFridayUnlockCost`，
+  默认都是 5000，中英双语注释。
+- **服务端校验**（客户端只是把入口藏起来）：
+  - `ShopService.buy` / `upgrade`：解锁制大分类先查 `ENCHANT_BOOK`，新增 `Result.CATEGORY_LOCKED`；
+  - `AcquireService.sell`：疯狂星期五行先查 `CRAZY_FRIDAY`，新增 `Result.FRIDAY_LOCKED`；
+  - `EnchantRecycleService.recycle`：入口查 `ENCHANT_RECYCLE`，新增 `Result.LOCKED`；
+  - `AccountService.unlockFeature(data, player, feature)` 取代原来的 `unlockLevelAccess`（扣费 + 写流水）。
+- **网络**：`SyncShop` 增加 `enchantBookUnlocked / enchantBookUnlockCost`；
+  `SyncAcquire` 增加 `enchantUnlocked / enchantUnlockCost / fridayUnlocked / fridayUnlockCost`；
+  新 C2S 包 `AcquireUnlockRequest(categoryId)`（ENCHANT / FRIDAY）；
+  `ShopAction` 新增 `UNLOCK`；协议 7 → **8**。
+- **快照细节**：`ServerSync.sendAcquire` 在未解锁附魔回收时**跳过背包扫描**
+  （enchantItems 恒为空），既省算力也不提前泄露报价。
+- **界面**：
+  - `VendingScreen`：解锁制大分类锁定时只画两行锁定提示 + 右下角「解锁附魔书分类（5000）」按钮，
+    不再显示购买 / 升级 / 翻页；
+  - `AcquisitionScreen`：附魔回收锁定时列表区画提示 + 解锁按钮；疯狂星期五锁定时
+    **列表照常显示**（沿用欠款禁赌的「看得见买不了」模式）+ 解锁按钮，横幅换 `friday_locked` 文案。
+- **流水**：`TransactionType` 新增 `ENCHANT_RECYCLE_UNLOCK / CRAZY_FRIDAY_UNLOCK / ENCHANT_BOOK_UNLOCK`。
+- **测试同步**：`SelfTest` 断言四个费用默认 5000、新功能默认锁、NBT 持久化与旧字段迁移；
+  `ClientUiTest` 主用例加入三段解锁流程、经验存取费用断言改 5000，
+  `buildShopFullSteps`（全新存档余额 0）与多人用例房主先解锁再购买。
+- **需求方实测修复**：`UnlockFeature` 最初把成功提示键存成完整键再传给 `Notify`，
+  聊天栏出现「emerald_economy.emerald_economy.xxx」双重前缀（见第八节第 45 条）；
+  已改为只存短键，并逐项核对过 20 个新增翻译键中英文齐全。
+- **文档与工具**：`gen_readme_tables.py` 补上 1.0.4 手工加过但脚本缺失的
+  「涨停 / 跌停」「每日买卖份额上限」两行（否则重跑脚本会丢行），并新增 3 行解锁费用；
+  README / README_EN 的玩法细则、配置节表、默认数值总表（脚本整节重新生成）全部同步。
+- **版本**：1.0.4 → **1.0.5**，更新日志见 `updateLog/1.0.5_zh_cn.md` 与 `1.0.5_en_us.md`。
 
 ### 第十六轮（1.0.4）：买入份额提示 + 每日买卖份数上限 + 涨停 / 跌停
 
@@ -843,6 +905,12 @@
 - [x] **第十六轮（1.0.4）**：买入页显示「余额最多能买多少份」；新增每人每日买入 10 份 / 卖出 20 份
       的份额上限（可配、所有基金合计、跨天自动重置）；新增每日 ±10% 涨跌停（可配）；
       修复 ATM 取回经验后 HUD 短暂显示成经验点数的问题；协议 6 → 7（详见第四节）
+- [x] **第十七轮（1.0.5）**：新增统一解锁体系（`UnlockFeature`）：附魔回收 / 疯狂星期五 /
+      售货机附魔书大分类需要每个玩家花 5000 余额解锁，经验存取解锁价 1000 → 5000，
+      四个价格都可配；没有解锁记录的旧存档玩家视为未解锁；协议 7 → 8（详见第四节）
+- [x] **第十八轮（仍为 1.0.5）**：疯狂星期五随机池九个条目的基准价整体上调
+      （下界之星/鞘翅 200、三叉戟 100、海洋之心 80、回响碎片 60、不祥之瓶 40、头颅 90、
+      任意刷怪蛋 70；刷怪笼不变）；README/更新日志/自检断言同步（详见第四节）
 
 **进行中**：无。
 
@@ -1300,6 +1368,19 @@
 - **解决**：改为 `new ClientboundSetExperiencePacket(progress, value, level)`（已修复）。
 - **教训**：构造器参数顺序 != 字段/网络顺序时，编译器不会报错；调用原版网络包前先看一眼构造器定义，
   必要时直接 `javap` 确认。
+
+### 45. 给 `Notify` 传了完整键，聊天栏显示「emerald_economy.emerald_economy.xxx」
+
+- **现象**（第十七轮实测被需求方抓到）：解锁附魔回收 / 附魔书分类后，聊天栏与界面提示显示的是
+  原始键名 `emerald_economy.emerald_economy.acquire.enchant_unlock_ok`，没有被翻译。
+- **原因**：`Notify.component(langPath)` / `feedback*` 的约定是收**短键**
+  （如 `atm.deposit_ok`），内部自己调 `EEConstants.langKey` 补 `emerald_economy.` 前缀。
+  `UnlockFeature` 里把字段存成了 `EEConstants.langKey(...)` 的完整键再传给 Notify，
+  于是变成双重前缀，客户端查不到翻译就把键名原样打出来。
+- **解决**：`UnlockFeature.successLangKey()` 只返回短键（注释里写明「交给 Notify 会自动补前缀」）。
+- **教训**：本项目翻译键有两种消费方式——**客户端组件**（`Component.translatable(EEConstants.langKey(path))`）
+  与 **Notify/feedback**（只收短键）；新写「按枚举/常量携带语言键」的代码时先确认下游走的是哪一条，
+  语言键字段一律存短键最保险。
 
 ## 九、怎么开发 / 验证
 
