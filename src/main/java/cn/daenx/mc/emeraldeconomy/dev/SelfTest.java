@@ -291,6 +291,7 @@ public final class SelfTest {
     private static void testAcquireTables() {
         Map<String, Long> farming = priceMap("AGRICULTURE");
         check("农业表里能展开出小麦", farming.containsKey("minecraft:wheat"));
+        check("农业表新增睡莲（1）", farming.getOrDefault("minecraft:lily_pad", 0L) == 1L);
         check("农业表新增毒马铃薯（10），且排在马铃薯后面",
                 farming.getOrDefault("minecraft:poisonous_potato", 0L) == 10L
                         && rowOrder("AGRICULTURE").indexOf("minecraft:potato")
@@ -323,6 +324,8 @@ public final class SelfTest {
                 misc.getOrDefault("minecraft:rotten_flesh", 0L) == 1L
                         && misc.getOrDefault("minecraft:spider_eye", 0L) == 1L);
         check("杂物表新增幽匿感测体（20）", misc.getOrDefault("minecraft:sculk_sensor", 0L) == 20L);
+        check("杂物表新增绊线钩（1）", misc.getOrDefault("minecraft:tripwire_hook", 0L) == 1L);
+        check("杂物表新增碗（4 个一份，每份 1）", misc.getOrDefault("minecraft:bowl", 0L) == 1L);
         check("杂物表新增藏宝图 / 光灵箭 / 箭 / 鹦鹉螺壳 / 蜘蛛网",
                 misc.getOrDefault("minecraft:filled_map", 0L) == 20L
                         && misc.getOrDefault("minecraft:spectral_arrow", 0L) == 10L
@@ -385,12 +388,14 @@ public final class SelfTest {
         check("畜牧表新增海龟蛋（20）与犰狳鳞甲（10）",
                 livestock.getOrDefault("minecraft:turtle_egg", 0L) == 20L
                         && livestock.getOrDefault("minecraft:armadillo_scute", 0L) == 10L);
+        check("畜牧表新增墨囊（1）", livestock.getOrDefault("minecraft:ink_sac", 0L) == 1L);
         check("畜牧表收骨头、不收骨粉",
                 livestock.containsKey("minecraft:bone") && !livestock.containsKey("minecraft:bone_meal"));
 
         check("鸡蛋配了 8 个一份", AcquireService.batchOf(null, "minecraft:egg") == 8);
         check("羽毛配了 8 个一份", AcquireService.batchOf(null, "minecraft:feather") == 8);
         check("种子配了 8 个一份", AcquireService.batchOf(null, "minecraft:wheat_seeds") == 8);
+        check("碗配了 4 个一份", AcquireService.batchOf(null, "minecraft:bowl") == 4);
         check("竹子已从农业默认收购里移除", !farming.containsKey("minecraft:bamboo"));
         check("没配批次的物品按 1 个算", AcquireService.batchOf(null, "minecraft:wheat") == 1);
         check("甘蔗单价 2", farming.getOrDefault("minecraft:sugar_cane", 0L) == 2L);

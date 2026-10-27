@@ -259,8 +259,8 @@ Each recipe yields one machine. Picking up redstone for the first time unlocks a
   to sell everything actually available (accurate even for treasure maps and whole-tag rows).
 - **Items you do not have are greyed out** (each row also shows "Owned N"), and quantities below one full
   batch cannot be sold either — no more clicking just to be told no.
-- **Batch buyout**: eggs, feathers and wheat / beetroot / pumpkin / melon seeds need **8** for one batch
-  (8 = 1 emerald); the screen writes it as "per 8 &rarr; 1". If the amount box holds less than one batch,
+- **Batch buyout**: eggs, feathers and wheat / beetroot / pumpkin / melon seeds need **8** for one batch,
+  while bowls need **4** (8 = 1 emerald, 4 bowls = 1 emerald); the screen writes it as "per 8 &rarr; 1". If the amount box holds less than one batch,
   the screen **switches to selling every full batch you have** (the number in the box follows along),
   so "I have 16 eggs" plus one click sells 16 eggs for 2 emeralds.
 - **Enchantment recycle** (each player must unlock it for **5000** once): lists every enchanted item in
@@ -443,6 +443,7 @@ Values inside an existing save / config file are not updated automatically — s
 | Farm produce | Melon | 4 | 1 |
 | Farm produce | Pumpkin | 4 | 1 |
 | Farm produce | Apple | 4 | 1 |
+| Farm produce | Lily Pad | 1 | 1 |
 | Farm produce | Sweet Berries | 1 | 1 |
 | Farm produce | Nether Wart | 2 | 1 |
 | Farm produce | Cocoa Beans | 1 | 1 |
@@ -465,6 +466,7 @@ Values inside an existing save / config file are not updated automatically — s
 | Livestock produce | Pufferfish | 20 | 1 |
 | Livestock produce | Turtle Egg | 20 | 1 |
 | Livestock produce | Armadillo Scute | 10 | 1 |
+| Livestock produce | Ink Sac | 1 | 1 |
 | Livestock produce | Fish (any, excluding pufferfish) | 2 | 1 |
 | Minerals | Coal | 1 | 1 |
 | Minerals | Raw Iron | 2 | 1 |
@@ -525,6 +527,8 @@ Values inside an existing save / config file are not updated automatically — s
 | Misc | Arrow | 1 | 1 |
 | Misc | Nautilus Shell | 50 | 1 |
 | Misc | Cobweb | 5 | 1 |
+| Misc | Tripwire Hook | 1 | 1 |
+| Misc | Bowl | 1 | 4 |
 
 **Crazy Friday pool** (base price × 5-10 = actual buyout price)
 | Pool entry | Base price |

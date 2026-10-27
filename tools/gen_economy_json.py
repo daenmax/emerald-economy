@@ -99,6 +99,7 @@ ACQUIRE_CATEGORIES = [
         ('minecraft:melon', None, 4, None, None),
         ('minecraft:pumpkin', None, 4, None, None),
         ('minecraft:apple', None, 4, None, None),
+        ('minecraft:lily_pad', None, 1, None, None),
         ('minecraft:sweet_berries', None, 1, None, None),
         ('minecraft:nether_wart', None, 2, None, None),
         ('minecraft:cocoa_beans', None, 1, None, None),
@@ -125,6 +126,7 @@ ACQUIRE_CATEGORIES = [
         ('minecraft:pufferfish', None, 20, None, None),
         ('minecraft:turtle_egg', None, 20, None, None),
         ('minecraft:armadillo_scute', None, 10, None, None),
+        ('minecraft:ink_sac', None, 1, None, None),
         # 鱼类标签换成本模组自己的（原版 #minecraft:fishes 含河豚）
         (None, 'emerald_economy:acquire/fishes', 2, None, 'acquire.tag.fishes'),
     ]),
@@ -199,6 +201,9 @@ ACQUIRE_CATEGORIES = [
         ('minecraft:arrow', None, 1, None, None),
         ('minecraft:nautilus_shell', None, 50, None, None),
         ('minecraft:cobweb', None, 5, None, None),
+        ('minecraft:tripwire_hook', None, 1, None, None),
+        # 碗：4 个一份，1 份 = 1 绿宝石
+        ('minecraft:bowl', None, 1, 4, None),
     ]),
 ]
 

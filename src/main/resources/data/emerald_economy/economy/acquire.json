@@ -44,6 +44,10 @@
           "price": 4
         },
         {
+          "item": "minecraft:lily_pad",
+          "price": 1
+        },
+        {
           "item": "minecraft:sweet_berries",
           "price": 1
         },
@@ -143,6 +147,10 @@
         {
           "item": "minecraft:armadillo_scute",
           "price": 10
+        },
+        {
+          "item": "minecraft:ink_sac",
+          "price": 1
         },
         {
           "_comment": "tag 表示收整类物品（原版标签或本模组标签都行）；界面上只占一行，卖这一类里的任意一种都可以。\ntag means \"buy the whole class\" (vanilla or this mod's item tags); it takes a single row on screen and accepts any item of that class.",
@@ -417,6 +425,15 @@
         {
           "item": "minecraft:cobweb",
           "price": 5
+        },
+        {
+          "item": "minecraft:tripwire_hook",
+          "price": 1
+        },
+        {
+          "item": "minecraft:bowl",
+          "price": 1,
+          "batch": 4
         }
       ]
     }
